@@ -1,0 +1,496 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  AppBar, 
+  Toolbar, 
+  Typography, 
+  Box, 
+  Drawer, 
+  List, 
+  ListItem, 
+  ListItemText,
+  ListItemIcon,
+  IconButton,
+  Paper,
+  Chip,
+  Divider,
+  CircularProgress,
+  Alert
+} from '@mui/material';
+import {
+  Topic as TopicIcon,
+  Chat as ChatIcon,
+  Search as SearchIcon,
+  Menu as MenuIcon,
+  Close as CloseIcon
+} from '@mui/icons-material';
+import CytoscapeComponent from 'react-cytoscapejs';
+import axios from 'axios';
+import TagFilter from './components/TagFilter';
+
+// Types
+interface Node {
+  id: string;
+  type: string;
+  properties: any;
+}
+
+interface Edge {
+  source: string;
+  target: string;
+  type: string;
+}
+
+interface GraphData {
+  nodes: Node[];
+  edges: Edge[];
+}
+
+interface Topic {
+  id: number;
+  name: string;
+  size: number;
+  top_words: string[];
+  sample_titles: string[];
+}
+
+interface Chat {
+  id: string;
+  title: string;
+  create_time?: number;
+}
+
+interface Message {
+  id: string;
+  content: string;
+  role: string;
+  timestamp?: number;
+  cluster_id?: number;
+}
+
+interface FilterState {
+  selectedTags: string[];
+  selectedCategory: string | null;
+  searchQuery: string;
+}
+
+const API_BASE = 'http://localhost:8000';
+
+function App() {
+  const [graphData, setGraphData] = useState<GraphData | null>(null);
+  const [topics, setTopics] = useState<Topic[]>([]);
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [selectedNode, setSelectedNode] = useState<any>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<FilterState>({
+    selectedTags: [],
+    selectedCategory: null,
+    searchQuery: ''
+  });
+
+  // Load graph data
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Load graph data
+        const graphResponse = await axios.get(`${API_BASE}/graph?limit=200`);
+        setGraphData(graphResponse.data);
+
+        // Load topics
+        const topicsResponse = await axios.get(`${API_BASE}/topics`);
+        setTopics(topicsResponse.data);
+
+        // Load chats
+        const chatsResponse = await axios.get(`${API_BASE}/chats?limit=50`);
+        setChats(chatsResponse.data);
+
+      } catch (err) {
+        setError('Failed to load data. Make sure the API server is running.');
+        console.error('Error loading data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  // Load filtered graph data when filters change
+  useEffect(() => {
+    const loadFilteredData = async () => {
+      if (!activeFilters.selectedTags.length && !activeFilters.selectedCategory && !activeFilters.searchQuery) {
+        return; // No filters active, use original data
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+
+        const params = new URLSearchParams();
+        if (activeFilters.selectedTags.length > 0) {
+          params.append('tags', activeFilters.selectedTags.join(','));
+        }
+        if (activeFilters.selectedCategory) {
+          params.append('category', activeFilters.selectedCategory);
+        }
+
+        const response = await axios.get(`${API_BASE}/graph/filtered?${params}`);
+        setGraphData(response.data);
+
+      } catch (err) {
+        setError('Failed to load filtered data.');
+        console.error('Error loading filtered data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadFilteredData();
+  }, [activeFilters]);
+
+  const handleFilterChange = (filters: FilterState) => {
+    setActiveFilters(filters);
+  };
+
+  const handleClearFilters = () => {
+    setActiveFilters({
+      selectedTags: [],
+      selectedCategory: null,
+      searchQuery: ''
+    });
+    // Reload original data
+    const loadData = async () => {
+      try {
+        const graphResponse = await axios.get(`${API_BASE}/graph?limit=200`);
+        setGraphData(graphResponse.data);
+      } catch (err) {
+        console.error('Error reloading data:', err);
+      }
+    };
+    loadData();
+  };
+
+  // Convert graph data to Cytoscape format
+  const cytoscapeElements = React.useMemo(() => {
+    if (!graphData) return [];
+
+    const elements: any[] = [];
+
+    // Add nodes
+    graphData.nodes.forEach(node => {
+      elements.push({
+        data: {
+          id: node.id,
+          label: node.properties.title || node.properties.name || node.id,
+          type: node.type,
+          ...node.properties
+        }
+      });
+    });
+
+    // Add edges
+    graphData.edges.forEach(edge => {
+      elements.push({
+        data: {
+          id: `${edge.source}-${edge.target}`,
+          source: edge.source,
+          target: edge.target,
+          type: edge.type
+        }
+      });
+    });
+
+    return elements;
+  }, [graphData]);
+
+  // Cytoscape layout
+  const layout = {
+    name: 'cose',
+    animate: 'end',
+    animationDuration: 1000,
+    nodeDimensionsIncludeLabels: true,
+    fit: true,
+    padding: 50
+  };
+
+  // Cytoscape styles
+  const stylesheet = [
+    {
+      selector: 'node',
+      style: {
+        'background-color': '#666',
+        'label': 'data(label)',
+        'text-wrap': 'wrap',
+        'text-max-width': '100px',
+        'font-size': '10px',
+        'text-valign': 'center',
+        'text-halign': 'center',
+        'width': '20px',
+        'height': '20px'
+      }
+    },
+    {
+      selector: 'node[type = "Topic"]',
+      style: {
+        'background-color': '#ff6b6b',
+        'width': '30px',
+        'height': '30px',
+        'font-size': '12px',
+        'font-weight': 'bold'
+      }
+    },
+    {
+      selector: 'node[type = "Chat"]',
+      style: {
+        'background-color': '#4ecdc4',
+        'width': '25px',
+        'height': '25px'
+      }
+    },
+    {
+      selector: 'node[type = "Message"]',
+      style: {
+        'background-color': '#45b7d1',
+        'width': '15px',
+        'height': '15px',
+        'font-size': '8px'
+      }
+    },
+    {
+      selector: 'edge',
+      style: {
+        'width': 2,
+        'line-color': '#ccc',
+        'target-arrow-color': '#ccc',
+        'target-arrow-shape': 'triangle',
+        'curve-style': 'bezier'
+      }
+    },
+    {
+      selector: 'edge[type = "SUMMARIZES"]',
+      style: {
+        'line-color': '#ff6b6b',
+        'target-arrow-color': '#ff6b6b',
+        'width': 3
+      }
+    },
+    {
+      selector: 'edge[type = "CONTAINS"]',
+      style: {
+        'line-color': '#4ecdc4',
+        'target-arrow-color': '#4ecdc4',
+        'width': 2
+      }
+    }
+  ];
+
+  // Handle node click
+  const handleNodeClick = async (evt: any) => {
+    const node = evt.target;
+    const nodeData = node.data();
+    setSelectedNode(nodeData);
+
+    // Load messages for the selected node
+    try {
+      let messagesResponse;
+      if (nodeData.type === 'Chat') {
+        messagesResponse = await axios.get(`${API_BASE}/chats/${nodeData.chat_id}/messages`);
+      } else if (nodeData.type === 'Topic') {
+        messagesResponse = await axios.get(`${API_BASE}/topics/${nodeData.topic_id}/messages`);
+      } else {
+        return;
+      }
+      setMessages(messagesResponse.data);
+    } catch (err) {
+      console.error('Error loading messages:', err);
+    }
+  };
+
+  // Handle search
+  const handleSearch = async (query: string) => {
+    if (!query.trim()) return;
+    
+    try {
+      const response = await axios.get(`${API_BASE}/search?query=${encodeURIComponent(query)}`);
+      setMessages(response.data);
+      setSelectedNode({ type: 'Search', label: `Search: ${query}` });
+    } catch (err) {
+      console.error('Error searching:', err);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
+        <Alert severity="error">{error}</Alert>
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ display: 'flex', height: '100vh' }}>
+      {/* App Bar */}
+      <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
+        <Toolbar>
+          <IconButton
+            color="inherit"
+            edge="start"
+            onClick={() => setDrawerOpen(!drawerOpen)}
+          >
+            <MenuIcon />
+          </IconButton>
+          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
+            ChatMind - AI Memory Visualization
+          </Typography>
+        </Toolbar>
+      </AppBar>
+
+      {/* Sidebar */}
+      <Drawer
+        variant="persistent"
+        anchor="left"
+        open={drawerOpen}
+        sx={{
+          width: 300,
+          flexShrink: 0,
+          '& .MuiDrawer-paper': {
+            width: 300,
+            boxSizing: 'border-box',
+            marginTop: '64px'
+          },
+        }}
+      >
+        <Box sx={{ overflow: 'auto', p: 2 }}>
+          <Typography variant="h6" gutterBottom>
+            Topics ({topics.length})
+          </Typography>
+          <List>
+            {topics.map((topic) => (
+              <ListItem 
+                key={topic.id}
+                button
+                onClick={() => {
+                  setSelectedNode({ type: 'Topic', topic_id: topic.id, label: topic.name });
+                  handleSearch(topic.top_words.join(' '));
+                }}
+              >
+                <ListItemIcon>
+                  <TopicIcon />
+                </ListItemIcon>
+                <ListItemText 
+                  primary={topic.name}
+                  secondary={`${topic.size} messages`}
+                />
+              </ListItem>
+            ))}
+          </List>
+
+          <Divider sx={{ my: 2 }} />
+
+          <Typography variant="h6" gutterBottom>
+            Chats ({chats.length})
+          </Typography>
+          <List>
+            {chats.slice(0, 10).map((chat) => (
+              <ListItem 
+                key={chat.id}
+                button
+                onClick={() => {
+                  setSelectedNode({ type: 'Chat', chat_id: chat.id, label: chat.title });
+                  handleSearch(chat.title);
+                }}
+              >
+                <ListItemIcon>
+                  <ChatIcon />
+                </ListItemIcon>
+                <ListItemText 
+                  primary={chat.title}
+                  secondary={chat.create_time ? new Date(chat.create_time * 1000).toLocaleDateString() : ''}
+                />
+              </ListItem>
+            ))}
+          </List>
+        </Box>
+      </Drawer>
+
+      {/* Main Content */}
+      <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', marginTop: '64px' }}>
+        {/* Tag Filter */}
+        <Box sx={{ p: 2, pb: 1 }}>
+          <TagFilter 
+            onFilterChange={handleFilterChange}
+            onClearFilters={handleClearFilters}
+          />
+        </Box>
+
+        {/* Graph View */}
+        <Box sx={{ flex: 1, height: 'calc(100vh - 200px)' }}>
+          <CytoscapeComponent
+            elements={cytoscapeElements}
+            layout={layout}
+            stylesheet={stylesheet}
+            style={{ width: '100%', height: '100%' }}
+            cy={(cy) => {
+              cy.on('tap', 'node', handleNodeClick);
+            }}
+          />
+        </Box>
+
+        {/* Messages Panel */}
+        {selectedNode && (
+          <Paper sx={{ width: 400, p: 2, overflow: 'auto' }}>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+              <Typography variant="h6">
+                {selectedNode.label}
+              </Typography>
+              <IconButton onClick={() => setSelectedNode(null)}>
+                <CloseIcon />
+              </IconButton>
+            </Box>
+
+            <Typography variant="body2" color="text.secondary" mb={2}>
+              {messages.length} messages
+            </Typography>
+
+            <Box sx={{ maxHeight: 'calc(100vh - 200px)', overflow: 'auto' }}>
+              {messages.map((message) => (
+                <Paper key={message.id} sx={{ p: 2, mb: 2 }}>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                    <Chip 
+                      label={message.role} 
+                      size="small"
+                      color={message.role === 'user' ? 'primary' : 'secondary'}
+                    />
+                    {message.timestamp && (
+                      <Typography variant="caption" color="text.secondary">
+                        {new Date(message.timestamp * 1000).toLocaleString()}
+                      </Typography>
+                    )}
+                  </Box>
+                  <Typography variant="body2">
+                    {message.content}
+                  </Typography>
+                </Paper>
+              ))}
+            </Box>
+          </Paper>
+        )}
+      </Box>
+    </Box>
+  );
+}
+
+export default App; 
