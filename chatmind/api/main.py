@@ -348,7 +348,7 @@ class Message(BaseModel):
     id: str
     content: str
     role: str
-    timestamp: Optional[int]
+    timestamp: Optional[float]
     cluster_id: Optional[int]
 
 # API endpoints
