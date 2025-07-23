@@ -273,7 +273,7 @@ class Neo4jService:
             result = session.run("""
                 MATCH (t:Topic {topic_id: $topic_id})-[:SUMMARIZES]->(m:Message)
                 RETURN m.message_id as id, m.content as content, m.role as role,
-                       m.timestamp as timestamp
+                       m.timestamp as timestamp, m.cluster_id as cluster_id
                 ORDER BY m.timestamp
                 LIMIT $limit
             """, topic_id=topic_id, limit=limit)
@@ -284,7 +284,8 @@ class Neo4jService:
                     'id': record['id'],
                     'content': record['content'],
                     'role': record['role'],
-                    'timestamp': record['timestamp']
+                    'timestamp': record['timestamp'],
+                    'cluster_id': record['cluster_id']
                 })
             
             return messages
@@ -447,7 +448,9 @@ async def get_chats(limit: int = 50):
 async def get_chat_messages(chat_id: str, limit: int = 100):
     """Get messages for a specific chat."""
     try:
-        messages = neo4j_service.get_messages_for_chat(chat_id, limit)
+        # Limit to maximum 500 messages to prevent resource exhaustion
+        actual_limit = min(limit, 500)
+        messages = neo4j_service.get_messages_for_chat(chat_id, actual_limit)
         return [Message(**msg) for msg in messages]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get chat messages: {e}")
@@ -456,7 +459,9 @@ async def get_chat_messages(chat_id: str, limit: int = 100):
 async def get_topic_messages(topic_id: int, limit: int = 100):
     """Get messages for a specific topic."""
     try:
-        messages = neo4j_service.get_messages_for_topic(topic_id, limit)
+        # Limit to maximum 500 messages to prevent resource exhaustion
+        actual_limit = min(limit, 500)
+        messages = neo4j_service.get_messages_for_topic(topic_id, actual_limit)
         return [Message(**msg) for msg in messages]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get topic messages: {e}")

@@ -115,6 +115,9 @@ function App() {
   });
   const [selectedTab, setSelectedTab] = useState(0);
   const [graphLoading, setGraphLoading] = useState(false);
+  const [messageLimit, setMessageLimit] = useState(50);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [messagesLoading, setMessagesLoading] = useState(false);
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -219,16 +222,25 @@ function App() {
     const nodeData = node.data();
     
     try {
+      setMessagesLoading(true);
+      setMessageLimit(50); // Reset to initial limit
+      setHasMoreMessages(false);
+      
       let messagesResponse;
       if (nodeData.type === 'Chat') {
-        messagesResponse = await axios.get(`${API_BASE}/chats/${nodeData.id}/messages`);
+        messagesResponse = await axios.get(`${API_BASE}/chats/${nodeData.id}/messages?limit=${messageLimit}`);
       } else if (nodeData.type === 'Topic') {
-        messagesResponse = await axios.get(`${API_BASE}/topics/${nodeData.id}/messages`);
+        messagesResponse = await axios.get(`${API_BASE}/topics/${nodeData.id}/messages?limit=${messageLimit}`);
       } else {
         return;
       }
       
-      setMessages(messagesResponse.data);
+      const messages = messagesResponse.data;
+      setMessages(messages);
+      
+      // Check if there might be more messages (if we got the full limit)
+      setHasMoreMessages(messages.length === messageLimit);
+      
       setSelectedNode({
         type: nodeData.type,
         id: nodeData.id,
@@ -237,11 +249,14 @@ function App() {
       });
     } catch (err) {
       console.error('Error loading messages:', err);
+    } finally {
+      setMessagesLoading(false);
     }
   };
 
   const handleSearch = async (query: string) => {
     try {
+      setMessagesLoading(true);
       const response = await axios.get(`${API_BASE}/search?query=${encodeURIComponent(query)}&limit=50`);
       setMessages(response.data);
       setSelectedNode({
@@ -251,6 +266,36 @@ function App() {
       });
     } catch (err) {
       console.error('Error searching:', err);
+    } finally {
+      setMessagesLoading(false);
+    }
+  };
+
+  const loadMoreMessages = async () => {
+    if (!selectedNode || !hasMoreMessages || messagesLoading) return;
+    
+    try {
+      setMessagesLoading(true);
+      const newLimit = Math.min(messageLimit + 50, 500); // Cap at 500 messages
+      setMessageLimit(newLimit);
+      
+      let messagesResponse;
+      if (selectedNode.type === 'Chat') {
+        messagesResponse = await axios.get(`${API_BASE}/chats/${selectedNode.id}/messages?limit=${newLimit}`);
+      } else if (selectedNode.type === 'Topic') {
+        messagesResponse = await axios.get(`${API_BASE}/topics/${selectedNode.id}/messages?limit=${newLimit}`);
+      } else {
+        return;
+      }
+      
+      const messages = messagesResponse.data;
+      setMessages(messages);
+      // Stop showing "Load More" if we've reached the maximum or got fewer messages than requested
+      setHasMoreMessages(messages.length === newLimit && newLimit < 500);
+    } catch (err) {
+      console.error('Error loading more messages:', err);
+    } finally {
+      setMessagesLoading(false);
     }
   };
 
@@ -741,7 +786,14 @@ function App() {
 
           {/* Messages Content */}
           <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
-            {messages.length === 0 ? (
+            {messagesLoading && messages.length === 0 ? (
+              <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" height="100%">
+                <CircularProgress size={40} sx={{ mb: 2 }} />
+                <Typography variant="body2" color="text.secondary">
+                  Loading messages...
+                </Typography>
+              </Box>
+            ) : messages.length === 0 ? (
               <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" height="100%">
                 <MessageIcon sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
                 <Typography variant="h6" color="text.secondary" gutterBottom>
@@ -752,37 +804,53 @@ function App() {
                 </Typography>
               </Box>
             ) : (
-              <Stack spacing={2}>
-                {messages.map((message) => (
-                  <Card 
-                    key={message.id} 
-                    sx={{ 
-                      bgcolor: message.role === 'user' ? '#e3f2fd' : '#f3e5f5',
-                      border: '1px solid',
-                      borderColor: message.role === 'user' ? 'primary.light' : 'secondary.light'
-                    }}
-                  >
-                    <CardContent sx={{ p: 2 }}>
-                      <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                        <Chip 
-                          label={message.role} 
-                          size="small"
-                          color={message.role === 'user' ? 'primary' : 'secondary'}
-                          icon={message.role === 'user' ? <VisibilityIcon /> : <InfoIcon />}
-                        />
-                        {message.timestamp && (
-                          <Typography variant="caption" color="text.secondary">
-                            {new Date(message.timestamp * 1000).toLocaleString()}
-                          </Typography>
-                        )}
-                      </Box>
-                      <Typography variant="body2" sx={{ lineHeight: 1.6 }}>
-                        {message.content}
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                ))}
-              </Stack>
+              <>
+                <Stack spacing={2}>
+                  {messages.map((message) => (
+                    <Card 
+                      key={message.id} 
+                      sx={{ 
+                        bgcolor: message.role === 'user' ? '#e3f2fd' : '#f3e5f5',
+                        border: '1px solid',
+                        borderColor: message.role === 'user' ? 'primary.light' : 'secondary.light'
+                      }}
+                    >
+                      <CardContent sx={{ p: 2 }}>
+                        <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                          <Chip 
+                            label={message.role} 
+                            size="small"
+                            color={message.role === 'user' ? 'primary' : 'secondary'}
+                            icon={message.role === 'user' ? <VisibilityIcon /> : <InfoIcon />}
+                          />
+                          {message.timestamp && (
+                            <Typography variant="caption" color="text.secondary">
+                              {new Date(message.timestamp * 1000).toLocaleString()}
+                            </Typography>
+                          )}
+                        </Box>
+                        <Typography variant="body2" sx={{ lineHeight: 1.6 }}>
+                          {message.content}
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </Stack>
+                
+                {/* Load More Button */}
+                {hasMoreMessages && (
+                  <Box sx={{ mt: 2, textAlign: 'center' }}>
+                    <Button
+                      variant="outlined"
+                      onClick={loadMoreMessages}
+                      disabled={messagesLoading}
+                      startIcon={messagesLoading ? <CircularProgress size={16} /> : null}
+                    >
+                      {messagesLoading ? 'Loading...' : `Load More (${messageLimit} shown)`}
+                    </Button>
+                  </Box>
+                )}
+              </>
             )}
           </Box>
         </Paper>
