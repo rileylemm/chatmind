@@ -6,6 +6,7 @@ Uses GPT to intelligently split conversations into semantically coherent chunks.
 """
 
 import openai
+from openai import OpenAI
 import json
 import logging
 from typing import Dict, List, Optional
@@ -38,7 +39,8 @@ class SemanticChunker:
             api_key = os.getenv('OPENAI_API_KEY')
             if not api_key:
                 raise ValueError("OPENAI_API_KEY environment variable not set")
-            openai.api_key = api_key
+            # Use the new v1.x OpenAI client
+            self.client = OpenAI(api_key=api_key)
         except Exception as e:
             logger.error(f"Failed to initialize OpenAI: {e}")
             raise
@@ -87,7 +89,7 @@ class SemanticChunker:
         
         for attempt in range(self.max_retries):
             try:
-                response = openai.ChatCompletion.create(
+                response = self.client.chat.completions.create(
                     model=self.model,
                     messages=[
                         {"role": "system", "content": "You are an expert in semantic chunking of conversations."},
@@ -96,14 +98,12 @@ class SemanticChunker:
                     temperature=self.temperature,
                 )
                 
-                # Track the API call
+                # Track the API call usage if available
                 try:
                     from chatmind.cost_tracker.tracker import track_api_call
-                    
-                    # Extract token usage from response
-                    usage = response.get('usage', {})
-                    input_tokens = usage.get('prompt_tokens', 0)
-                    output_tokens = usage.get('completion_tokens', 0)
+                    usage = getattr(response, 'usage', None)
+                    input_tokens = getattr(usage, 'prompt_tokens', 0)
+                    output_tokens = getattr(usage, 'completion_tokens', 0)
                     
                     track_api_call(
                         model=self.model,
@@ -122,9 +122,17 @@ class SemanticChunker:
                 except Exception as e:
                     logger.warning(f"Failed to track API call: {e}")
                 
-                # Parse response
-                content = response['choices'][0]['message']['content']
-                chunks = json.loads(content)
+                # Parse response content safely
+                choice = response.choices[0]
+                raw = choice.message.content or ''
+                json_text = raw.strip()
+                # If not starting with '[', try to locate JSON brackets
+                if not json_text.startswith('['):
+                    start = json_text.find('[')
+                    end = json_text.rfind(']')
+                    if start != -1 and end != -1:
+                        json_text = json_text[start:end+1]
+                chunks = json.loads(json_text)
                 
                 # Validate and enhance chunks
                 enhanced_chunks = self._enhance_chunks(chunks, chat_data)

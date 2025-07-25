@@ -31,16 +31,16 @@ def test_cost_tracker():
         # Simulate some API calls
         print("\n🔍 Simulating API calls...")
         
-        # Simulate successful chunking call
+        # Simulate successful embedding call
         track_api_call(
             model="gpt-4",
-            operation="chunking",
+            operation="embedding",
             input_tokens=1500,
             output_tokens=800,
             success=True,
             metadata={
                 'chat_id': 'demo_chat_1',
-                'chunk_count': 3,
+                'cluster_count': 3,
                 'attempt': 1
             }
         )
@@ -61,7 +61,7 @@ def test_cost_tracker():
         # Simulate failed call
         track_api_call(
             model="gpt-4",
-            operation="chunking",
+            operation="embedding",
             input_tokens=1200,
             output_tokens=0,
             success=False,

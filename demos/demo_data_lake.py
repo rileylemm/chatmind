@@ -22,6 +22,10 @@ def main():
     
     API_BASE = "http://localhost:8000"
     
+    print("💡 This demo shows how to navigate from the knowledge graph")
+    print("   to specific chats and messages in your data lake.")
+    print("   Make sure the API server is running first!")
+    
     print("\n🔍 Step 1: Explore the Knowledge Graph")
     print("Let's start by looking at the graph structure...")
     

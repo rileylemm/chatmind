@@ -19,6 +19,7 @@ from datetime import datetime
 from neo4j import GraphDatabase
 from dotenv import load_dotenv
 import os
+import numpy as np
 
 load_dotenv()
 
@@ -201,6 +202,73 @@ class Neo4jGraphLoader:
             
             logger.info("Created topic-message relationships")
     
+    def create_chat_topic_relationships(self, chunks_file: Path):
+        """Create direct Chat→Topic relationships for each chat and its clusters."""
+        with self.driver.session() as session:
+            pairs = set()
+            # Gather unique (chat_id, topic_id) pairs
+            with jsonlines.open(chunks_file) as reader:
+                for chunk in reader:
+                    cid = chunk.get('cluster_id')
+                    if cid is not None and cid != -1:
+                        pairs.add((chunk['chat_id'], int(cid)))
+            # Create relationships
+            for chat_id, topic_id in pairs:
+                session.run("""
+                    MATCH (c:Chat {chat_id: $chat_id})
+                    MATCH (t:Topic {topic_id: $topic_id})
+                    MERGE (c)-[:HAS_TOPIC]->(t)
+                """, {'chat_id': chat_id, 'topic_id': topic_id})
+            logger.info(f"Created {len(pairs)} Chat→Topic relationships")
+    
+    def create_chat_similarity_relationships(self, chunks_file: Path, similarity_threshold: float = 0.8):
+        """Compute per-chat embeddings and create Chat→Chat similarity edges above threshold."""
+        # Aggregate embeddings per chat
+        chat_sums = {}
+        counts = {}
+        with jsonlines.open(chunks_file) as reader:
+            for chunk in reader:
+                emb = chunk.get('embedding')
+                if emb is None:
+                    continue
+                cid = chunk['chat_id']
+                vec = np.array(emb, dtype=float)
+                if cid in chat_sums:
+                    chat_sums[cid] += vec
+                    counts[cid] += 1
+                else:
+                    chat_sums[cid] = vec.copy()
+                    counts[cid] = 1
+        # Compute averages
+        chat_vecs = {cid: chat_sums[cid] / counts[cid] for cid in chat_sums}
+        chat_ids = list(chat_vecs.keys())
+        n = len(chat_ids)
+        rel_count = 0
+        # Create similarity relationships for pairs above threshold
+        with self.driver.session() as session:
+            for i in range(n):
+                id1 = chat_ids[i]
+                v1 = chat_vecs[id1]
+                norm1 = np.linalg.norm(v1)
+                if norm1 == 0:
+                    continue
+                for j in range(i+1, n):
+                    id2 = chat_ids[j]
+                    v2 = chat_vecs[id2]
+                    norm2 = np.linalg.norm(v2)
+                    if norm2 == 0:
+                        continue
+                    sim = float(np.dot(v1, v2) / (norm1 * norm2))
+                    if sim >= similarity_threshold:
+                        session.run("""
+                            MATCH (c1:Chat {chat_id: $chat1})
+                            MATCH (c2:Chat {chat_id: $chat2})
+                            MERGE (c1)-[r:SIMILAR_TO]->(c2)
+                            SET r.score = $sim
+                        """, {'chat1': id1, 'chat2': id2, 'sim': sim})
+                        rel_count += 1
+        logger.info(f"Created {rel_count} Chat↔Chat similarity relationships (threshold={similarity_threshold})")
+    
     def create_similarity_relationships(self, similarity_threshold: float = 0.8):
         """Create similarity relationships between messages based on embeddings."""
         # This would require loading embeddings and computing similarities
@@ -235,6 +303,12 @@ class Neo4jGraphLoader:
             self.load_messages(chunks_file)
             self.load_topics(summaries_file)
             self.create_topic_relationships(chunks_file)
+            # Create direct Chat→Topic edges
+            self.create_chat_topic_relationships(chunks_file)
+            # Optionally create Chat↔Chat similarity edges if configured
+            if getattr(self, 'chat_similarity', False):
+                thresh = getattr(self, 'similarity_threshold', 0.8)
+                self.create_chat_similarity_relationships(chunks_file, thresh)
             
             logger.info("Successfully loaded data into Neo4j")
             
@@ -279,11 +353,16 @@ class Neo4jGraphLoader:
 @click.option('--password', help='Neo4j password')
 @click.option('--embeddings-dir', default='data/embeddings', help='Directory with embeddings data')
 @click.option('--clear', is_flag=True, help='Clear existing data before loading')
-def main(uri: str, user: str, password: str, embeddings_dir: str, clear: bool):
+@click.option('--chat-similarity', is_flag=True, help='Compute Chat↔Chat similarity edges')
+@click.option('--similarity-threshold', default=0.8, show_default=True, help='Threshold for chat similarity [0,1]')
+def main(uri: str, user: str, password: str, embeddings_dir: str, clear: bool,
+         chat_similarity: bool, similarity_threshold: float):
     """Load processed data into Neo4j graph database."""
     
     loader = Neo4jGraphLoader(uri, user, password, embeddings_dir)
-    
+    # Configure optional chat similarity computation
+    loader.chat_similarity = chat_similarity
+    loader.similarity_threshold = similarity_threshold
     try:
         stats = loader.load_pipeline(clear_existing=clear)
         logger.info("Graph loading completed successfully!")

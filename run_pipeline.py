@@ -1,77 +1,374 @@
 #!/usr/bin/env python3
 """
-ChatMind Pipeline Runner
+ChatMind Unified Pipeline Runner
 
-Runs the complete pipeline from ChatGPT exports to visualization.
+Smart pipeline that handles both first-time processing and incremental updates.
+Automatically detects what needs to be processed and skips already completed steps.
 """
 
 import subprocess
 import sys
+import os
 from pathlib import Path
 import click
 import logging
+import jsonlines
+import pickle
+import hashlib
+import json
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+def check_file_exists(file_path: Path) -> bool:
+    """Check if a file exists and has content."""
+    return file_path.exists() and file_path.stat().st_size > 0
+
+
+def get_processed_chat_hashes() -> set:
+    """Get hashes of chats that have been processed."""
+    state_file = Path("data/processed/chat_processing_state.pkl")
+    if state_file.exists():
+        try:
+            with open(state_file, 'rb') as f:
+                return pickle.load(f)
+        except Exception as e:
+            logger.warning(f"Failed to load chat processing state: {e}")
+    return set()
+
+
+def save_processed_chat_hashes(hashes: set) -> None:
+    """Save hashes of processed chats."""
+    state_file = Path("data/processed/chat_processing_state.pkl")
+    state_file.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with open(state_file, 'wb') as f:
+            pickle.dump(hashes, f)
+        logger.info(f"Saved {len(hashes)} processed chat hashes")
+    except Exception as e:
+        logger.error(f"Failed to save chat processing state: {e}")
+
+
+def get_processed_message_hashes() -> set:
+    """Get hashes of messages that have been embedded."""
+    state_file = Path("data/processed/message_embedding_state.pkl")
+    if state_file.exists():
+        try:
+            with open(state_file, 'rb') as f:
+                return pickle.load(f)
+        except Exception as e:
+            logger.warning(f"Failed to load message embedding state: {e}")
+    return set()
+
+
+def save_processed_message_hashes(hashes: set) -> None:
+    """Save hashes of processed messages."""
+    state_file = Path("data/processed/message_embedding_state.pkl")
+    state_file.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with open(state_file, 'wb') as f:
+            pickle.dump(hashes, f)
+        logger.info(f"Saved {len(hashes)} processed message hashes")
+    except Exception as e:
+        logger.error(f"Failed to save message embedding state: {e}")
+
+
+def get_processed_chunk_hashes() -> set:
+    """Get hashes of chunks that have been tagged."""
+    state_file = Path("data/processed/chunk_tagging_state.pkl")
+    if state_file.exists():
+        try:
+            with open(state_file, 'rb') as f:
+                return pickle.load(f)
+        except Exception as e:
+            logger.warning(f"Failed to load chunk tagging state: {e}")
+    return set()
+
+
+def save_processed_chunk_hashes(hashes: set) -> None:
+    """Save hashes of processed chunks."""
+    state_file = Path("data/processed/chunk_tagging_state.pkl")
+    state_file.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with open(state_file, 'wb') as f:
+            pickle.dump(hashes, f)
+        logger.info(f"Saved {len(hashes)} processed chunk hashes")
+    except Exception as e:
+        logger.error(f"Failed to save chunk tagging state: {e}")
+
+
+def check_needs_processing() -> dict:
+    """Check what needs to be processed based on existing state."""
+    needs_processing = {
+        'ingestion': False,
+        'embedding': False,
+        'tagging': False,
+        'loading': False
+    }
+    
+    # Check if chats.jsonl exists and has content
+    chats_file = Path("data/processed/chats.jsonl")
+    if not check_file_exists(chats_file):
+        logger.info("📥 Data ingestion needed: No chats.jsonl found")
+        needs_processing['ingestion'] = True
+        needs_processing['embedding'] = True
+        needs_processing['tagging'] = True
+        needs_processing['loading'] = True
+        return needs_processing
+    
+    # Check if embeddings exist
+    embeddings_file = Path("data/embeddings/chunks_with_clusters.jsonl")
+    if not check_file_exists(embeddings_file):
+        logger.info("🧠 Embedding needed: No chunks_with_clusters.jsonl found")
+        needs_processing['embedding'] = True
+        needs_processing['tagging'] = True
+        needs_processing['loading'] = True
+    else:
+        # Check if there are new messages to embed
+        try:
+            processed_hashes = get_processed_message_hashes()
+            total_messages = 0
+            new_messages = 0
+            
+            with jsonlines.open(chats_file) as reader:
+                for chat in reader:
+                    for message in chat.get('messages', []):
+                        if message.get('role') in ['user', 'assistant'] and message.get('content', '').strip():
+                            total_messages += 1
+                            # Create hash similar to the embedding script
+                            message_hash = hashlib.sha256(
+                                json.dumps({
+                                    'content': message.get('content', ''),
+                                    'chat_id': chat.get('content_hash', ''),
+                                    'message_id': f"{chat.get('content_hash', '')}_{message.get('id', '')}",
+                                    'role': message.get('role', ''),
+                                    'timestamp': message.get('timestamp')
+                                }, sort_keys=True).encode()
+                            ).hexdigest()
+                            
+                            if message_hash not in processed_hashes:
+                                new_messages += 1
+            
+            if new_messages > 0:
+                logger.info(f"🧠 Embedding needed: {new_messages} new messages out of {total_messages} total")
+                needs_processing['embedding'] = True
+                needs_processing['tagging'] = True
+                needs_processing['loading'] = True
+            else:
+                logger.info("✅ Embedding up to date: All messages already processed")
+                
+        except Exception as e:
+            logger.warning(f"Could not check message state: {e}")
+            needs_processing['embedding'] = True
+            needs_processing['tagging'] = True
+            needs_processing['loading'] = True
+    
+    # Check if tagging exists
+    tagged_file = Path("data/processed/tagged_chunks.jsonl")
+    if not check_file_exists(tagged_file):
+        logger.info("🏷️ Tagging needed: No tagged_chunks.jsonl found")
+        needs_processing['tagging'] = True
+        needs_processing['loading'] = True
+    else:
+        # Check if there are new chunks to tag
+        try:
+            processed_hashes = get_processed_chunk_hashes()
+            total_chunks = 0
+            new_chunks = 0
+            
+            with jsonlines.open(embeddings_file) as reader:
+                for chunk in reader:
+                    total_chunks += 1
+                    chunk_hash = hashlib.sha256(
+                        json.dumps({
+                            'content': chunk.get('content', ''),
+                            'chat_id': chunk.get('chat_id', ''),
+                            'message_id': chunk.get('message_id', ''),
+                            'role': chunk.get('role', ''),
+                            'cluster_id': chunk.get('cluster_id', '')
+                        }, sort_keys=True).encode()
+                    ).hexdigest()
+                    
+                    if chunk_hash not in processed_hashes:
+                        new_chunks += 1
+            
+            if new_chunks > 0:
+                logger.info(f"🏷️ Tagging needed: {new_chunks} new chunks out of {total_chunks} total")
+                needs_processing['tagging'] = True
+                needs_processing['loading'] = True
+            else:
+                logger.info("✅ Tagging up to date: All chunks already processed")
+                
+        except Exception as e:
+            logger.warning(f"Could not check chunk state: {e}")
+            needs_processing['tagging'] = True
+            needs_processing['loading'] = True
+    
+    # Check if Neo4j needs loading
+    if needs_processing['tagging']:
+        logger.info("🗄️ Neo4j loading needed: New tagged data available")
+        needs_processing['loading'] = True
+    else:
+        logger.info("✅ Neo4j up to date: No new data to load")
+    
+    return needs_processing
+
+
 @click.command()
 @click.option('--skip-ingestion', is_flag=True, help='Skip data ingestion step')
 @click.option('--skip-embedding', is_flag=True, help='Skip embedding and clustering step')
+@click.option('--skip-tagging', is_flag=True, help='Skip auto-tagging step')
 @click.option('--skip-loading', is_flag=True, help='Skip Neo4j loading step')
 @click.option('--clear-neo4j', is_flag=True, help='Clear existing Neo4j data before loading')
 @click.option('--force-reprocess', is_flag=True, help='Force reprocess all files (ignore previous state)')
 @click.option('--clear-state', is_flag=True, help='Clear all processed state and start fresh')
-def main(skip_ingestion: bool, skip_embedding: bool, skip_loading: bool, clear_neo4j: bool, force_reprocess: bool, clear_state: bool):
-    """Run the complete ChatMind pipeline."""
+@click.option('--check-only', is_flag=True, help='Only check what needs processing, don\'t run pipeline')
+def main(skip_ingestion: bool, skip_embedding: bool, skip_tagging: bool, skip_loading: bool, 
+         clear_neo4j: bool, force_reprocess: bool, clear_state: bool, check_only: bool):
+    """Run the complete ChatMind pipeline with smart incremental processing."""
     
-    logger.info("🚀 Starting ChatMind pipeline...")
+    logger.info("🚀 Starting ChatMind unified pipeline...")
+    
+    # Clear state if requested
+    if clear_state:
+        logger.info("🧹 Clearing all processing state...")
+        state_files = [
+            "data/processed/chat_processing_state.pkl",
+            "data/processed/message_embedding_state.pkl", 
+            "data/processed/chunk_tagging_state.pkl"
+        ]
+        for state_file in state_files:
+            Path(state_file).unlink(missing_ok=True)
+        logger.info("✅ State cleared")
+    
+    # Check what needs processing
+    if force_reprocess:
+        logger.info("🔄 Force reprocess mode: Will process everything")
+        needs_processing = {
+            'ingestion': not skip_ingestion,
+            'embedding': not skip_embedding,
+            'tagging': not skip_tagging,
+            'loading': not skip_loading
+        }
+    else:
+        logger.info("🔍 Checking what needs processing...")
+        needs_processing = check_needs_processing()
+        
+        # Apply skip flags
+        if skip_ingestion:
+            needs_processing['ingestion'] = False
+        if skip_embedding:
+            needs_processing['embedding'] = False
+        if skip_tagging:
+            needs_processing['tagging'] = False
+        if skip_loading:
+            needs_processing['loading'] = False
+    
+    if check_only:
+        logger.info("📋 Processing summary:")
+        for step, needed in needs_processing.items():
+            status = "🔄 NEEDS PROCESSING" if needed else "✅ UP TO DATE"
+            logger.info(f"   {step.title()}: {status}")
+        return 0
     
     # Step 1: Data Ingestion
-    if not skip_ingestion:
+    if needs_processing['ingestion']:
         logger.info("📥 Step 1: Extracting and flattening ChatGPT exports...")
         try:
             cmd = [sys.executable, "chatmind/data_ingestion/extract_and_flatten.py"]
             if force_reprocess:
                 cmd.append("--force")
-            if clear_state:
-                cmd.append("--clear-state")
-            subprocess.run(cmd, check=True)
+            # Set PYTHONPATH to include current directory
+            env = os.environ.copy()
+            env['PYTHONPATH'] = '.'
+            subprocess.run(cmd, check=True, env=env)
             logger.info("✅ Data ingestion completed")
         except subprocess.CalledProcessError as e:
             logger.error(f"❌ Data ingestion failed: {e}")
             return 1
     else:
-        logger.info("⏭️ Skipping data ingestion")
+        logger.info("⏭️ Skipping data ingestion (already up to date)")
     
     # Step 2: Embedding and Clustering
-    if not skip_embedding:
+    if needs_processing['embedding']:
         logger.info("🧠 Step 2: Generating embeddings and clustering...")
         try:
-            subprocess.run([
-                sys.executable, "chatmind/embedding/embed_and_cluster.py"
-            ], check=True)
+            cmd = [sys.executable, "chatmind/embedding/embed_and_cluster_direct_incremental.py"]
+            if force_reprocess:
+                cmd.append("--force")
+            # Set PYTHONPATH to include current directory
+            env = os.environ.copy()
+            env['PYTHONPATH'] = '.'
+            subprocess.run(cmd, check=True, env=env)
             logger.info("✅ Embedding and clustering completed")
         except subprocess.CalledProcessError as e:
             logger.error(f"❌ Embedding and clustering failed: {e}")
             return 1
     else:
-        logger.info("⏭️ Skipping embedding and clustering")
+        logger.info("⏭️ Skipping embedding and clustering (already up to date)")
     
-    # Step 3: Neo4j Loading
-    if not skip_loading:
-        logger.info("🗄️ Step 3: Loading data into Neo4j...")
+    # Step 3: Auto-Tagging
+    if needs_processing['tagging']:
+        logger.info("🏷️ Step 3: Auto-tagging chunks...")
+        try:
+            cmd = [sys.executable, "chatmind/tagger/run_tagging_incremental.py"]
+            if force_reprocess:
+                cmd.append("--force")
+            # Set PYTHONPATH to include current directory
+            env = os.environ.copy()
+            env['PYTHONPATH'] = '.'
+            subprocess.run(cmd, check=True, env=env)
+            logger.info("✅ Auto-tagging completed")
+        except subprocess.CalledProcessError as e:
+            logger.error(f"❌ Auto-tagging failed: {e}")
+            return 1
+    else:
+        logger.info("⏭️ Skipping auto-tagging (already up to date)")
+    
+    # Step 3.5: Post-process tags to map to master list
+    logger.info("🔧 Step 3.5: Post-processing tags...")
+    try:
+        cmd = [sys.executable, "chatmind/tagger/post_process_tags.py"]
+        # Set PYTHONPATH to include current directory
+        env = os.environ.copy()
+        env['PYTHONPATH'] = '.'
+        subprocess.run(cmd, check=True, env=env)
+        logger.info("✅ Tag post-processing completed")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"❌ Tag post-processing failed: {e}")
+        return 1
+    
+    # Step 3.6: Generate cluster summaries for Neo4j
+    logger.info("📊 Step 3.6: Generating cluster summaries...")
+    try:
+        cmd = [sys.executable, "chatmind/embedding/generate_cluster_summaries.py"]
+        # Set PYTHONPATH to include current directory
+        env = os.environ.copy()
+        env['PYTHONPATH'] = '.'
+        subprocess.run(cmd, check=True, env=env)
+        logger.info("✅ Cluster summaries generated")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"❌ Cluster summary generation failed: {e}")
+        return 1
+    
+    # Step 4: Neo4j Loading
+    if needs_processing['loading']:
+        logger.info("🗄️ Step 4: Loading data into Neo4j...")
         try:
             cmd = [sys.executable, "chatmind/neo4j_loader/load_graph.py"]
             if clear_neo4j:
                 cmd.append("--clear")
-            subprocess.run(cmd, check=True)
+            # Set PYTHONPATH to include current directory
+            env = os.environ.copy()
+            env['PYTHONPATH'] = '.'
+            subprocess.run(cmd, check=True, env=env)
             logger.info("✅ Neo4j loading completed")
         except subprocess.CalledProcessError as e:
             logger.error(f"❌ Neo4j loading failed: {e}")
             return 1
     else:
-        logger.info("⏭️ Skipping Neo4j loading")
+        logger.info("⏭️ Skipping Neo4j loading (already up to date)")
     
     logger.info("🎉 Pipeline completed successfully!")
     logger.info("")

@@ -1,13 +1,7 @@
-# Data directories
-data/
-chatmind/data/
-
-# Environment files
+# Environment variables
 .env
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*.local
 
 # Python
 __pycache__/
@@ -36,16 +30,11 @@ MANIFEST
 venv/
 env/
 ENV/
+env.bak/
+venv.bak/
 chatmind_env/
 
-# Node.js
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
-
-# IDEs
+# IDE
 .vscode/
 .idea/
 *.swp
@@ -61,74 +50,95 @@ lerna-debug.log*
 ehthumbs.db
 Thumbs.db
 
+# User data (should not be committed)
+data/raw/
+data/processed/
+data/embeddings/
+data/lake/
+data/interim/
+
+# Personal tag list (keep user's personal tags private)
+data/tags/tags_master_list.json
+
 # Logs
 *.log
 logs/
 
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
+# Database
+*.db
+*.sqlite
+*.sqlite3
 
-# Coverage directory used by tools like istanbul
-coverage/
+# Neo4j
+neo4j/
+neo4j-community-*/
 
-# nyc test coverage
-.nyc_output
-
-# Dependency directories
-jspm_packages/
-
-# Optional npm cache directory
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 .npm
-
-# Optional eslint cache
-.eslintcache
-
-# Microbundle cache
-.rpt2_cache/
-.rts2_cache_cjs/
-.rts2_cache_es/
-.rts2_cache_umd/
-
-# Optional REPL history
-.node_repl_history
-
-# Output of 'npm pack'
-*.tgz
-
-# Yarn Integrity file
 .yarn-integrity
 
-# parcel-bundler cache (https://parceljs.org/)
-.cache
-.parcel-cache
+# React build
+chatmind/frontend/build/
+chatmind/frontend/dist/
 
-# next.js build output
-.next
+# API keys and secrets
+secrets.json
+api_keys.json
 
-# nuxt.js build output
-.nuxt
+# Temporary files
+*.tmp
+*.temp
+.cache/
 
-# vuepress build output
-.vuepress/dist
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
 
-# Serverless directories
-.serverless/
+# Jupyter Notebook
+.ipynb_checkpoints
 
-# FuseBox cache
-.fusebox/
+# pyenv
+.python-version
 
-# DynamoDB Local files
-.dynamodb/
+# pipenv
+Pipfile.lock
 
-# TernJS port file
-.tern-port
+# PEP 582
+__pypackages__/
 
-# Stores VSCode versions used for testing VSCode extensions
-.vscode-test
+# Celery
+celerybeat-schedule
+celerybeat.pid
 
-# Temporary folders
-tmp/
-temp/ 
+# SageMath parsed files
+*.sage.py
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# OpenAI API cost tracking
+cost_tracker.db 

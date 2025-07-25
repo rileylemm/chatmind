@@ -17,20 +17,27 @@ def tagging_prompt(chunk_text: str) -> str:
         Formatted prompt string for GPT
     """
     return f"""
-You are an AI assistant that analyzes text and assigns relevant semantic tags and categories.
+You are an AI assistant that analyzes text and assigns relevant semantic tags and a concise category.
 
-TASK: Analyze the following text and:
-1. Generate 3-5 relevant hashtags (concise and meaningful)
-2. Assign a one-sentence category label
+TASK:
+Analyze the following text and:
+1. Generate 3–5 relevant hashtags
+2. Assign a short, descriptive category label
 
 GUIDELINES:
-- Tags should be specific and relevant to the content
-- Use common hashtag formats (e.g., #python, #machine-learning, #api)
-- Category should be descriptive but concise
-- Focus on the main topic or theme of the text
-- Consider technical topics, concepts, and tools mentioned
+- Tags must be specific and meaningful (avoid generic tags like #general or #misc)
+- Use hashtags to represent key ideas, tools, topics, or themes
+- Tags can be:
+  - **Technical** (e.g., #python, #api-design)
+  - **Conceptual** (e.g., #consciousness, #systems-thinking)
+  - **Personal or reflective** (e.g., #relationships, #burnout)
+  - **Creative or artistic** (e.g., #storytelling, #design-process)
+- The category must be a short phrase, not a full sentence (e.g., "AI Alignment Debate", "Personal Reflections on Friendship")
+- Focus on the dominant theme or insight of the text
+- Think about how this chunk could be rediscovered or grouped meaningfully in a broader context
 
-OUTPUT FORMAT: Return ONLY a valid JSON object with this exact structure:
+OUTPUT FORMAT:
+Return ONLY a valid JSON object in this exact structure:
 {{
   "tags": ["#tag1", "#tag2", "#tag3"],
   "category": "A concise category title"
@@ -41,7 +48,7 @@ TEXT TO TAG:
 {chunk_text}
 ---
 
-Remember: Return ONLY the JSON object, no other text or explanations.
+Remember: Return ONLY the JSON object — no additional commentary or explanation.
 """
 
 
