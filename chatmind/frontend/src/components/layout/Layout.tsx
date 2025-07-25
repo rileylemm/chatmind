@@ -8,7 +8,7 @@ interface LayoutProps {
 }
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const { sidebarOpen, theme } = useUIStore();
+  const { theme } = useUIStore();
 
   return (
     <div className={`min-h-screen ${theme.mode === 'dark' ? 'dark' : ''}`}>

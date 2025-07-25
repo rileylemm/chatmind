@@ -34,7 +34,7 @@ ChatMind automatically processes your ChatGPT export data, extracts meaningful i
    ```bash
    pip install -r requirements.txt
    ```
-
+   
 3. **Set up environment variables**
    ```bash
    cp env.example .env
@@ -74,7 +74,7 @@ ChatMind automatically processes your ChatGPT export data, extracts meaningful i
    ```bash
    python run_pipeline.py
    ```
-
+  
 3. **Start the services**
    ```bash
    python scripts/start_services.py
