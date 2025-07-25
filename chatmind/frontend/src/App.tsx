@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Layout } from './components/layout/Layout';
 import Dashboard from './pages/Dashboard';
+import GraphExplorer from './pages/GraphExplorer';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -22,7 +23,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             {/* Add more routes as we build them */}
-            <Route path="/graph" element={<div>Graph Explorer (Coming Soon)</div>} />
+            <Route path="/graph" element={<GraphExplorer />} />
             <Route path="/messages" element={<div>Messages (Coming Soon)</div>} />
             <Route path="/analytics" element={<div>Analytics (Coming Soon)</div>} />
             <Route path="/tags" element={<div>Tags (Coming Soon)</div>} />
