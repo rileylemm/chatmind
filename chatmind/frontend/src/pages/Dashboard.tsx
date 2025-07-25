@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { 
   MessageSquare, 
   Network, 
@@ -12,15 +13,35 @@ import {
   Filter,
   Sparkles
 } from 'lucide-react';
+import { api } from '../services/api';
+
+interface DashboardStats {
+  total_chats: number;
+  total_messages: number;
+  active_tags: number;
+  total_cost: string;
+  total_clusters: number;
+  total_calls: number;
+}
 
 const Dashboard: React.FC = () => {
-  // Mock data - will be replaced with real API calls
+  // Fetch real stats from API
+  const { data: statsData, isLoading } = useQuery({
+    queryKey: ['dashboard-stats'],
+    queryFn: async (): Promise<DashboardStats> => {
+      const response = await api.get<{ data: DashboardStats }>('/api/stats/dashboard');
+      return response.data.data;
+    },
+    refetchInterval: 30000, // Refetch every 30 seconds
+  });
+
+  // Use real data or fallback to 0
   const stats = [
     {
       name: 'Total Chats',
-      value: '1,718',
-      change: '+12%',
-      changeType: 'positive',
+      value: isLoading ? '...' : (statsData?.total_chats?.toLocaleString() || '0'),
+      change: 'Real data',
+      changeType: 'positive' as const,
       icon: MessageSquare,
       gradient: 'from-blue-500 to-blue-600',
       bgGradient: 'from-blue-50 to-blue-100',
@@ -28,9 +49,9 @@ const Dashboard: React.FC = () => {
     },
     {
       name: 'Total Messages',
-      value: '34,106',
-      change: '+8%',
-      changeType: 'positive',
+      value: isLoading ? '...' : (statsData?.total_messages?.toLocaleString() || '0'),
+      change: 'Real data',
+      changeType: 'positive' as const,
       icon: Network,
       gradient: 'from-emerald-500 to-emerald-600',
       bgGradient: 'from-emerald-50 to-emerald-100',
@@ -38,9 +59,9 @@ const Dashboard: React.FC = () => {
     },
     {
       name: 'Active Tags',
-      value: '755',
-      change: '+5%',
-      changeType: 'positive',
+      value: isLoading ? '...' : (statsData?.active_tags?.toLocaleString() || '0'),
+      change: 'Real data',
+      changeType: 'positive' as const,
       icon: Tag,
       gradient: 'from-slate-500 to-slate-600',
       bgGradient: 'from-slate-50 to-slate-100',
@@ -48,9 +69,9 @@ const Dashboard: React.FC = () => {
     },
     {
       name: 'Total Cost',
-      value: '$24.50',
-      change: '+15%',
-      changeType: 'negative',
+      value: isLoading ? '...' : (statsData?.total_cost || '$0.00'),
+      change: 'Real data',
+      changeType: 'neutral' as const,
       icon: TrendingUp,
       gradient: 'from-amber-500 to-amber-600',
       bgGradient: 'from-amber-50 to-amber-100',

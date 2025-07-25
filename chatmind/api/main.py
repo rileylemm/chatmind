@@ -19,6 +19,7 @@ from dotenv import load_dotenv
 from datetime import date, datetime
 
 from neo4j import GraphDatabase
+from stats import get_dashboard_stats
 
 load_dotenv()
 
@@ -356,18 +357,22 @@ class Message(BaseModel):
 @app.get("/")
 async def root():
     """Root endpoint."""
-    return {"message": "ChatMind API", "version": "1.0.0"}
+    return {"message": "ChatMind API is running"}
 
-@app.get("/health")
-async def health_check():
-    """Health check endpoint."""
+@app.get("/api/stats/dashboard")
+async def get_stats():
+    """Get dashboard statistics from real data"""
     try:
-        with neo4j_service.driver.session() as session:
-            result = session.run("RETURN 1 as test")
-            result.single()
-        return {"status": "healthy", "neo4j": "connected"}
+        stats = get_dashboard_stats()
+        return stats
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Health check failed: {e}")
+        logger.error(f"Error in stats endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy"}
 
 @app.get("/debug/nodes")
 async def debug_nodes():
