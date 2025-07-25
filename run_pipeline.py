@@ -52,7 +52,7 @@ def save_processed_chat_hashes(hashes: set) -> None:
 
 def get_processed_message_hashes() -> set:
     """Get hashes of messages that have been embedded."""
-    state_file = Path("data/processed/message_embedding_state.pkl")
+    state_file = Path("data/processed/direct_embedding_state.pkl")
     if state_file.exists():
         try:
             with open(state_file, 'rb') as f:
@@ -64,7 +64,7 @@ def get_processed_message_hashes() -> set:
 
 def save_processed_message_hashes(hashes: set) -> None:
     """Save hashes of processed messages."""
-    state_file = Path("data/processed/message_embedding_state.pkl")
+    state_file = Path("data/processed/direct_embedding_state.pkl")
     state_file.parent.mkdir(parents=True, exist_ok=True)
     try:
         with open(state_file, 'wb') as f:
@@ -76,7 +76,7 @@ def save_processed_message_hashes(hashes: set) -> None:
 
 def get_processed_chunk_hashes() -> set:
     """Get hashes of chunks that have been tagged."""
-    state_file = Path("data/processed/chunk_tagging_state.pkl")
+    state_file = Path("data/processed/tagging_state.pkl")
     if state_file.exists():
         try:
             with open(state_file, 'rb') as f:
@@ -88,7 +88,7 @@ def get_processed_chunk_hashes() -> set:
 
 def save_processed_chunk_hashes(hashes: set) -> None:
     """Save hashes of processed chunks."""
-    state_file = Path("data/processed/chunk_tagging_state.pkl")
+    state_file = Path("data/processed/tagging_state.pkl")
     state_file.parent.mkdir(parents=True, exist_ok=True)
     try:
         with open(state_file, 'wb') as f:
@@ -104,6 +104,7 @@ def check_needs_processing() -> dict:
         'ingestion': False,
         'embedding': False,
         'tagging': False,
+        'positioning': False,
         'loading': False
     }
     
@@ -205,9 +206,18 @@ def check_needs_processing() -> dict:
             needs_processing['tagging'] = True
             needs_processing['loading'] = True
     
+    # Check if semantic positioning is needed
+    topics_with_coords_file = Path("data/processed/topics_with_coords.jsonl")
+    if not check_file_exists(topics_with_coords_file):
+        logger.info("🗺️ Semantic positioning needed: No topics_with_coords.jsonl found")
+        needs_processing['positioning'] = True
+        needs_processing['loading'] = True
+    else:
+        logger.info("✅ Semantic positioning up to date: Topics with coordinates exist")
+    
     # Check if Neo4j needs loading
-    if needs_processing['tagging']:
-        logger.info("🗄️ Neo4j loading needed: New tagged data available")
+    if needs_processing['tagging'] or needs_processing['positioning']:
+        logger.info("🗄️ Neo4j loading needed: New tagged data or coordinates available")
         needs_processing['loading'] = True
     else:
         logger.info("✅ Neo4j up to date: No new data to load")
@@ -219,12 +229,13 @@ def check_needs_processing() -> dict:
 @click.option('--skip-ingestion', is_flag=True, help='Skip data ingestion step')
 @click.option('--skip-embedding', is_flag=True, help='Skip embedding and clustering step')
 @click.option('--skip-tagging', is_flag=True, help='Skip auto-tagging step')
+@click.option('--skip-positioning', is_flag=True, help='Skip semantic positioning step')
 @click.option('--skip-loading', is_flag=True, help='Skip Neo4j loading step')
 @click.option('--clear-neo4j', is_flag=True, help='Clear existing Neo4j data before loading')
 @click.option('--force-reprocess', is_flag=True, help='Force reprocess all files (ignore previous state)')
 @click.option('--clear-state', is_flag=True, help='Clear all processed state and start fresh')
 @click.option('--check-only', is_flag=True, help='Only check what needs processing, don\'t run pipeline')
-def main(skip_ingestion: bool, skip_embedding: bool, skip_tagging: bool, skip_loading: bool, 
+def main(skip_ingestion: bool, skip_embedding: bool, skip_tagging: bool, skip_positioning: bool, skip_loading: bool, 
          clear_neo4j: bool, force_reprocess: bool, clear_state: bool, check_only: bool):
     """Run the complete ChatMind pipeline with smart incremental processing."""
     
@@ -235,8 +246,8 @@ def main(skip_ingestion: bool, skip_embedding: bool, skip_tagging: bool, skip_lo
         logger.info("🧹 Clearing all processing state...")
         state_files = [
             "data/processed/chat_processing_state.pkl",
-            "data/processed/message_embedding_state.pkl", 
-            "data/processed/chunk_tagging_state.pkl"
+            "data/processed/direct_embedding_state.pkl", 
+            "data/processed/tagging_state.pkl"
         ]
         for state_file in state_files:
             Path(state_file).unlink(missing_ok=True)
@@ -249,6 +260,7 @@ def main(skip_ingestion: bool, skip_embedding: bool, skip_tagging: bool, skip_lo
             'ingestion': not skip_ingestion,
             'embedding': not skip_embedding,
             'tagging': not skip_tagging,
+            'positioning': not skip_positioning,
             'loading': not skip_loading
         }
     else:
@@ -262,6 +274,8 @@ def main(skip_ingestion: bool, skip_embedding: bool, skip_tagging: bool, skip_lo
             needs_processing['embedding'] = False
         if skip_tagging:
             needs_processing['tagging'] = False
+        if skip_positioning:
+            needs_processing['positioning'] = False
         if skip_loading:
             needs_processing['loading'] = False
     
@@ -351,6 +365,24 @@ def main(skip_ingestion: bool, skip_embedding: bool, skip_tagging: bool, skip_lo
     except subprocess.CalledProcessError as e:
         logger.error(f"❌ Cluster summary generation failed: {e}")
         return 1
+    
+    # Step 3.7: Apply semantic positioning to topic nodes
+    if needs_processing['positioning']:
+        logger.info("🗺️ Step 3.7: Applying semantic positioning to topic nodes...")
+        try:
+            cmd = [sys.executable, "chatmind/semantic_positioning/apply_topic_layout.py"]
+            if force_reprocess:
+                cmd.append("--force")
+            # Set PYTHONPATH to include current directory
+            env = os.environ.copy()
+            env['PYTHONPATH'] = '.'
+            subprocess.run(cmd, check=True, env=env)
+            logger.info("✅ Semantic positioning completed")
+        except subprocess.CalledProcessError as e:
+            logger.error(f"❌ Semantic positioning failed: {e}")
+            return 1
+    else:
+        logger.info("⏭️ Skipping semantic positioning (already up to date)")
     
     # Step 4: Neo4j Loading
     if needs_processing['loading']:

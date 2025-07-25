@@ -38,12 +38,19 @@ ai_memory/
 - **Script:** `run_tagging_incremental.py`
 - **Smart:** Only tags new chunks
 
-### **4. Neo4j Loading** (`chatmind/neo4j_loader/`)
-- **Purpose:** Load processed data into graph database
+### **4. Semantic Positioning** (`chatmind/semantic_positioning/`)
+- **Purpose:** Generate 2D coordinates for topic nodes using UMAP
 - **Input:** Tagged chunks
-- **Output:** Neo4j graph database
+- **Output:** `data/processed/topics_with_coords.jsonl`
+- **Script:** `apply_topic_layout.py`
+- **Smart:** Only processes when new tagged data exists
+
+### **5. Neo4j Loading** (`chatmind/neo4j_loader/`)
+- **Purpose:** Load processed data into graph database
+- **Input:** Tagged chunks + topic coordinates
+- **Output:** Neo4j graph database with positioned nodes
 - **Script:** `load_graph.py`
-- **Smart:** Only loads when new tagged data exists
+- **Smart:** Only loads when new tagged data or coordinates exist
 
 ### **5. API & Frontend** (`chatmind/api/` & `chatmind/frontend/`)
 - **Purpose:** Visualization and interaction
@@ -59,6 +66,7 @@ ai_memory/
 ### **Processed Data**
 - `data/embeddings/chunks_with_clusters.jsonl` - Messages with embeddings and clusters
 - `data/processed/tagged_chunks.jsonl` - Tagged chunks
+- `data/processed/topics_with_coords.jsonl` - Topics with 2D coordinates
 
 ### **Tag Management**
 - `data/tags/tags_master_list.json` - Master tag list (755 tags)
@@ -112,6 +120,9 @@ python chatmind/embedding/embed_and_cluster_direct_incremental.py
 
 # Auto-tagging
 python chatmind/tagger/run_tagging_incremental.py
+
+# Semantic positioning
+python chatmind/semantic_positioning/apply_topic_layout.py
 
 # Neo4j loading
 python chatmind/neo4j_loader/load_graph.py

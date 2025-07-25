@@ -156,31 +156,69 @@ class Neo4jGraphLoader:
             
             logger.info("Loaded message nodes and relationships")
     
-    def load_topics(self, summaries_file: Path):
-        """Load topic nodes from cluster summaries."""
+    def load_topics(self, summaries_file: Path, topics_with_coords_file: Path = None):
+        """Load topic nodes from cluster summaries with optional coordinates."""
         with self.driver.session() as session:
             with open(summaries_file, 'r') as f:
                 summaries = json.load(f)
+            
+            # Load coordinates if available
+            coordinates = {}
+            if topics_with_coords_file and topics_with_coords_file.exists():
+                try:
+                    with jsonlines.open(topics_with_coords_file) as reader:
+                        for topic_data in reader:
+                            topic_id = topic_data.get('topic_id')
+                            if topic_id and 'x' in topic_data and 'y' in topic_data:
+                                coordinates[topic_id] = (topic_data['x'], topic_data['y'])
+                    logger.info(f"Loaded coordinates for {len(coordinates)} topics")
+                except Exception as e:
+                    logger.warning(f"Failed to load coordinates: {e}")
             
             for topic_id, summary in tqdm(summaries.items(), desc="Loading topics"):
                 topic_name = f"Topic {topic_id}"
                 if summary.get('top_words'):
                     topic_name = " ".join(summary['top_words'][:3])
                 
-                # Create Topic node
-                session.run("""
-                    MERGE (t:Topic {topic_id: $topic_id})
-                    SET t.name = $name,
-                        t.size = $size,
-                        t.top_words = $top_words,
-                        t.sample_titles = $sample_titles
-                """, {
-                    'topic_id': int(topic_id),
-                    'name': topic_name,
-                    'size': summary['size'],
-                    'top_words': summary['top_words'],
-                    'sample_titles': summary['sample_titles']
-                })
+                # Get coordinates if available
+                x_coord = None
+                y_coord = None
+                if topic_id in coordinates:
+                    x_coord, y_coord = coordinates[topic_id]
+                
+                # Create Topic node with optional coordinates
+                if x_coord is not None and y_coord is not None:
+                    session.run("""
+                        MERGE (t:Topic {topic_id: $topic_id})
+                        SET t.name = $name,
+                            t.size = $size,
+                            t.top_words = $top_words,
+                            t.sample_titles = $sample_titles,
+                            t.x = $x,
+                            t.y = $y
+                    """, {
+                        'topic_id': int(topic_id),
+                        'name': topic_name,
+                        'size': summary['size'],
+                        'top_words': summary['top_words'],
+                        'sample_titles': summary['sample_titles'],
+                        'x': x_coord,
+                        'y': y_coord
+                    })
+                else:
+                    session.run("""
+                        MERGE (t:Topic {topic_id: $topic_id})
+                        SET t.name = $name,
+                            t.size = $size,
+                            t.top_words = $top_words,
+                            t.sample_titles = $sample_titles
+                    """, {
+                        'topic_id': int(topic_id),
+                        'name': topic_name,
+                        'size': summary['size'],
+                        'top_words': summary['top_words'],
+                        'sample_titles': summary['sample_titles']
+                    })
             
             logger.info(f"Loaded {len(summaries)} topic nodes")
     
@@ -291,6 +329,7 @@ class Neo4jGraphLoader:
             # Load data files
             chunks_file = self.embeddings_dir / "chunks_with_clusters.jsonl"
             summaries_file = self.embeddings_dir / "cluster_summaries.json"
+            topics_with_coords_file = Path("data/processed/topics_with_coords.jsonl")
             
             if not chunks_file.exists():
                 raise FileNotFoundError(f"No chunks file found at {chunks_file}")
@@ -301,7 +340,7 @@ class Neo4jGraphLoader:
             # Load data into Neo4j
             self.load_chats(chunks_file)
             self.load_messages(chunks_file)
-            self.load_topics(summaries_file)
+            self.load_topics(summaries_file, topics_with_coords_file)
             self.create_topic_relationships(chunks_file)
             # Create direct Chat→Topic edges
             self.create_chat_topic_relationships(chunks_file)
