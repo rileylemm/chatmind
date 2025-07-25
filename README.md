@@ -12,6 +12,8 @@ ChatMind automatically processes your ChatGPT export data, extracts meaningful i
 - **🔄 Incremental Processing**: Only processes new data, saving time and API costs
 - **🎯 Semantic Clustering**: Groups related conversations together for better insights
 - **📱 Modern Web Interface**: Clean, responsive UI for exploring your data
+- **📈 Real-time Statistics**: Dashboard shows live data from your processed content
+- **🔌 RESTful API**: FastAPI backend for data access and management
 
 ## 🚀 Quick Start
 
@@ -74,21 +76,58 @@ ChatMind automatically processes your ChatGPT export data, extracts meaningful i
    ```bash
    python run_pipeline.py
    ```
-  
-3. **Start the services**
+
+3. **Start the backend API server**
    ```bash
-   python scripts/start_services.py
+   cd chatmind/api
+   python3 -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
    ```
 
-4. **Open the application**
-   - Frontend: http://localhost:3000
+4. **Start the frontend development server**
+   ```bash
+   cd chatmind/frontend
+   npm run dev
+   ```
+
+5. **Open the application**
+   - Frontend: http://localhost:5173 (Vite dev server)
    - API: http://localhost:8000
+   - API Docs: http://localhost:8000/docs (Swagger UI)
+
+## 🔧 Backend API
+
+### API Endpoints
+
+- **`GET /api/stats/dashboard`** - Get real-time dashboard statistics
+- **`GET /api/health`** - Health check endpoint
+- **`GET /`** - API root endpoint
+
+### Real Data Sources
+
+The backend connects to your actual processed data:
+
+- **Chat Statistics**: Reads from `data/processed/chats.jsonl`
+- **Tag Information**: Reads from `data/tags/tags_master_list.json`
+- **Cost Tracking**: Reads from `data/cost_tracker.db`
+- **Cluster Data**: Reads from `data/embeddings/cluster_summaries.json`
+
+### API Development
+
+```bash
+# Start API server with auto-reload
+cd chatmind/api
+python3 -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+# Test API endpoints
+curl http://localhost:8000/api/stats/dashboard
+curl http://localhost:8000/api/health
+```
 
 ## 📁 Project Structure
 
 ```
 chatmind/
-├── api/                    # FastAPI backend
+├── api/                    # FastAPI backend with real data endpoints
 ├── data_ingestion/         # ChatGPT export processing
 ├── embedding/              # Semantic clustering
 ├── tagger/                 # AI-powered tagging
@@ -149,6 +188,18 @@ python scripts/setup_tags.py --info
 - `data/embeddings/chunks_with_clusters.jsonl`: Clustered messages
 - `data/processed/tagged_chunks.jsonl`: Tagged content
 - `data/tags/tags_master_list.json`: Tag definitions
+- `data/cost_tracker.db`: API cost tracking database
+
+### Real-time Statistics
+
+The dashboard displays live data from your processed content:
+
+- **Total Chats**: Number of conversations processed
+- **Total Messages**: Count of all messages across all chats
+- **Active Tags**: Number of tags in your master list
+- **Total Cost**: Actual API costs from your usage
+- **Total Clusters**: Number of semantic clusters created
+- **Total Calls**: Number of API calls made during processing
 
 ## 🤝 Contributing
 
