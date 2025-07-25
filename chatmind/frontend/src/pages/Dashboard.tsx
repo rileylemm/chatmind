@@ -40,8 +40,6 @@ const Dashboard: React.FC = () => {
     {
       name: 'Total Chats',
       value: isLoading ? '...' : (statsData?.total_chats?.toLocaleString() || '0'),
-      change: 'Real data',
-      changeType: 'positive' as const,
       icon: MessageSquare,
       gradient: 'from-blue-500 to-blue-600',
       bgGradient: 'from-blue-50 to-blue-100',
@@ -50,8 +48,6 @@ const Dashboard: React.FC = () => {
     {
       name: 'Total Messages',
       value: isLoading ? '...' : (statsData?.total_messages?.toLocaleString() || '0'),
-      change: 'Real data',
-      changeType: 'positive' as const,
       icon: Network,
       gradient: 'from-emerald-500 to-emerald-600',
       bgGradient: 'from-emerald-50 to-emerald-100',
@@ -60,8 +56,6 @@ const Dashboard: React.FC = () => {
     {
       name: 'Active Tags',
       value: isLoading ? '...' : (statsData?.active_tags?.toLocaleString() || '0'),
-      change: 'Real data',
-      changeType: 'positive' as const,
       icon: Tag,
       gradient: 'from-slate-500 to-slate-600',
       bgGradient: 'from-slate-50 to-slate-100',
@@ -70,8 +64,6 @@ const Dashboard: React.FC = () => {
     {
       name: 'Total Cost',
       value: isLoading ? '...' : (statsData?.total_cost || '$0.00'),
-      change: 'Real data',
-      changeType: 'neutral' as const,
       icon: TrendingUp,
       gradient: 'from-amber-500 to-amber-600',
       bgGradient: 'from-amber-50 to-amber-100',
@@ -200,23 +192,9 @@ const Dashboard: React.FC = () => {
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
                     {stat.name}
                   </p>
-                  <p className="text-4xl font-bold text-gray-900 dark:text-white mb-3">
+                  <p className="text-4xl font-bold text-gray-900 dark:text-white">
                     {stat.value}
                   </p>
-                  <div className="flex items-center">
-                    <span
-                      className={`text-sm font-semibold ${
-                        stat.changeType === 'positive'
-                          ? 'text-emerald-600 dark:text-emerald-400'
-                          : 'text-red-600 dark:text-red-400'
-                      }`}
-                    >
-                      {stat.change}
-                    </span>
-                    <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
-                      from last month
-                    </span>
-                  </div>
                 </div>
                 <div className={`p-4 rounded-2xl bg-gradient-to-br ${stat.bgGradient} dark:${stat.darkBgGradient} shadow-lg`}>
                   <stat.icon className="h-8 w-8 text-gray-700 dark:text-gray-300" />
