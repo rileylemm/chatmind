@@ -12,8 +12,7 @@ interface GraphViewProps {
 interface NodePosition {
   x: number;
   y: number;
-  vx: number;
-  vy: number;
+  level: number; // 0 = topics, 1 = chats, 2 = messages
 }
 
 export const GraphView: React.FC<GraphViewProps> = ({
@@ -31,51 +30,56 @@ export const GraphView: React.FC<GraphViewProps> = ({
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [positions, setPositions] = useState<Map<string, NodePosition>>(new Map());
 
-  // Initialize force simulation
+  // Initialize hierarchical positions
   useEffect(() => {
     if (!canvasRef.current || nodes.length === 0) return;
 
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Initialize positions in a more spread out way
     const newPositions = new Map<string, NodePosition>();
     const centerX = width / 2;
     const centerY = height / 2;
-    const radius = Math.min(width, height) * 0.4;
 
-    nodes.forEach((node, index) => {
-      // Use different starting positions based on node type
-      let x, y;
-      if (node.type === 'Chat') {
-        // Chats in the center
-        const angle = (index / nodes.filter(n => n.type === 'Chat').length) * 2 * Math.PI;
-        x = centerX + Math.cos(angle) * radius * 0.3;
-        y = centerY + Math.sin(angle) * radius * 0.3;
-      } else if (node.type === 'Topic') {
-        // Topics around the edges
-        const angle = (index / nodes.filter(n => n.type === 'Topic').length) * 2 * Math.PI;
-        x = centerX + Math.cos(angle) * radius * 0.8;
-        y = centerY + Math.sin(angle) * radius * 0.8;
-      } else {
-        // Messages scattered
-        x = centerX + (Math.random() - 0.5) * radius * 0.6;
-        y = centerY + (Math.random() - 0.5) * radius * 0.6;
-      }
+    // Group nodes by type and level
+    const topics = nodes.filter(n => n.type === 'Topic');
+    const chats = nodes.filter(n => n.type === 'Chat');
+    const messages = nodes.filter(n => n.type === 'Message');
 
+    // Level 0: Topics (always visible)
+    topics.forEach((node, index) => {
+      const angle = (index / topics.length) * 2 * Math.PI;
+      const radius = Math.min(width, height) * 0.3;
       newPositions.set(node.id, {
-        x,
-        y,
-        vx: 0,
-        vy: 0,
+        x: centerX + Math.cos(angle) * radius,
+        y: centerY + Math.sin(angle) * radius,
+        level: 0
+      });
+    });
+
+    // Level 1: Chats (visible when zoomed in)
+    chats.forEach((node, index) => {
+      const angle = (index / chats.length) * 2 * Math.PI;
+      const radius = Math.min(width, height) * 0.2;
+      newPositions.set(node.id, {
+        x: centerX + Math.cos(angle) * radius,
+        y: centerY + Math.sin(angle) * radius,
+        level: 1
+      });
+    });
+
+    // Level 2: Messages (visible when very zoomed in)
+    messages.forEach((node, index) => {
+      const angle = (index / messages.length) * 2 * Math.PI;
+      const radius = Math.min(width, height) * 0.1;
+      newPositions.set(node.id, {
+        x: centerX + Math.cos(angle) * radius,
+        y: centerY + Math.sin(angle) * radius,
+        level: 2
       });
     });
 
     setPositions(newPositions);
   }, [nodes, width, height]);
 
-  // Force simulation
+  // Render function
   useEffect(() => {
     if (!canvasRef.current || nodes.length === 0 || positions.size === 0) return;
 
@@ -83,122 +87,80 @@ export const GraphView: React.FC<GraphViewProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let animationId: number;
-    const animate = () => {
-      // Clear canvas
-      ctx.clearRect(0, 0, width, height);
+    // Clear canvas
+    ctx.clearRect(0, 0, width, height);
 
-      // Apply forces
-      const newPositions = new Map(positions);
+    // Determine which nodes to show based on zoom level
+    const visibleNodes = nodes.filter(node => {
+      const pos = positions.get(node.id);
+      if (!pos) return false;
       
-      // Repulsion between all nodes
-      for (const [id1, pos1] of newPositions) {
-        for (const [id2, pos2] of newPositions) {
-          if (id1 === id2) continue;
-          
-          const dx = pos2.x - pos1.x;
-          const dy = pos2.y - pos1.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          
-          if (distance > 0 && distance < 100) {
-            const force = (100 - distance) / distance * 0.1;
-            pos1.vx -= dx * force;
-            pos1.vy -= dy * force;
-            pos2.vx += dx * force;
-            pos2.vy += dy * force;
-          }
-        }
-      }
+      if (scale < 0.5) return pos.level === 0; // Only topics
+      if (scale < 1.0) return pos.level <= 1;  // Topics and chats
+      return true; // All nodes when zoomed in
+    });
 
-      // Attraction along edges
-      edges.forEach(edge => {
-        const source = newPositions.get(edge.source);
-        const target = newPositions.get(edge.target);
-        if (source && target) {
-          const dx = target.x - source.x;
-          const dy = target.y - source.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          
-          if (distance > 0) {
-            const force = (distance - 50) / distance * 0.05;
-            source.vx += dx * force;
-            source.vy += dy * force;
-            target.vx -= dx * force;
-            target.vy -= dy * force;
-          }
-        }
-      });
-
-      // Update positions
-      for (const pos of newPositions.values()) {
-        pos.x += pos.vx;
-        pos.y += pos.vy;
-        pos.vx *= 0.95; // Damping
-        pos.vy *= 0.95;
-        
-        // Keep nodes within bounds
-        pos.x = Math.max(50, Math.min(width - 50, pos.x));
-        pos.y = Math.max(50, Math.min(height - 50, pos.y));
-      }
-
-      setPositions(newPositions);
-
-      // Draw edges
-      ctx.strokeStyle = '#4b5563';
-      ctx.lineWidth = 1;
-      edges.forEach(edge => {
-        const source = newPositions.get(edge.source);
-        const target = newPositions.get(edge.target);
-        if (source && target) {
-          ctx.beginPath();
-          ctx.moveTo(source.x, source.y);
-          ctx.lineTo(target.x, target.y);
-          ctx.stroke();
-        }
-      });
-
-      // Draw nodes
-      nodes.forEach(node => {
-        const pos = newPositions.get(node.id);
-        if (!pos) return;
-
-        const size = Math.max(6, Math.min(16, (node.properties.size || 1) * 1.5));
-        const isHovered = hoveredNode === node.id;
-        const nodeSize = isHovered ? size * 1.5 : size;
-        
-        // Node circle
-        ctx.fillStyle = getNodeColor(node.type);
+    // Draw edges (only between visible nodes)
+    ctx.strokeStyle = '#4b5563';
+    ctx.lineWidth = 1;
+    edges.forEach(edge => {
+      const source = positions.get(edge.source);
+      const target = positions.get(edge.target);
+      if (source && target && 
+          visibleNodes.some(n => n.id === edge.source) && 
+          visibleNodes.some(n => n.id === edge.target)) {
         ctx.beginPath();
-        ctx.arc(pos.x, pos.y, nodeSize, 0, 2 * Math.PI);
-        ctx.fill();
-        
-        // Node border
-        ctx.strokeStyle = isHovered ? '#ffffff' : '#ffffff';
-        ctx.lineWidth = isHovered ? 3 : 2;
+        ctx.moveTo(source.x, source.y);
+        ctx.lineTo(target.x, target.y);
         ctx.stroke();
-
-        // Node label (only show for hovered or large nodes)
-        if (isHovered || size > 10) {
-          ctx.fillStyle = '#ffffff';
-          ctx.font = '11px Inter';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          const label = node.properties.title || String(node.id).substring(0, 8);
-          ctx.fillText(label, pos.x, pos.y + nodeSize + 12);
-        }
-      });
-
-      animationId = requestAnimationFrame(animate);
-    };
-
-    animate();
-
-    return () => {
-      if (animationId) {
-        cancelAnimationFrame(animationId);
       }
-    };
-  }, [nodes, edges, positions, hoveredNode, width, height]);
+    });
+
+    // Draw nodes
+    visibleNodes.forEach(node => {
+      const pos = positions.get(node.id);
+      if (!pos) return;
+
+      const isHovered = hoveredNode === node.id;
+      const baseSize = getNodeSize(node.type, pos.level);
+      const nodeSize = isHovered ? baseSize * 1.5 : baseSize;
+      
+      // Node circle
+      ctx.fillStyle = getNodeColor(node.type);
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, nodeSize, 0, 2 * Math.PI);
+      ctx.fill();
+      
+      // Node border
+      ctx.strokeStyle = isHovered ? '#ffffff' : '#ffffff';
+      ctx.lineWidth = isHovered ? 3 : 2;
+      ctx.stroke();
+
+      // Node label (only show for hovered or large nodes)
+      if (isHovered || baseSize > 8) {
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '11px Inter';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const label = node.properties.title || String(node.id).substring(0, 8);
+        ctx.fillText(label, pos.x, pos.y + nodeSize + 12);
+      }
+    });
+
+  }, [nodes, edges, positions, hoveredNode, scale, width, height]);
+
+  const getNodeSize = (type: string, level: number) => {
+    switch (type) {
+      case 'Topic':
+        return Math.max(12, Math.min(20, 16 - level * 2));
+      case 'Chat':
+        return Math.max(8, Math.min(16, 12 - level * 2));
+      case 'Message':
+        return Math.max(4, Math.min(12, 8 - level * 2));
+      default:
+        return 8;
+    }
+  };
 
   const getNodeColor = (type: string) => {
     switch (type) {
@@ -220,15 +182,28 @@ export const GraphView: React.FC<GraphViewProps> = ({
     const mouseX = (e.clientX - rect.left - offset.x) / scale;
     const mouseY = (e.clientY - rect.top - offset.y) / scale;
     
-    // Find closest node
+    // Find closest visible node
     let closestNode: string | null = null;
     let closestDistance = Infinity;
     
-    for (const [nodeId, pos] of positions) {
+    const visibleNodes = nodes.filter(node => {
+      const pos = positions.get(node.id);
+      if (!pos) return false;
+      
+      if (scale < 0.5) return pos.level === 0;
+      if (scale < 1.0) return pos.level <= 1;
+      return true;
+    });
+    
+    for (const node of visibleNodes) {
+      const pos = positions.get(node.id);
+      if (!pos) continue;
+      
       const distance = Math.sqrt((mouseX - pos.x) ** 2 + (mouseY - pos.y) ** 2);
-      if (distance < 20 && distance < closestDistance) {
+      const nodeSize = getNodeSize(node.type, pos.level);
+      if (distance < nodeSize * 2 && distance < closestDistance) {
         closestDistance = distance;
-        closestNode = nodeId;
+        closestNode = node.id;
       }
     }
     
@@ -278,7 +253,7 @@ export const GraphView: React.FC<GraphViewProps> = ({
 
   const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
     e.preventDefault();
-    const newScale = Math.max(0.5, Math.min(2, scale - e.deltaY * 0.001));
+    const newScale = Math.max(0.2, Math.min(3, scale - e.deltaY * 0.001));
     setScale(newScale);
   };
 
@@ -313,14 +288,14 @@ export const GraphView: React.FC<GraphViewProps> = ({
           🔄
         </button>
         <button
-          onClick={() => setScale(Math.min(2, scale + 0.1))}
+          onClick={() => setScale(Math.min(3, scale + 0.2))}
           className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow"
           title="Zoom in"
         >
           ➕
         </button>
         <button
-          onClick={() => setScale(Math.max(0.5, scale - 0.1))}
+          onClick={() => setScale(Math.max(0.2, scale - 0.2))}
           className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow"
           title="Zoom out"
         >
@@ -331,9 +306,16 @@ export const GraphView: React.FC<GraphViewProps> = ({
       {/* Info panel */}
       <div className="absolute bottom-4 left-4 bg-white dark:bg-gray-800 rounded-lg p-3 shadow-md">
         <div className="text-sm text-gray-600 dark:text-gray-400">
-          <div>Nodes: {nodes.length}</div>
+          <div>Nodes: {nodes.filter(n => {
+            const pos = positions.get(n.id);
+            if (!pos) return false;
+            if (scale < 0.5) return pos.level === 0;
+            if (scale < 1.0) return pos.level <= 1;
+            return true;
+          }).length}</div>
           <div>Edges: {edges.length}</div>
           <div>Scale: {scale.toFixed(2)}x</div>
+          <div>Level: {scale < 0.5 ? 'Topics' : scale < 1.0 ? 'Chats' : 'All'}</div>
         </div>
       </div>
     </div>
