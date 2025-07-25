@@ -1,62 +1,69 @@
-# ChatMind Frontend
+# React + TypeScript + Vite
 
-React-based frontend for visualizing the ChatGPT knowledge graph using Cytoscape.js.
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-## Setup
+Currently, two official plugins are available:
 
-1. **Install dependencies:**
-   ```bash
-   npm install
-   ```
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
-2. **Start development server:**
-   ```bash
-   npm start
-   ```
+## Expanding the ESLint configuration
 
-3. **Build for production:**
-   ```bash
-   npm run build
-   ```
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
 
-## Features
+```js
+export default tseslint.config([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
 
-- **Interactive Graph Visualization**: Explore topics, chats, and messages in a network graph
-- **Topic Clusters**: View semantically clustered topics with summaries
-- **Chat Navigation**: Browse individual chats and their messages
-- **Search**: Search through messages by content
-- **Responsive Design**: Works on desktop and mobile devices
+      // Remove tseslint.configs.recommended and replace with this
+      ...tseslint.configs.recommendedTypeChecked,
+      // Alternatively, use this for stricter rules
+      ...tseslint.configs.strictTypeChecked,
+      // Optionally, add this for stylistic rules
+      ...tseslint.configs.stylisticTypeChecked,
 
-## Architecture
+      // Other configs...
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
+```
 
-- **React 18**: Modern React with hooks
-- **TypeScript**: Type-safe development
-- **Material-UI**: Beautiful, accessible components
-- **Cytoscape.js**: Powerful graph visualization library
-- **Axios**: HTTP client for API communication
+You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
 
-## API Integration
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
 
-The frontend connects to the FastAPI backend at `http://localhost:8000` and expects the following endpoints:
-
-- `GET /graph` - Get graph data for visualization
-- `GET /topics` - Get all topic clusters
-- `GET /chats` - Get all chats
-- `GET /chats/{id}/messages` - Get messages for a chat
-- `GET /topics/{id}/messages` - Get messages for a topic
-- `GET /search?query=...` - Search messages
-
-## Development
-
-The main component is `App.tsx` which handles:
-- Loading graph data from the API
-- Rendering the Cytoscape.js visualization
-- Managing the sidebar with topics and chats
-- Displaying message details in the side panel
-
-## Styling
-
-The graph uses different colors and sizes for different node types:
-- **Topics** (red): Large nodes representing semantic clusters
-- **Chats** (teal): Medium nodes representing conversations
-- **Messages** (blue): Small nodes representing individual messages 
+export default tseslint.config([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+      // Enable lint rules for React
+      reactX.configs['recommended-typescript'],
+      // Enable lint rules for React DOM
+      reactDom.configs.recommended,
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
+```
