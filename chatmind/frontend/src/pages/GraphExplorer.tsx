@@ -226,33 +226,62 @@ const GraphExplorer: React.FC = () => {
                     <div className="flex-1 p-6 relative">
                       <div className="h-full bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
                         
-                        {/* Tooltip */}
-                        {hoveredNode && (
-                          <div 
-                            className="absolute z-10 bg-gray-900 text-white p-3 rounded-lg shadow-lg text-sm max-w-xs"
-                            style={{
-                              left: '50%',
-                              top: '20px',
-                              transform: 'translateX(-50%)'
-                            }}
-                          >
-                            <div className="font-semibold mb-1">{hoveredNode.properties.title || hoveredNode.id}</div>
-                            {hoveredNode.type === 'Topic' && (
-                              <div className="space-y-1 text-xs">
-                                <div>Chats: {(hoveredNode.properties.chat_count as number) || 0}</div>
-                                <div>Messages: {(hoveredNode.properties.message_count as number) || 0}</div>
-                                {(hoveredNode.properties.last_active as number) && (
-                                  <div>Last active: {new Date((hoveredNode.properties.last_active as number) * 1000).toLocaleDateString()}</div>
-                                )}
-                              </div>
-                            )}
-                            {hoveredNode.type === 'Chat' && (
-                              <div className="text-xs">
-                                Messages: {(hoveredNode.properties.message_count as number) || 0}
-                              </div>
-                            )}
-                          </div>
-                        )}
+                                  {/* Enhanced Tooltip */}
+          {hoveredNode && (
+            <div 
+              className="absolute z-10 bg-gray-900 text-white p-3 rounded-lg shadow-lg text-sm max-w-xs"
+              style={{
+                left: '50%',
+                top: '20px',
+                transform: 'translateX(-50%)'
+              }}
+            >
+              <div className="font-semibold mb-1">{hoveredNode.properties.title || hoveredNode.id}</div>
+              
+              {/* Semantic category */}
+              {hoveredNode.properties.top_words && (
+                <div className="text-xs text-blue-300 mb-1">
+                  {Array.isArray(hoveredNode.properties.top_words) 
+                    ? hoveredNode.properties.top_words.slice(0, 3).join(', ')
+                    : hoveredNode.properties.top_words}
+                </div>
+              )}
+              
+              {/* Node-specific details */}
+              {hoveredNode.type === 'Topic' && (
+                <div className="space-y-1 text-xs">
+                  <div>📊 Chats: {(hoveredNode.properties.chat_count as number) || 0}</div>
+                  <div>💬 Messages: {(hoveredNode.properties.message_count as number) || 0}</div>
+                  {(hoveredNode.properties.last_active as number) && (
+                    <div>🕒 Last active: {new Date((hoveredNode.properties.last_active as number) * 1000).toLocaleDateString()}</div>
+                  )}
+                  {hoveredNode.properties.sample_titles && (
+                    <div className="text-xs text-gray-300 mt-1">
+                      Sample: {Array.isArray(hoveredNode.properties.sample_titles) 
+                        ? hoveredNode.properties.sample_titles[0]
+                        : hoveredNode.properties.sample_titles}
+                    </div>
+                  )}
+                </div>
+              )}
+              {hoveredNode.type === 'Chat' && (
+                <div className="text-xs">
+                  <div>💬 Messages: {(hoveredNode.properties.message_count as number) || 0}</div>
+                  {(hoveredNode.properties.create_time as number) && (
+                    <div>🕒 Created: {new Date((hoveredNode.properties.create_time as number) * 1000).toLocaleDateString()}</div>
+                  )}
+                </div>
+              )}
+              {hoveredNode.type === 'Message' && (
+                <div className="text-xs">
+                  <div>👤 Role: {hoveredNode.properties.role || 'unknown'}</div>
+                  {(hoveredNode.properties.timestamp as number) && (
+                    <div>🕒 Time: {new Date((hoveredNode.properties.timestamp as number) * 1000).toLocaleString()}</div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
             {isLoading ? (
               <div className="h-full flex items-center justify-center">
                 <div className="text-center">
@@ -283,71 +312,152 @@ const GraphExplorer: React.FC = () => {
 
         {/* Sidebar */}
         <div className="w-80 border-l border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 space-y-6">
-          {/* Node details */}
+          {/* Enhanced Node Details */}
           {selectedNode ? (
             <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Node Details
-              </h3>
-              <div className="space-y-3">
-                <div>
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    Type
-                  </label>
-                  <p className="text-sm text-gray-900 dark:text-white">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Node Details
+                </h3>
+                <div className="flex space-x-2">
+                  <button className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                    📌
+                  </button>
+                  <button className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                    ⭐
+                  </button>
+                  <button className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                    📋
+                  </button>
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                {/* Node Type Badge */}
+                <div className="flex items-center space-x-2">
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    selectedNode.type === 'Topic' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
+                    selectedNode.type === 'Chat' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
+                    'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                  }`}>
                     {selectedNode.type}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    ID
-                  </label>
-                  <p className="text-sm text-gray-900 dark:text-white font-mono">
+                  </span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
                     {selectedNode.id}
-                  </p>
+                  </span>
                 </div>
+                
+                {/* Title/Name */}
                 {selectedNode.properties.title && (
                   <div>
                     <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                       Title
                     </label>
-                    <p className="text-sm text-gray-900 dark:text-white">
+                    <p className="text-sm text-gray-900 dark:text-white font-medium">
                       {selectedNode.properties.title}
                     </p>
                   </div>
                 )}
-                {selectedNode.properties.size && (
-                  <div>
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                      Size
-                    </label>
-                    <p className="text-sm text-gray-900 dark:text-white">
-                      {selectedNode.properties.size}
-                    </p>
-                  </div>
-                )}
-                {typeof selectedNode.properties.message_count === 'number' && selectedNode.properties.message_count > 0 && (
-                  <div>
-                    <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                      Messages
-                    </label>
-                    <p className="text-sm text-gray-900 dark:text-white">
-                      {selectedNode.properties.message_count}
-                    </p>
-                  </div>
-                )}
+                
+                {/* Semantic Category */}
                 {selectedNode.properties.top_words && (
                   <div>
                     <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                      Top Words
+                      Semantic Category
+                    </label>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {Array.isArray(selectedNode.properties.top_words) 
+                        ? selectedNode.properties.top_words.slice(0, 5).map((word, idx) => (
+                            <span key={idx} className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-xs rounded">
+                              {word}
+                            </span>
+                          ))
+                        : <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-xs rounded">
+                            {selectedNode.properties.top_words}
+                          </span>
+                      }
+                    </div>
+                  </div>
+                )}
+                
+                {/* Statistics */}
+                <div className="grid grid-cols-2 gap-4">
+                  {typeof selectedNode.properties.message_count === 'number' && selectedNode.properties.message_count > 0 && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                        Messages
+                      </label>
+                      <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {selectedNode.properties.message_count}
+                      </p>
+                    </div>
+                  )}
+                                     {(selectedNode.properties.chat_count as number) && (
+                     <div>
+                       <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                         Chats
+                       </label>
+                       <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                         {selectedNode.properties.chat_count as number}
+                       </p>
+                     </div>
+                   )}
+                                     {(selectedNode.properties.size as number) && (
+                     <div>
+                       <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                         Size
+                       </label>
+                       <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                         {selectedNode.properties.size as number}
+                       </p>
+                     </div>
+                   )}
+                </div>
+                
+                {/* Timestamps */}
+                {(selectedNode.properties.last_active as number) && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      Last Active
                     </label>
                     <p className="text-sm text-gray-900 dark:text-white">
-                      {Array.isArray(selectedNode.properties.top_words) 
-                        ? selectedNode.properties.top_words.join(', ')
-                        : selectedNode.properties.top_words}
+                      {new Date((selectedNode.properties.last_active as number) * 1000).toLocaleDateString()}
                     </p>
                   </div>
                 )}
+                
+                {/* Sample Content */}
+                {selectedNode.properties.sample_titles && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      Sample Titles
+                    </label>
+                    <div className="space-y-1 mt-1">
+                      {Array.isArray(selectedNode.properties.sample_titles) 
+                        ? selectedNode.properties.sample_titles.slice(0, 3).map((title, idx) => (
+                            <p key={idx} className="text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 p-2 rounded">
+                              {title}
+                            </p>
+                          ))
+                        : <p className="text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 p-2 rounded">
+                            {selectedNode.properties.sample_titles}
+                          </p>
+                      }
+                    </div>
+                  </div>
+                )}
+                
+                {/* Actions */}
+                <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <div className="flex space-x-2">
+                    <button className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">
+                      View Details
+                    </button>
+                    <button className="flex-1 px-3 py-2 bg-gray-600 text-white text-sm rounded hover:bg-gray-700">
+                      Similar
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           ) : (

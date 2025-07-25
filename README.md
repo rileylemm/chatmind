@@ -79,8 +79,12 @@ ChatMind automatically processes your ChatGPT export data, extracts meaningful i
 
 3. **Start the backend API server**
    ```bash
+   # Option 1: Using the startup script (recommended)
+   python scripts/start_api.py
+   
+   # Option 2: Manual start
    cd chatmind/api
-   python3 -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+   python3 run.py
    ```
 
 4. **Start the frontend development server**
@@ -95,6 +99,28 @@ ChatMind automatically processes your ChatGPT export data, extracts meaningful i
    - API Docs: http://localhost:8000/docs (Swagger UI)
 
 ## 🔧 Backend API
+
+The ChatMind API is built with **FastAPI** and provides a clean, modern REST API for accessing your knowledge graph data.
+
+### Features
+
+- **Clean Architecture**: Separated concerns with dedicated service layers
+- **Type Safety**: Full Pydantic model validation
+- **Auto Documentation**: Interactive API docs at `/docs`
+- **Error Handling**: Comprehensive error responses with proper HTTP status codes
+- **CORS Support**: Configured for frontend development
+- **Health Monitoring**: Built-in health checks
+
+### Quick Start
+
+```bash
+# Start the API
+python scripts/start_api.py
+
+# Or manually
+cd chatmind/api
+python3 run.py
+```
 
 ### API Endpoints
 
