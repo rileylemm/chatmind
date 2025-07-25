@@ -1,79 +1,26 @@
 import React, { useState } from 'react';
 import { GraphView } from '../components/graph/GraphView';
 import { Filter, Search, Settings } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../services/api';
 import type { GraphNode, GraphEdge } from '../types';
 
 const GraphExplorer: React.FC = () => {
   const [selectedNode] = useState<GraphNode | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Mock data for testing
-  const mockNodes: GraphNode[] = [
-    {
-      id: 'chat-1',
-      type: 'Chat',
-      properties: {
-        title: 'Python Web Development',
-        size: 15,
-        message_count: 45,
-      },
+  // Fetch real graph data from API
+  const { data: graphData, isLoading, error } = useQuery({
+    queryKey: ['graph-data'],
+    queryFn: async () => {
+      const response = await api.get('/graph?limit=200');
+      return response.data;
     },
-    {
-      id: 'chat-2',
-      type: 'Chat',
-      properties: {
-        title: 'React Best Practices',
-        size: 12,
-        message_count: 32,
-      },
-    },
-    {
-      id: 'topic-1',
-      type: 'Topic',
-      properties: {
-        title: 'API Design',
-        size: 8,
-        top_words: ['api', 'design', 'rest'],
-      },
-    },
-    {
-      id: 'tag-1',
-      type: 'Tag',
-      properties: {
-        title: '#python',
-        size: 6,
-      },
-    },
-    {
-      id: 'tag-2',
-      type: 'Tag',
-      properties: {
-        title: '#react',
-        size: 4,
-      },
-    },
-  ];
+    refetchInterval: 30000, // Refetch every 30 seconds
+  });
 
-  const mockEdges: GraphEdge[] = [
-    {
-      source: 'chat-1',
-      target: 'topic-1',
-      type: 'HAS_TOPIC',
-      properties: { weight: 0.8 },
-    },
-    {
-      source: 'chat-1',
-      target: 'tag-1',
-      type: 'RELATED_TO',
-      properties: { weight: 0.9 },
-    },
-    {
-      source: 'chat-2',
-      target: 'tag-2',
-      type: 'RELATED_TO',
-      properties: { weight: 0.7 },
-    },
-  ];
+  const nodes: GraphNode[] = graphData?.nodes || [];
+  const edges: GraphEdge[] = graphData?.edges || [];
 
   return (
     <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900">
@@ -86,6 +33,11 @@ const GraphExplorer: React.FC = () => {
           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
             Explore your knowledge graph interactively
           </p>
+          {graphData && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Showing {nodes.length} nodes and {edges.length} edges
+            </p>
+          )}
         </div>
         
         {/* Controls */}
@@ -118,12 +70,28 @@ const GraphExplorer: React.FC = () => {
         {/* Graph canvas */}
         <div className="flex-1 p-6">
           <div className="h-full bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
-            <GraphView
-              nodes={mockNodes}
-              edges={mockEdges}
-              width={800}
-              height={600}
-            />
+            {isLoading ? (
+              <div className="h-full flex items-center justify-center">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                  <p className="text-gray-600 dark:text-gray-400">Loading graph data...</p>
+                </div>
+              </div>
+            ) : error ? (
+              <div className="h-full flex items-center justify-center">
+                <div className="text-center">
+                  <p className="text-red-600 dark:text-red-400 mb-2">Error loading graph data</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Please check your API connection</p>
+                </div>
+              </div>
+            ) : (
+              <GraphView
+                nodes={nodes}
+                edges={edges}
+                width={800}
+                height={600}
+              />
+            )}
           </div>
         </div>
 
@@ -146,12 +114,22 @@ const GraphExplorer: React.FC = () => {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    Title
+                    ID
                   </label>
-                  <p className="text-sm text-gray-900 dark:text-white">
-                    {selectedNode.properties.title}
+                  <p className="text-sm text-gray-900 dark:text-white font-mono">
+                    {selectedNode.id}
                   </p>
                 </div>
+                {selectedNode.properties.title && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      Title
+                    </label>
+                    <p className="text-sm text-gray-900 dark:text-white">
+                      {selectedNode.properties.title}
+                    </p>
+                  </div>
+                )}
                 {selectedNode.properties.size && (
                   <div>
                     <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
@@ -169,6 +147,18 @@ const GraphExplorer: React.FC = () => {
                     </label>
                     <p className="text-sm text-gray-900 dark:text-white">
                       {selectedNode.properties.message_count}
+                    </p>
+                  </div>
+                )}
+                {selectedNode.properties.top_words && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      Top Words
+                    </label>
+                    <p className="text-sm text-gray-900 dark:text-white">
+                      {Array.isArray(selectedNode.properties.top_words) 
+                        ? selectedNode.properties.top_words.join(', ')
+                        : selectedNode.properties.top_words}
                     </p>
                   </div>
                 )}
@@ -206,7 +196,7 @@ const GraphExplorer: React.FC = () => {
               </div>
               <div className="flex items-center space-x-3">
                 <div className="w-4 h-4 bg-purple-500 rounded-full"></div>
-                <span className="text-sm text-gray-700 dark:text-gray-300">Tag</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">Message</span>
               </div>
             </div>
           </div>
