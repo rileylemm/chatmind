@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { 
   MessageSquare, 
   Network, 
@@ -21,9 +22,9 @@ const Dashboard: React.FC = () => {
       change: '+12%',
       changeType: 'positive',
       icon: MessageSquare,
-      gradient: 'from-blue-500 to-indigo-600',
-      bgGradient: 'from-blue-50 to-indigo-50',
-      darkBgGradient: 'from-blue-900/20 to-indigo-900/20',
+      gradient: 'from-blue-500 to-blue-600',
+      bgGradient: 'from-blue-50 to-blue-100',
+      darkBgGradient: 'from-blue-900/20 to-blue-800/20',
     },
     {
       name: 'Total Messages',
@@ -31,9 +32,9 @@ const Dashboard: React.FC = () => {
       change: '+8%',
       changeType: 'positive',
       icon: Network,
-      gradient: 'from-emerald-500 to-teal-600',
-      bgGradient: 'from-emerald-50 to-teal-50',
-      darkBgGradient: 'from-emerald-900/20 to-teal-900/20',
+      gradient: 'from-emerald-500 to-emerald-600',
+      bgGradient: 'from-emerald-50 to-emerald-100',
+      darkBgGradient: 'from-emerald-900/20 to-emerald-800/20',
     },
     {
       name: 'Active Tags',
@@ -41,9 +42,9 @@ const Dashboard: React.FC = () => {
       change: '+5%',
       changeType: 'positive',
       icon: Tag,
-      gradient: 'from-violet-500 to-purple-600',
-      bgGradient: 'from-violet-50 to-purple-50',
-      darkBgGradient: 'from-violet-900/20 to-purple-900/20',
+      gradient: 'from-slate-500 to-slate-600',
+      bgGradient: 'from-slate-50 to-slate-100',
+      darkBgGradient: 'from-slate-900/20 to-slate-800/20',
     },
     {
       name: 'Total Cost',
@@ -51,9 +52,9 @@ const Dashboard: React.FC = () => {
       change: '+15%',
       changeType: 'negative',
       icon: TrendingUp,
-      gradient: 'from-amber-500 to-orange-600',
-      bgGradient: 'from-amber-50 to-orange-50',
-      darkBgGradient: 'from-amber-900/20 to-orange-900/20',
+      gradient: 'from-amber-500 to-amber-600',
+      bgGradient: 'from-amber-50 to-amber-100',
+      darkBgGradient: 'from-amber-900/20 to-amber-800/20',
     },
   ];
 
@@ -65,9 +66,9 @@ const Dashboard: React.FC = () => {
       subtitle: '15 messages added',
       timestamp: '2 hours ago',
       icon: MessageSquare,
-      gradient: 'from-blue-500 to-indigo-600',
-      bgGradient: 'from-blue-100 to-indigo-100',
-      darkBgGradient: 'from-blue-900/30 to-indigo-900/30',
+      gradient: 'from-blue-500 to-blue-600',
+      bgGradient: 'from-blue-100 to-blue-200',
+      darkBgGradient: 'from-blue-900/30 to-blue-800/30',
     },
     {
       id: 2,
@@ -76,9 +77,9 @@ const Dashboard: React.FC = () => {
       subtitle: 'Auto-processed and tagged',
       timestamp: '4 hours ago',
       icon: Activity,
-      gradient: 'from-emerald-500 to-teal-600',
-      bgGradient: 'from-emerald-100 to-teal-100',
-      darkBgGradient: 'from-emerald-900/30 to-teal-900/30',
+      gradient: 'from-emerald-500 to-emerald-600',
+      bgGradient: 'from-emerald-100 to-emerald-200',
+      darkBgGradient: 'from-emerald-900/30 to-emerald-800/30',
     },
     {
       id: 3,
@@ -87,9 +88,9 @@ const Dashboard: React.FC = () => {
       subtitle: 'New tags discovered',
       timestamp: '6 hours ago',
       icon: Tag,
-      gradient: 'from-violet-500 to-purple-600',
-      bgGradient: 'from-violet-100 to-purple-100',
-      darkBgGradient: 'from-violet-900/30 to-purple-900/30',
+      gradient: 'from-slate-500 to-slate-600',
+      bgGradient: 'from-slate-100 to-slate-200',
+      darkBgGradient: 'from-slate-900/30 to-slate-800/30',
     },
   ];
 
@@ -99,28 +100,28 @@ const Dashboard: React.FC = () => {
       description: 'Visualize your knowledge network',
       icon: Network,
       href: '/graph',
-      gradient: 'from-blue-500 via-purple-500 to-indigo-600',
+      gradient: 'from-blue-500 to-blue-600',
     },
     {
       name: 'Browse Messages',
       description: 'Search and filter conversations',
       icon: MessageSquare,
       href: '/messages',
-      gradient: 'from-emerald-500 via-teal-500 to-cyan-600',
+      gradient: 'from-emerald-500 to-emerald-600',
     },
     {
       name: 'View Analytics',
       description: 'Track usage and insights',
       icon: BarChart3,
       href: '/analytics',
-      gradient: 'from-violet-500 via-purple-500 to-pink-600',
+      gradient: 'from-slate-500 to-slate-600',
     },
     {
       name: 'Manage Tags',
       description: 'Organize your knowledge',
       icon: Tag,
       href: '/tags',
-      gradient: 'from-amber-500 via-orange-500 to-red-600',
+      gradient: 'from-amber-500 to-amber-600',
     },
   ];
 
@@ -128,15 +129,15 @@ const Dashboard: React.FC = () => {
     <div className="h-full flex flex-col bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Page header */}
       <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 opacity-5"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600 via-blue-500 to-blue-600 opacity-5"></div>
         <div className="relative flex items-center justify-between p-8">
           <div>
-            <div className="flex items-center space-x-4 mb-3">
-              <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                <Sparkles className="h-7 w-7 text-white" />
+            <div className="flex items-center space-x-3 mb-2">
+              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                <Sparkles className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
                   Dashboard
                 </h1>
                 <p className="text-lg text-gray-600 dark:text-gray-400">
@@ -155,7 +156,7 @@ const Dashboard: React.FC = () => {
                 className="pl-12 pr-4 py-3 border-0 rounded-xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-gray-800 text-sm w-80 shadow-lg"
               />
             </div>
-            <button className="px-6 py-3 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+            <button className="px-4 py-3 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5 text-sm font-medium text-gray-700 dark:text-gray-300">
               <Filter className="h-4 w-4 mr-2 inline" />
               Filters
             </button>
@@ -178,7 +179,7 @@ const Dashboard: React.FC = () => {
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
                     {stat.name}
                   </p>
-                  <p className="text-4xl font-bold bg-gradient-to-r bg-clip-text text-transparent mb-3">
+                  <p className="text-4xl font-bold text-gray-900 dark:text-white mb-3">
                     {stat.value}
                   </p>
                   <div className="flex items-center">
@@ -197,13 +198,13 @@ const Dashboard: React.FC = () => {
                   </div>
                 </div>
                 <div className={`p-4 rounded-2xl bg-gradient-to-br ${stat.bgGradient} dark:${stat.darkBgGradient} shadow-lg`}>
-                  <stat.icon className={`h-8 w-8 bg-gradient-to-r ${stat.gradient} bg-clip-text text-transparent`} />
+                  <stat.icon className="h-8 w-8 text-gray-700 dark:text-gray-300" />
                 </div>
               </div>
             </div>
           ))}
         </div>
-
+        
         {/* Content grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Recent activity */}
@@ -224,7 +225,7 @@ const Dashboard: React.FC = () => {
                     className="group flex items-center space-x-4 p-4 rounded-xl hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 dark:hover:from-gray-700/50 dark:hover:to-gray-600/50 transition-all duration-200 hover:shadow-lg"
                   >
                     <div className={`p-3 rounded-xl bg-gradient-to-br ${activity.bgGradient} dark:${activity.darkBgGradient} shadow-md`}>
-                      <activity.icon className={`h-6 w-6 bg-gradient-to-r ${activity.gradient} bg-clip-text text-transparent`} />
+                      <activity.icon className="h-6 w-6 text-gray-700 dark:text-gray-300" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
@@ -254,30 +255,28 @@ const Dashboard: React.FC = () => {
               </h3>
               <div className="space-y-4">
                 {quickActions.map((action) => (
-                  <button
+                  <Link
                     key={action.name}
-                    className="w-full group relative overflow-hidden rounded-xl bg-gradient-to-r from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 border border-gray-200/50 dark:border-gray-700/50 p-4 text-left hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+                    to={action.href}
+                    className="w-full flex items-center space-x-4 p-4 rounded-xl bg-gradient-to-r from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 border border-gray-200/50 dark:border-gray-700/50 hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
                   >
-                    <div className="absolute inset-0 bg-gradient-to-r opacity-0 group-hover:opacity-100 transition-opacity duration-300 from-transparent via-white/10 to-transparent"></div>
-                    <div className="relative flex items-center space-x-4">
-                      <div className={`p-3 rounded-xl bg-gradient-to-r ${action.gradient} shadow-lg`}>
-                        <action.icon className="h-6 w-6 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                          {action.name}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {action.description}
-                        </p>
-                      </div>
-                      <ArrowUpRight className="h-5 w-5 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors" />
+                    <div className={`p-3 rounded-xl bg-gradient-to-r ${action.gradient} shadow-lg`}>
+                      <action.icon className="h-6 w-6 text-white" />
                     </div>
-                  </button>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                        {action.name}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {action.description}
+                      </p>
+                    </div>
+                    <ArrowUpRight className="h-5 w-5 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors" />
+                  </Link>
                 ))}
               </div>
             </div>
-
+            
             {/* System status */}
             <div className="rounded-2xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200/50 dark:border-gray-700/50 p-6 shadow-xl">
               <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">
