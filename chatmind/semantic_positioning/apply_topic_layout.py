@@ -266,8 +266,8 @@ def apply_topic_layout(input_file: Path = None, output_file: Path = None) -> boo
 
 @click.command()
 @click.option('--input', 'input_file', type=click.Path(exists=True), 
-              default='data/processed/tagged_chunks.jsonl',
-              help='Input tagged chunks JSONL file')
+              default='data/processed/processed_tagged_chunks.jsonl',
+              help='Input processed tagged chunks JSONL file')
 @click.option('--output', 'output_file', type=click.Path(), 
               default='data/processed/topics_with_coords.jsonl',
               help='Output topics with coordinates JSONL file')

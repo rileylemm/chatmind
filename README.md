@@ -163,6 +163,27 @@ chatmind/
 └── docs/                  # Documentation
 ```
 
+## 📚 Documentation
+
+- **[User Guide](docs/UserGuide.md)** - Complete user manual
+- **[Pipeline Overview](docs/PIPELINE_OVERVIEW.md)** - How the processing works
+- **[API Documentation](docs/API_DOCUMENTATION.md)** - Complete API reference and examples
+- **[Neo4j Query Guide](docs/NEO4J_QUERY_GUIDE.md)** - Comprehensive query reference
+- **[Neo4j Quick Reference](docs/NEO4J_QUICK_REFERENCE.md)** - Common queries cheat sheet
+- **[Incremental Processing](docs/INCREMENTAL_PROCESSING.md)** - Smart processing details
+- **[Semantic Positioning](chatmind/semantic_positioning/SEMANTIC_POSITIONING.md)** - UMAP layout and visualization
+
+## 🧪 Testing
+
+- **[Neo4j Query Tests](scripts/test_neo4j_queries.py)** - Test all Neo4j queries from the guide
+- **[API Endpoint Tests](scripts/test_api_endpoints.py)** - Test all API endpoints from the documentation
+
+## 🔧 Utilities
+
+- **[Graph Utilities](chatmind/utilities/UTILITIES.md)** - Database maintenance and enhancement scripts
+  - `create_has_chunk_relationships.py` - Link messages to semantic chunks
+  - `create_chat_similarity.py` - Create chat similarity relationships
+
 ## 🔧 Configuration
 
 ### Tag Master List

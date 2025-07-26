@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
 """
-Neo4j Graph Loader
+Neo4j Graph Loader - Dual Layer Graph Strategy
 
-Loads processed chat data, embeddings, and clusters into Neo4j
-as a knowledge graph for visualization and querying.
+Loads processed chat data into Neo4j with two layers:
+1. Raw Layer: Chat and Message nodes with full content (no chunking)
+2. Chunk Layer: Chunk nodes with embeddings and semantic processing
+
+This enables both conversation-level analysis and semantic search capabilities.
 """
 
 import json
 import jsonlines
 import pickle
+import hashlib
 from pathlib import Path
 from typing import Dict, List, Optional
 import click
@@ -28,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 class Neo4jGraphLoader:
-    """Loads chat data into Neo4j knowledge graph."""
+    """Loads chat data into Neo4j knowledge graph with dual layer strategy."""
     
     def __init__(self, 
                  uri: str = None,
@@ -68,99 +72,247 @@ class Neo4jGraphLoader:
             session.run("MATCH (n) DETACH DELETE n")
             logger.info("Cleared existing data from database")
     
+    def _generate_content_hash(self, chat_data: Dict) -> str:
+        """Generate a content hash for a chat based on its content."""
+        import hashlib
+        import json
+        
+        # Create a hashable representation of the chat
+        chat_content = {
+            'title': chat_data.get('title', ''),
+            'messages': [
+                {
+                    'id': msg.get('id', ''),
+                    'content': msg.get('content', ''),
+                    'role': msg.get('role', '')
+                }
+                for msg in chat_data.get('messages', [])
+            ]
+        }
+        
+        # Generate hash
+        content_str = json.dumps(chat_content, sort_keys=True)
+        return hashlib.sha256(content_str.encode()).hexdigest()
+    
     def create_constraints(self):
-        """Create database constraints and indexes."""
+        """Create database constraints and indexes for dual layer schema."""
         with self.driver.session() as session:
-            # Create constraints for unique properties
+            # Raw Layer constraints
             session.run("CREATE CONSTRAINT chat_id IF NOT EXISTS FOR (c:Chat) REQUIRE c.chat_id IS UNIQUE")
             session.run("CREATE CONSTRAINT message_id IF NOT EXISTS FOR (m:Message) REQUIRE m.message_id IS UNIQUE")
+            
+            # Chunk Layer constraints
+            session.run("CREATE CONSTRAINT chunk_id IF NOT EXISTS FOR (ch:Chunk) REQUIRE ch.chunk_id IS UNIQUE")
+            
+            # Semantic Layer constraints
             session.run("CREATE CONSTRAINT topic_id IF NOT EXISTS FOR (t:Topic) REQUIRE t.topic_id IS UNIQUE")
+            session.run("CREATE CONSTRAINT tag_name IF NOT EXISTS FOR (tag:Tag) REQUIRE tag.name IS UNIQUE")
             
             # Create indexes for better performance
             session.run("CREATE INDEX chat_title IF NOT EXISTS FOR (c:Chat) ON (c.title)")
             session.run("CREATE INDEX message_role IF NOT EXISTS FOR (m:Message) ON (m.role)")
+            session.run("CREATE INDEX message_timestamp IF NOT EXISTS FOR (m:Message) ON (m.timestamp)")
+            session.run("CREATE INDEX chunk_source_message IF NOT EXISTS FOR (ch:Chunk) ON (ch.source_message_id)")
             session.run("CREATE INDEX topic_name IF NOT EXISTS FOR (t:Topic) ON (t.name)")
+            session.run("CREATE INDEX tag_name IF NOT EXISTS FOR (tag:Tag) ON (tag.name)")
             
-            logger.info("Created database constraints and indexes")
+            logger.info("Created database constraints and indexes for dual layer schema")
     
-    def load_chats(self, chunks_file: Path):
-        """Load chat nodes from processed data."""
+    def load_raw_layer(self, chats_file: Path, chat_coords_file: Path = None) -> None:
+        """Load raw layer: Chat and Message nodes from chats.jsonl."""
+        logger.info("Loading raw layer (Chat and Message nodes)...")
+        
+        # Load chat coordinates if available
+        chat_coords = {}
+        if chat_coords_file and chat_coords_file.exists():
+            try:
+                with jsonlines.open(chat_coords_file) as reader:
+                    for coord_data in reader:
+                        chat_id = coord_data.get('chat_id')
+                        if chat_id:
+                            chat_coords[chat_id] = {
+                                'x': coord_data.get('x'),
+                                'y': coord_data.get('y')
+                            }
+                logger.info(f"Loaded coordinates for {len(chat_coords)} chats")
+            except Exception as e:
+                logger.warning(f"Failed to load chat coordinates: {e}")
+        
         with self.driver.session() as session:
-            chat_ids = set()
-            
-            with jsonlines.open(chunks_file) as reader:
-                for chunk in tqdm(reader, desc="Loading chats"):
-                    chat_id = chunk['chat_id']
-                    if chat_id not in chat_ids:
-                        chat_ids.add(chat_id)
-                        
-                        # Create Chat node
-                        session.run("""
-                            MERGE (c:Chat {chat_id: $chat_id})
-                            SET c.title = $title,
-                                c.create_time = $create_time,
-                                c.update_time = $update_time,
-                                c.data_lake_id = $data_lake_id
-                        """, {
-                            'chat_id': chat_id,
-                            'title': chunk['chat_title'],
-                            'create_time': chunk.get('timestamp'),
-                            'update_time': chunk.get('timestamp'),
-                            'data_lake_id': f"chat_{chunk['chat_id'][:16]}" if len(chunk['chat_id']) > 16 else chunk['chat_id']
-                        })
-            
-            logger.info(f"Loaded {len(chat_ids)} chat nodes")
-    
-    def load_messages(self, chunks_file: Path):
-        """Load message nodes and relationships."""
-        with self.driver.session() as session:
-            with jsonlines.open(chunks_file) as reader:
-                for chunk in tqdm(reader, desc="Loading messages"):
-                    # Create Message node
+            with jsonlines.open(chats_file) as reader:
+                for chat_data in tqdm(reader, desc="Loading raw layer"):
+                    content_hash = self._generate_content_hash(chat_data)
+                    chat_id = f"chat_{content_hash[:16]}"
+                    coords = chat_coords.get(chat_id, {})
+                    
                     session.run("""
-                        MERGE (m:Message {message_id: $message_id})
-                        SET m.content = $content,
-                            m.role = $role,
-                            m.timestamp = $timestamp,
-                            m.chunk_id = $chunk_id,
-                            m.cluster_id = $cluster_id
+                        MERGE (c:Chat {chat_id: $chat_id})
+                        SET c.title = $title,
+                            c.create_time = $create_time,
+                            c.update_time = $update_time,
+                            c.data_lake_id = $data_lake_id,
+                            c.x = $x,
+                            c.y = $y
                     """, {
-                        'message_id': chunk['message_id'],
-                        'content': chunk['content'],
-                        'role': chunk['role'],
-                        'timestamp': chunk.get('timestamp'),
-                        'chunk_id': chunk.get('chunk_id', 0),
-                        'cluster_id': chunk.get('cluster_id', -1)
+                        'chat_id': chat_id,
+                        'title': chat_data.get('title', 'Untitled'),
+                        'create_time': chat_data.get('create_time'),
+                        'update_time': chat_data.get('update_time'),
+                        'data_lake_id': chat_id,
+                        'x': coords.get('x'),
+                        'y': coords.get('y')
                     })
                     
-                    # Create relationship to Chat
+                    messages = chat_data.get('messages', [])
+                    for message in messages:
+                        message_id = message.get('id')
+                        if not message_id:
+                            continue
+                            
+                        session.run("""
+                            MERGE (m:Message {message_id: $message_id})
+                            SET m.content = $content,
+                                m.role = $role,
+                                m.timestamp = $timestamp,
+                                m.chat_id = $chat_id
+                        """, {
+                            'message_id': message_id,
+                            'content': message.get('content', ''),
+                            'role': message.get('role', 'user'),
+                            'timestamp': message.get('timestamp'),
+                            'chat_id': chat_id
+                        })
+                        
+                        session.run("""
+                            MATCH (m:Message {message_id: $message_id})
+                            MATCH (c:Chat {chat_id: $chat_id})
+                            MERGE (c)-[:CONTAINS]->(m)
+                        """, {
+                            'message_id': message_id,
+                            'chat_id': chat_id
+                        })
+                        
+                        parent_id = message.get('parent_id')
+                        if parent_id:
+                            session.run("""
+                                MATCH (m:Message {message_id: $message_id})
+                                MATCH (p:Message {message_id: $parent_id})
+                                MERGE (p)-[:REPLIES_TO]->(m)
+                            """, {
+                                'message_id': message_id,
+                                'parent_id': parent_id
+                            })
+    
+    def load_chunk_layer(self, chunks_file: Path):
+        """Load Chunk nodes and link to source messages (Layer 2)."""
+        with self.driver.session() as session:
+            chunk_count = 0
+            
+            with jsonlines.open(chunks_file) as reader:
+                for chunk in tqdm(reader, desc="Loading chunk layer"):
+                    # Generate chunk_id from message_id and content
+                    message_id = chunk['message_id']
+                    content_hash = hashlib.sha256(chunk['content'].encode()).hexdigest()[:8]
+                    chunk_id = f"{message_id}_{content_hash}"
+                    
+                    # Create Chunk node
                     session.run("""
-                        MATCH (m:Message {message_id: $message_id})
-                        MATCH (c:Chat {chat_id: $chat_id})
-                        MERGE (c)-[:CONTAINS]->(m)
+                        MERGE (ch:Chunk {chunk_id: $chunk_id})
+                        SET ch.text = $text,
+                            ch.embedding = $embedding,
+                            ch.source_message_id = $source_message_id,
+                            ch.cluster_id = $cluster_id,
+                            ch.chat_id = $chat_id
                     """, {
-                        'message_id': chunk['message_id'],
+                        'chunk_id': chunk_id,
+                        'text': chunk['content'],
+                        'embedding': chunk.get('embedding'),
+                        'source_message_id': message_id,
+                        'cluster_id': chunk.get('cluster_id', -1),
                         'chat_id': chunk['chat_id']
                     })
                     
-                    # Create parent relationship if exists
-                    if chunk.get('parent_id'):
-                        session.run("""
-                            MATCH (m:Message {message_id: $message_id})
-                            MATCH (p:Message {message_id: $parent_id})
-                            MERGE (p)-[:REPLIES_TO]->(m)
-                        """, {
-                            'message_id': chunk['message_id'],
-                            'parent_id': chunk['parent_id']
-                        })
+                    # Create relationship to source Message
+                    session.run("""
+                        MATCH (m:Message {message_id: $source_message_id})
+                        MATCH (ch:Chunk {chunk_id: $chunk_id})
+                        MERGE (m)-[:HAS_CHUNK]->(ch)
+                    """, {
+                        'source_message_id': message_id,
+                        'chunk_id': chunk_id
+                    })
+                    
+                    chunk_count += 1
             
-            logger.info("Loaded message nodes and relationships")
+            logger.info(f"Loaded {chunk_count} chunk nodes in chunk layer")
     
-    def load_topics(self, summaries_file: Path, topics_with_coords_file: Path = None):
-        """Load topic nodes from cluster summaries with optional coordinates."""
+    def load_tags(self, chunks_file: Path):
+        """Load tag nodes and relationships from tagged chunks."""
         with self.driver.session() as session:
-            with open(summaries_file, 'r') as f:
-                summaries = json.load(f)
+            tag_count = 0
+            relationship_count = 0
+            
+            with jsonlines.open(chunks_file) as reader:
+                for chunk in tqdm(reader, desc="Loading tags"):
+                    if not chunk.get('tags'):
+                        continue
+                    
+                    tags = chunk['tags']
+                    if isinstance(tags, str):
+                        # Handle case where tags might be a string
+                        tags = [tags]
+                    elif not isinstance(tags, list):
+                        continue
+                    
+                    # Generate chunk_id from message_id and content
+                    message_id = chunk['message_id']
+                    content_hash = hashlib.sha256(chunk['content'].encode()).hexdigest()[:8]
+                    chunk_id = f"{message_id}_{content_hash}"
+                    
+                    for tag in tags:
+                        # Clean tag name (remove # if present)
+                        tag_name = tag.replace('#', '') if tag.startswith('#') else tag
+                        
+                        # Create Tag node
+                        session.run("""
+                            MERGE (tag:Tag {name: $tag_name})
+                            SET tag.count = COALESCE(tag.count, 0) + 1
+                        """, {
+                            'tag_name': tag_name
+                        })
+                        
+                        # Create relationship between Chunk and Tag
+                        session.run("""
+                            MATCH (ch:Chunk {chunk_id: $chunk_id})
+                            MATCH (tag:Tag {name: $tag_name})
+                            MERGE (ch)-[:TAGGED_WITH]->(tag)
+                        """, {
+                            'chunk_id': chunk_id,
+                            'tag_name': tag_name
+                        })
+                        
+                        relationship_count += 1
+                    
+                    tag_count += len(tags)
+            
+            logger.info(f"Loaded {tag_count} tag relationships across all chunks")
+    
+    def load_topics(self, chunks_file: Path, topics_with_coords_file: Path = None):
+        """Load topic nodes from chunks data with optional coordinates."""
+        with self.driver.session() as session:
+            # Extract topics from chunks
+            topics = {}
+            with jsonlines.open(chunks_file) as reader:
+                for chunk in reader:
+                    cluster_id = chunk.get('cluster_id')
+                    if cluster_id is not None and cluster_id != -1:
+                        if cluster_id not in topics:
+                            topics[cluster_id] = {
+                                'size': 0,
+                                'top_words': [],
+                                'sample_titles': []
+                            }
+                        topics[cluster_id]['size'] += 1
             
             # Load coordinates if available
             coordinates = {}
@@ -175,10 +327,8 @@ class Neo4jGraphLoader:
                 except Exception as e:
                     logger.warning(f"Failed to load coordinates: {e}")
             
-            for topic_id, summary in tqdm(summaries.items(), desc="Loading topics"):
+            for topic_id, topic_data in tqdm(topics.items(), desc="Loading topics"):
                 topic_name = f"Topic {topic_id}"
-                if summary.get('top_words'):
-                    topic_name = " ".join(summary['top_words'][:3])
                 
                 # Get coordinates if available
                 x_coord = None
@@ -192,16 +342,12 @@ class Neo4jGraphLoader:
                         MERGE (t:Topic {topic_id: $topic_id})
                         SET t.name = $name,
                             t.size = $size,
-                            t.top_words = $top_words,
-                            t.sample_titles = $sample_titles,
                             t.x = $x,
                             t.y = $y
                     """, {
                         'topic_id': int(topic_id),
                         'name': topic_name,
-                        'size': summary['size'],
-                        'top_words': summary['top_words'],
-                        'sample_titles': summary['sample_titles'],
+                        'size': topic_data['size'],
                         'x': x_coord,
                         'y': y_coord
                     })
@@ -209,36 +355,37 @@ class Neo4jGraphLoader:
                     session.run("""
                         MERGE (t:Topic {topic_id: $topic_id})
                         SET t.name = $name,
-                            t.size = $size,
-                            t.top_words = $top_words,
-                            t.sample_titles = $sample_titles
+                            t.size = $size
                     """, {
                         'topic_id': int(topic_id),
                         'name': topic_name,
-                        'size': summary['size'],
-                        'top_words': summary['top_words'],
-                        'sample_titles': summary['sample_titles']
+                        'size': topic_data['size']
                     })
             
-            logger.info(f"Loaded {len(summaries)} topic nodes")
+            logger.info(f"Loaded {len(topics)} topic nodes")
     
     def create_topic_relationships(self, chunks_file: Path):
-        """Create relationships between messages and topics."""
+        """Create relationships between chunks and topics."""
         with self.driver.session() as session:
             with jsonlines.open(chunks_file) as reader:
                 for chunk in tqdm(reader, desc="Creating topic relationships"):
                     cluster_id = chunk.get('cluster_id')
                     if cluster_id is not None and cluster_id != -1:
+                        # Generate chunk_id from message_id and content
+                        message_id = chunk['message_id']
+                        content_hash = hashlib.sha256(chunk['content'].encode()).hexdigest()[:8]
+                        chunk_id = f"{message_id}_{content_hash}"
+                        
                         session.run("""
-                            MATCH (m:Message {message_id: $message_id})
+                            MATCH (ch:Chunk {chunk_id: $chunk_id})
                             MATCH (t:Topic {topic_id: $topic_id})
-                            MERGE (t)-[:SUMMARIZES]->(m)
+                            MERGE (t)-[:SUMMARIZES]->(ch)
                         """, {
-                            'message_id': chunk['message_id'],
+                            'chunk_id': chunk_id,
                             'topic_id': int(cluster_id)
                         })
             
-            logger.info("Created topic-message relationships")
+            logger.info("Created topic-chunk relationships")
     
     def create_chat_topic_relationships(self, chunks_file: Path):
         """Create direct Chat→Topic relationships for each chat and its clusters."""
@@ -259,6 +406,54 @@ class Neo4jGraphLoader:
                 """, {'chat_id': chat_id, 'topic_id': topic_id})
             logger.info(f"Created {len(pairs)} Chat→Topic relationships")
     
+    def create_has_chunk_relationships(self, chunks_file: Path):
+        """Create HAS_CHUNK relationships between Message and Chunk nodes."""
+        logger.info("Creating HAS_CHUNK relationships between messages and chunks...")
+        
+        with self.driver.session() as session:
+            # First, get all unique message IDs that have chunks
+            get_message_ids_query = """
+            MATCH (chunk:Chunk)
+            WHERE chunk.source_message_id IS NOT NULL
+            WITH DISTINCT chunk.source_message_id as source_id
+            RETURN source_id
+            """
+            
+            result = session.run(get_message_ids_query)
+            source_ids = [record['source_id'] for record in result]
+            
+            logger.info(f"Found {len(source_ids)} unique source message IDs to process")
+            
+            # Process in batches
+            batch_size = 500
+            total_relationships = 0
+            
+            for i in range(0, len(source_ids), batch_size):
+                batch = source_ids[i:i + batch_size]
+                
+                for source_id in batch:
+                    # Extract the actual message_id from source_message_id
+                    # source_message_id format: "message_id_chunk_index"
+                    if '_' in source_id:
+                        message_id = source_id.rsplit('_', 1)[0]
+                    else:
+                        message_id = source_id
+                    
+                    # Create the relationship
+                    create_relationship_query = """
+                    MATCH (m:Message {message_id: $message_id})
+                    MATCH (chunk:Chunk {source_message_id: $source_id})
+                    MERGE (m)-[:HAS_CHUNK]->(chunk)
+                    """
+                    
+                    session.run(create_relationship_query, message_id=message_id, source_id=source_id)
+                
+                total_relationships += len(batch)
+                if (i + batch_size) % 5000 == 0 or (i + batch_size) >= len(source_ids):
+                    logger.info(f"Processed {total_relationships} source IDs, created {total_relationships} relationships...")
+            
+            logger.info(f"Created {total_relationships} HAS_CHUNK relationships")
+
     def create_chat_similarity_relationships(self, chunks_file: Path, similarity_threshold: float = 0.8):
         """Compute per-chat embeddings and create Chat→Chat similarity edges above threshold."""
         # Aggregate embeddings per chat
@@ -307,61 +502,71 @@ class Neo4jGraphLoader:
                         rel_count += 1
         logger.info(f"Created {rel_count} Chat↔Chat similarity relationships (threshold={similarity_threshold})")
     
-    def create_similarity_relationships(self, similarity_threshold: float = 0.8):
-        """Create similarity relationships between messages based on embeddings."""
-        # This would require loading embeddings and computing similarities
-        # For now, we'll skip this to keep it simple
-        logger.info("Skipping similarity relationships (not implemented)")
-    
-    def load_pipeline(self, clear_existing: bool = True):
-        """Run the complete loading pipeline."""
+    def load_pipeline(self):
+        """Load all data into Neo4j following the dual layer strategy."""
+        logger.info("Starting dual layer graph loading pipeline...")
+        
         try:
             # Connect to Neo4j
             self.connect()
             
-            # Clear existing data if requested
-            if clear_existing:
-                self.clear_database()
+            # Clear existing data
+            self.clear_database()
             
             # Create constraints
             self.create_constraints()
             
-            # Load data files
-            chunks_file = self.embeddings_dir / "chunks_with_clusters.jsonl"
-            summaries_file = self.embeddings_dir / "cluster_summaries.json"
-            topics_with_coords_file = Path("data/processed/topics_with_coords.jsonl")
+            # Define file paths
+            chats_file = Path("data/processed/chats.jsonl")
+            chunks_file = Path("data/processed/processed_tagged_chunks.jsonl")
+            topics_file = Path("data/processed/topics_with_coords.jsonl")
+            chat_coords_file = Path("data/processed/chats_with_coords.jsonl")
             
-            if not chunks_file.exists():
-                raise FileNotFoundError(f"No chunks file found at {chunks_file}")
+            # Step 1: Load raw layer (Chat and Message nodes)
+            if chats_file.exists():
+                self.load_raw_layer(chats_file, chat_coords_file)
+            else:
+                logger.warning(f"Chats file not found: {chats_file}")
             
-            if not summaries_file.exists():
-                raise FileNotFoundError(f"No summaries file found at {summaries_file}")
+            # Step 2: Load chunk layer (Chunk nodes)
+            if chunks_file.exists():
+                self.load_chunk_layer(chunks_file)
+            else:
+                logger.warning(f"Chunks file not found: {chunks_file}")
             
-            # Load data into Neo4j
-            self.load_chats(chunks_file)
-            self.load_messages(chunks_file)
-            self.load_topics(summaries_file, topics_with_coords_file)
-            self.create_topic_relationships(chunks_file)
-            # Create direct Chat→Topic edges
-            self.create_chat_topic_relationships(chunks_file)
-            # Optionally create Chat↔Chat similarity edges if configured
-            if getattr(self, 'chat_similarity', False):
-                thresh = getattr(self, 'similarity_threshold', 0.8)
-                self.create_chat_similarity_relationships(chunks_file, thresh)
+            # Step 2.5: Create HAS_CHUNK relationships
+            if chunks_file.exists():
+                self.create_has_chunk_relationships(chunks_file)
+            else:
+                logger.warning(f"Chunks file not found: {chunks_file}")
             
-            logger.info("Successfully loaded data into Neo4j")
+            # Step 3: Load semantic layer (Tags and Topics)
+            if chunks_file.exists():
+                self.load_tags(chunks_file)
+                self.load_topics(chunks_file, topics_file)
+            else:
+                logger.warning(f"Chunks file not found: {chunks_file}")
             
-            # Get statistics
-            stats = self.get_graph_stats()
-            logger.info(f"Graph statistics: {stats}")
+            # Step 4: Create semantic relationships
+            if chunks_file.exists():
+                self.create_topic_relationships(chunks_file)
+                self.create_chat_topic_relationships(chunks_file)
+            else:
+                logger.warning(f"Chunks file not found: {chunks_file}")
             
-            return stats
+            # Step 5: Create chat similarity relationships
+            if chunks_file.exists():
+                self.create_chat_similarity_relationships(chunks_file, similarity_threshold=0.1)
+            else:
+                logger.warning(f"Chunks file not found: {chunks_file}")
+            
+            logger.info("Dual layer graph loading pipeline completed!")
             
         finally:
             self.close()
     
     def get_graph_stats(self) -> Dict:
-        """Get statistics about the loaded graph."""
+        """Get statistics about the loaded dual layer graph."""
         with self.driver.session() as session:
             stats = {}
             
@@ -396,15 +601,16 @@ class Neo4jGraphLoader:
 @click.option('--similarity-threshold', default=0.8, show_default=True, help='Threshold for chat similarity [0,1]')
 def main(uri: str, user: str, password: str, embeddings_dir: str, clear: bool,
          chat_similarity: bool, similarity_threshold: float):
-    """Load processed data into Neo4j graph database."""
+    """Load processed data into Neo4j graph database with dual layer strategy."""
     
     loader = Neo4jGraphLoader(uri, user, password, embeddings_dir)
     # Configure optional chat similarity computation
     loader.chat_similarity = chat_similarity
     loader.similarity_threshold = similarity_threshold
     try:
-        stats = loader.load_pipeline(clear_existing=clear)
-        logger.info("Graph loading completed successfully!")
+        loader.load_pipeline()
+        stats = loader.get_graph_stats()
+        logger.info("Dual layer graph loading completed successfully!")
         logger.info(f"Final stats: {stats}")
     except Exception as e:
         logger.error(f"Graph loading failed: {e}")
