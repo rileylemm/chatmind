@@ -1,7 +1,8 @@
 """
-ChatMind API Services
+ChatMind API Services - Dual Layer Graph Support
 
-Business logic layer for handling data operations and statistics.
+Business logic layer for handling data operations and statistics
+with support for both raw conversation data and semantic chunk data.
 """
 
 import json
@@ -13,11 +14,25 @@ from datetime import datetime
 
 from neo4j import GraphDatabase
 from neo4j.exceptions import ServiceUnavailable, AuthError
+from neo4j.graph import Relationship
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+def debug_rel_inspection(rel):
+    logger.warning(">>> DEBUG START")
+    try:
+        logger.warning(f"rel is None: {rel is None}")
+        logger.warning(f"bool(rel): {bool(rel)}")
+        logger.warning(f"type(rel): {type(rel)}")
+        logger.warning(f"repr(rel): {repr(rel)}")
+        logger.warning(f"dir(rel): {dir(rel)}")
+    except Exception as e:
+        logger.warning(f"Logging exploded: {e}")
+    logger.warning(">>> DEBUG END")
 
 class Neo4jService:
-    """Service for Neo4j database operations"""
+    """Service for Neo4j database operations with dual layer support"""
     
     def __init__(self):
         self.driver = None
@@ -53,75 +68,231 @@ class Neo4jService:
         limit: int = 100, 
         node_types: Optional[List[str]] = None,
         parent_id: Optional[str] = None,
-        use_semantic_positioning: bool = False
+        use_semantic_positioning: bool = False,
+        layer: str = "both"  # "raw", "chunk", or "both"
     ) -> Dict[str, Any]:
-        """Get graph data from Neo4j"""
+        """Get graph data from Neo4j with dual layer support"""
         if not self.driver:
             raise ConnectionError("Database not connected")
         
         try:
             with self.driver.session() as session:
-                # Build query based on parameters
+                # Build a more comprehensive query that finds all relationships between our node types
                 query = """
-                MATCH (n)
-                """
-                
-                if node_types:
-                    type_conditions = []
-                    for t in node_types:
-                        if t == "Topic":
-                            type_conditions.append("n:Topic")
-                        else:
-                            type_conditions.append(f"n:{t}")
-                    query += f" WHERE {' OR '.join(type_conditions)}"
-                
-                if parent_id:
-                    query += f"""
-                    MATCH (parent)-[:CONTAINS*]->(n)
-                    WHERE parent.id = $parent_id
-                    """
-                
-                query += """
-                OPTIONAL MATCH (n)-[r]->(m)
-                RETURN n, r, m
+                MATCH (n)-[r]->(m)
+                WHERE (n:Chat OR n:Message OR n:Chunk OR n:Topic OR n:Tag)
+                AND (m:Chat OR m:Message OR m:Chunk OR m:Topic OR m:Tag)
+                RETURN n AS source, r AS relationship, m AS target
                 LIMIT $limit
                 """
                 
-                result = session.run(query, limit=limit, parent_id=parent_id)
+                result = session.run(query, limit=limit)
                 
-                nodes = []
+                nodes = {}
                 edges = []
-                node_ids = set()
                 
                 for record in result:
-                    # Process nodes
-                    for node_key in ['n', 'm']:
-                        if record[node_key] and record[node_key].id not in node_ids:
-                            node = record[node_key]
-                            node_data = {
-                                "id": node.id,
-                                "type": list(node.labels)[0] if node.labels else "Unknown",
-                                "properties": dict(node)
-                            }
-                            nodes.append(node_data)
-                            node_ids.add(node.id)
-                    
-                    # Process edges
-                    if record['r']:
-                        edge = record['r']
-                        edge_data = {
-                            "source": edge.start_node.id,
-                            "target": edge.end_node.id,
-                            "type": edge.type,
-                            "properties": dict(edge)
-                        }
-                        edges.append(edge_data)
+                    source = record.get("source")
+                    target = record.get("target")
+                    rel = record.get("relationship")
+
+                    # Process relationship
+
+                    if rel is not None and hasattr(rel, 'type') and hasattr(rel, 'element_id'):
+                        source_id = str(source.element_id)
+                        target_id = str(target.element_id)
+
+                        # Add nodes
+                        for node in [source, target]:
+                            node_id = str(node.element_id)
+                            if node_id not in nodes:
+                                nodes[node_id] = {
+                                    "id": node_id,
+                                    "type": list(node.labels)[0] if node.labels else "Unknown",
+                                    "properties": dict(node)
+                                }
+
+                        # Add edge
+                        edges.append({
+                            "source": source_id,
+                            "target": target_id,
+                            "type": rel.type,
+                            "properties": dict(rel)
+                        })
                 
-                return {"nodes": nodes, "edges": edges}
+                logger.info(f"Found {len(nodes)} nodes and {len(edges)} edges")
+                
+                return {"nodes": list(nodes.values()), "edges": edges}
                 
         except Exception as e:
             logger.error(f"Error fetching graph data: {e}")
             raise RuntimeError(f"Failed to fetch graph data: {e}")
+    
+    def get_raw_conversations(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """Get raw conversation data (Chat and Message nodes)"""
+        if not self.driver:
+            raise ConnectionError("Database not connected")
+        
+        try:
+            with self.driver.session() as session:
+                query = """
+                MATCH (c:Chat)-[:CONTAINS]->(m:Message)
+                RETURN c, collect(m) as messages
+                ORDER BY c.create_time DESC
+                LIMIT $limit
+                """
+                result = session.run(query, limit=limit)
+                
+                conversations = []
+                for record in result:
+                    chat = record['c']
+                    messages = record['messages']
+                    
+                    conversation = {
+                        "chat_id": chat.get('chat_id'),
+                        "title": chat.get('title'),
+                        "create_time": chat.get('create_time'),
+                        "message_count": len(messages),
+                        "messages": [
+                            {
+                                "message_id": msg.get('message_id'),
+                                "content": msg.get('content'),
+                                "role": msg.get('role'),
+                                "timestamp": msg.get('timestamp')
+                            }
+                            for msg in messages
+                        ]
+                    }
+                    conversations.append(conversation)
+                
+                return conversations
+                
+        except Exception as e:
+            logger.error(f"Error fetching raw conversations: {e}")
+            raise RuntimeError(f"Failed to fetch raw conversations: {e}")
+    
+    def get_chunks_for_message(self, message_id: str) -> List[Dict[str, Any]]:
+        """Get chunks associated with a specific message"""
+        if not self.driver:
+            raise ConnectionError("Database not connected")
+        
+        try:
+            with self.driver.session() as session:
+                query = """
+                MATCH (m:Message {message_id: $message_id})-[:HAS_CHUNK]->(ch:Chunk)
+                OPTIONAL MATCH (ch)-[:TAGGED_WITH]->(tag:Tag)
+                RETURN ch, collect(tag) as tags
+                """
+                result = session.run(query, message_id=message_id)
+                
+                chunks = []
+                for record in result:
+                    chunk = record['ch']
+                    tags = record['tags']
+                    
+                    chunk_data = {
+                        "chunk_id": chunk.get('chunk_id'),
+                        "text": chunk.get('text'),
+                        "source_message_id": chunk.get('source_message_id'),
+                        "cluster_id": chunk.get('cluster_id'),
+                        "tags": [tag.get('name') for tag in tags if tag.get('name')]
+                    }
+                    chunks.append(chunk_data)
+                
+                return chunks
+                
+        except Exception as e:
+            logger.error(f"Error fetching chunks for message: {e}")
+            raise RuntimeError(f"Failed to fetch chunks: {e}")
+    
+    def get_semantic_chunks(self, limit: int = 100, cluster_id: Optional[int] = None) -> List[Dict[str, Any]]:
+        """Get semantic chunks with embeddings and tags"""
+        if not self.driver:
+            raise ConnectionError("Database not connected")
+        
+        try:
+            with self.driver.session() as session:
+                query = """
+                MATCH (ch:Chunk)
+                """
+                
+                if cluster_id is not None:
+                    query += "WHERE ch.cluster_id = $cluster_id"
+                
+                query += """
+                OPTIONAL MATCH (ch)-[:TAGGED_WITH]->(tag:Tag)
+                OPTIONAL MATCH (ch)<-[:SUMMARIZES]-(t:Topic)
+                RETURN ch, collect(tag) as tags, t
+                ORDER BY ch.chunk_id
+                LIMIT $limit
+                """
+                
+                result = session.run(query, limit=limit, cluster_id=cluster_id)
+                
+                chunks = []
+                for record in result:
+                    chunk = record['ch']
+                    tags = record['tags']
+                    topic = record['t']
+                    
+                    chunk_data = {
+                        "chunk_id": chunk.get('chunk_id'),
+                        "text": chunk.get('text'),
+                        "source_message_id": chunk.get('source_message_id'),
+                        "cluster_id": chunk.get('cluster_id'),
+                        "tags": [tag.get('name') for tag in tags if tag.get('name')],
+                        "topic": {
+                            "topic_id": topic.get('topic_id'),
+                            "name": topic.get('name')
+                        } if topic else None
+                    }
+                    chunks.append(chunk_data)
+                
+                return chunks
+                
+        except Exception as e:
+            logger.error(f"Error fetching semantic chunks: {e}")
+            raise RuntimeError(f"Failed to fetch semantic chunks: {e}")
+    
+    def search_by_semantic_similarity(self, query_text: str, limit: int = 20) -> List[Dict[str, Any]]:
+        """Search chunks by semantic similarity (requires embeddings)"""
+        if not self.driver:
+            raise ConnectionError("Database not connected")
+        
+        try:
+            with self.driver.session() as session:
+                # This would require vector similarity search
+                # For now, we'll do a simple text search
+                query = """
+                MATCH (ch:Chunk)
+                WHERE toLower(ch.text) CONTAINS toLower($query_text)
+                OPTIONAL MATCH (ch)-[:TAGGED_WITH]->(tag:Tag)
+                RETURN ch, collect(tag) as tags
+                ORDER BY ch.chunk_id
+                LIMIT $limit
+                """
+                
+                result = session.run(query, query_text=query_text, limit=limit)
+                
+                chunks = []
+                for record in result:
+                    chunk = record['ch']
+                    tags = record['tags']
+                    
+                    chunk_data = {
+                        "chunk_id": chunk.get('chunk_id'),
+                        "text": chunk.get('text'),
+                        "source_message_id": chunk.get('source_message_id'),
+                        "cluster_id": chunk.get('cluster_id'),
+                        "tags": [tag.get('name') for tag in tags if tag.get('name')]
+                    }
+                    chunks.append(chunk_data)
+                
+                return chunks
+                
+        except Exception as e:
+            logger.error(f"Error searching by semantic similarity: {e}")
+            raise RuntimeError(f"Failed to search by semantic similarity: {e}")
     
     def get_topics(self) -> List[Dict[str, Any]]:
         """Get all topics"""
@@ -141,7 +312,7 @@ class Neo4jService:
                 for record in result:
                     topic = record['t']
                     topics.append({
-                        "id": topic.id,
+                        "id": topic.get('topic_id'),
                         "name": topic.get('name', ''),
                         "size": topic.get('size', 0),
                         "top_words": topic.get('top_words', []),
@@ -163,7 +334,9 @@ class Neo4jService:
             with self.driver.session() as session:
                 query = """
                 MATCH (c:Chat)
-                RETURN c
+                OPTIONAL MATCH (c)-[:CONTAINS]->(m:Message)
+                WITH c, count(m) as message_count
+                RETURN c, message_count
                 ORDER BY c.create_time DESC
                 LIMIT $limit
                 """
@@ -173,10 +346,10 @@ class Neo4jService:
                 for record in result:
                     chat = record['c']
                     chats.append({
-                        "id": chat.id,
-                        "title": chat.get('title', ''),
+                        "id": chat.get('chat_id'),
+                        "title": chat.get('title'),
                         "create_time": chat.get('create_time'),
-                        "message_count": chat.get('message_count', 0)
+                        "message_count": record['message_count']
                     })
                 
                 return chats
@@ -193,8 +366,9 @@ class Neo4jService:
         try:
             with self.driver.session() as session:
                 query = """
-                MATCH (c:Chat {id: $chat_id})-[:CONTAINS]->(m:Message)
-                RETURN m
+                MATCH (c:Chat {chat_id: $chat_id})-[:CONTAINS]->(m:Message)
+                OPTIONAL MATCH (m)-[:HAS_CHUNK]->(ch:Chunk)
+                RETURN m, count(ch) as chunk_count
                 ORDER BY m.timestamp
                 LIMIT $limit
                 """
@@ -204,17 +378,17 @@ class Neo4jService:
                 for record in result:
                     message = record['m']
                     messages.append({
-                        "id": message.id,
-                        "content": message.get('content', ''),
-                        "role": message.get('role', ''),
+                        "id": message.get('message_id'),
+                        "content": message.get('content'),
+                        "role": message.get('role'),
                         "timestamp": message.get('timestamp'),
-                        "cluster_id": message.get('cluster_id')
+                        "chunk_count": record['chunk_count']
                     })
                 
                 return messages
                 
         except Exception as e:
-            logger.error(f"Error fetching messages for chat {chat_id}: {e}")
+            logger.error(f"Error fetching messages for chat: {e}")
             raise RuntimeError(f"Failed to fetch messages: {e}")
     
     def search_messages(self, search_term: str, limit: int = 50) -> List[Dict[str, Any]]:
@@ -224,108 +398,384 @@ class Neo4jService:
         
         try:
             with self.driver.session() as session:
-                # Get all messages to search through (no limit for comprehensive search)
-                search_query = """
+                query = """
                 MATCH (m:Message)
+                WHERE toLower(m.content) CONTAINS toLower($search_term)
                 RETURN m
                 ORDER BY m.timestamp DESC
+                LIMIT $limit
                 """
-                result = session.run(search_query)
+                result = session.run(query, search_term=search_term, limit=limit)
                 
                 messages = []
                 for record in result:
                     message = record['m']
-                    # Filter by content in Python instead of Neo4j
-                    content = message.get('content', '')
-                    if search_term.lower() in content.lower():
-                        messages.append({
-                            "id": message.id,
-                            "content": content,
-                            "role": message.get('role', ''),
-                            "timestamp": message.get('timestamp'),
-                            "cluster_id": message.get('cluster_id')
-                        })
+                    messages.append({
+                        "id": message.get('message_id'),
+                        "content": message.get('content'),
+                        "role": message.get('role'),
+                        "timestamp": message.get('timestamp')
+                    })
                 
-                # Apply the limit after finding all matches
-                messages = messages[:limit]
-                
-                logger.info(f"Search found {len(messages)} messages for query '{search_term}'")
                 return messages
                 
         except Exception as e:
             logger.error(f"Error searching messages: {e}")
             raise RuntimeError(f"Failed to search messages: {e}")
-
+    
+    def get_tags(self) -> List[Dict[str, Any]]:
+        """Get all tags"""
+        if not self.driver:
+            raise ConnectionError("Database not connected")
+        
+        try:
+            with self.driver.session() as session:
+                query = """
+                MATCH (tag:Tag)
+                RETURN tag
+                ORDER BY tag.count DESC
+                """
+                result = session.run(query)
+                
+                tags = []
+                for record in result:
+                    tag = record['tag']
+                    tags.append({
+                        "name": tag.get('name'),
+                        "count": tag.get('count', 0)
+                    })
+                
+                return tags
+                
+        except Exception as e:
+            logger.error(f"Error fetching tags: {e}")
+            raise RuntimeError(f"Failed to fetch tags: {e}")
+    
+    def get_message_by_id(self, message_id: str) -> Optional[Dict[str, Any]]:
+        """Get a specific message by ID with its chunks"""
+        if not self.driver:
+            raise ConnectionError("Database not connected")
+        
+        try:
+            with self.driver.session() as session:
+                query = """
+                MATCH (m:Message {message_id: $message_id})
+                OPTIONAL MATCH (m)-[:HAS_CHUNK]->(ch:Chunk)
+                OPTIONAL MATCH (ch)-[:TAGGED_WITH]->(tag:Tag)
+                RETURN m, collect(DISTINCT ch) as chunks, collect(DISTINCT tag) as tags
+                """
+                result = session.run(query, message_id=message_id)
+                record = result.single()
+                
+                if not record:
+                    return None
+                
+                message = record['m']
+                chunks = record['chunks']
+                tags = record['tags']
+                
+                return {
+                    "id": message.get('message_id'),
+                    "content": message.get('content'),
+                    "role": message.get('role'),
+                    "timestamp": message.get('timestamp'),
+                    "chunks": [
+                        {
+                            "chunk_id": chunk.get('chunk_id'),
+                            "text": chunk.get('text'),
+                            "cluster_id": chunk.get('cluster_id')
+                        }
+                        for chunk in chunks if chunk.get('chunk_id')
+                    ],
+                    "tags": [tag.get('name') for tag in tags if tag.get('name')]
+                }
+                
+        except Exception as e:
+            logger.error(f"Error fetching message by ID: {e}")
+            raise RuntimeError(f"Failed to fetch message: {e}")
+    
+    def get_cluster_details(self, cluster_id: int) -> Optional[Dict[str, Any]]:
+        """Get details for a specific cluster/topic"""
+        if not self.driver:
+            raise ConnectionError("Database not connected")
+        
+        try:
+            with self.driver.session() as session:
+                query = """
+                MATCH (t:Topic {topic_id: $cluster_id})
+                OPTIONAL MATCH (t)-[:SUMMARIZES]->(ch:Chunk)
+                OPTIONAL MATCH (ch)-[:TAGGED_WITH]->(tag:Tag)
+                RETURN t, ch, tag
+                """
+                result = session.run(query, cluster_id=cluster_id)
+                records = list(result)
+                
+                if not records:
+                    return None
+                
+                # Get the topic from the first record
+                topic = records[0]['t']
+                
+                # Collect chunks and tags from all records
+                chunks = []
+                tags = []
+                seen_chunks = set()
+                seen_tags = set()
+                
+                for record in records:
+                    if record['ch'] and record['ch'].get('chunk_id') and record['ch'].get('chunk_id') not in seen_chunks:
+                        chunks.append(record['ch'])
+                        seen_chunks.add(record['ch'].get('chunk_id'))
+                    
+                    if record['tag'] and record['tag'].get('name') and record['tag'].get('name') not in seen_tags:
+                        tags.append(record['tag'])
+                        seen_tags.add(record['tag'].get('name'))
+                
+                return {
+                    "id": topic.get('topic_id'),
+                    "name": topic.get('name'),
+                    "size": topic.get('size'),
+                    "top_words": topic.get('top_words', []),
+                    "sample_titles": topic.get('sample_titles', []),
+                    "chunks": [
+                        {
+                            "chunk_id": chunk.get('chunk_id'),
+                            "text": chunk.get('text'),
+                            "source_message_id": chunk.get('source_message_id')
+                        }
+                        for chunk in chunks if chunk.get('chunk_id')
+                    ],
+                    "tags": list(set([tag.get('name') for tag in tags if tag.get('name')]))
+                }
+                
+        except Exception as e:
+            logger.error(f"Error fetching cluster details: {e}")
+            raise RuntimeError(f"Failed to fetch cluster details: {e}")
+    
+    def expand_node(self, node_id: str) -> Dict[str, Any]:
+        """Expand a node to show its relationships"""
+        if not self.driver:
+            raise ConnectionError("Database not connected")
+        
+        try:
+            with self.driver.session() as session:
+                # First, determine the node type
+                node_query = """
+                MATCH (n)
+                WHERE n.chat_id = $node_id OR n.message_id = $node_id OR n.chunk_id = $node_id OR n.topic_id = $node_id OR n.name = $node_id
+                RETURN n
+                LIMIT 1
+                """
+                node_result = session.run(node_query, node_id=node_id)
+                node_record = node_result.single()
+                
+                if not node_record:
+                    return {"error": "Node not found"}
+                
+                node = node_record['n']
+                node_labels = list(node.labels)
+                node_type = node_labels[0] if node_labels else "Unknown"
+                
+                # Build expansion query based on node type
+                if node_type == "Chat":
+                    expansion_query = """
+                    MATCH (c:Chat {chat_id: $node_id})
+                    OPTIONAL MATCH (c)-[:CONTAINS]->(m:Message)
+                    OPTIONAL MATCH (c)-[:HAS_TOPIC]->(t:Topic)
+                    OPTIONAL MATCH (c)-[:SIMILAR_TO]->(similar:Chat)
+                    RETURN c, collect(DISTINCT m) as messages, collect(DISTINCT t) as topics, collect(DISTINCT similar) as similar_chats
+                    """
+                elif node_type == "Message":
+                    expansion_query = """
+                    MATCH (m:Message {message_id: $node_id})
+                    OPTIONAL MATCH (m)-[:HAS_CHUNK]->(ch:Chunk)
+                    OPTIONAL MATCH (ch)-[:TAGGED_WITH]->(tag:Tag)
+                    OPTIONAL MATCH (ch)<-[:SUMMARIZES]-(t:Topic)
+                    RETURN m, collect(DISTINCT ch) as chunks, collect(DISTINCT tag) as tags, collect(DISTINCT t) as topics
+                    """
+                elif node_type == "Chunk":
+                    expansion_query = """
+                    MATCH (ch:Chunk {chunk_id: $node_id})
+                    OPTIONAL MATCH (ch)<-[:HAS_CHUNK]-(m:Message)
+                    OPTIONAL MATCH (ch)-[:TAGGED_WITH]->(tag:Tag)
+                    OPTIONAL MATCH (ch)<-[:SUMMARIZES]-(t:Topic)
+                    RETURN ch, collect(DISTINCT m) as messages, collect(DISTINCT tag) as tags, collect(DISTINCT t) as topics
+                    """
+                elif node_type == "Topic":
+                    expansion_query = """
+                    MATCH (t:Topic {topic_id: $node_id})
+                    OPTIONAL MATCH (t)-[:SUMMARIZES]->(ch:Chunk)
+                    OPTIONAL MATCH (ch)-[:TAGGED_WITH]->(tag:Tag)
+                    OPTIONAL MATCH (ch)<-[:HAS_CHUNK]-(m:Message)
+                    RETURN t, collect(DISTINCT ch) as chunks, collect(DISTINCT tag) as tags, collect(DISTINCT m) as messages
+                    """
+                else:
+                    return {"error": f"Unsupported node type: {node_type}"}
+                
+                expansion_result = session.run(expansion_query, node_id=node_id)
+                expansion_record = expansion_result.single()
+                
+                if not expansion_record:
+                    return {"error": "Failed to expand node"}
+                
+                # Build response based on node type
+                response = {
+                    "node_type": node_type,
+                    "node": dict(node),
+                    "relationships": {}
+                }
+                
+                if node_type == "Chat":
+                    response["relationships"] = {
+                        "messages": [dict(m) for m in expansion_record['messages'] if m.get('message_id')],
+                        "topics": [dict(t) for t in expansion_record['topics'] if t.get('topic_id')],
+                        "similar_chats": [dict(c) for c in expansion_record['similar_chats'] if c.get('chat_id')]
+                    }
+                elif node_type == "Message":
+                    response["relationships"] = {
+                        "chunks": [dict(ch) for ch in expansion_record['chunks'] if ch.get('chunk_id')],
+                        "tags": [dict(tag) for tag in expansion_record['tags'] if tag.get('name')],
+                        "topics": [dict(t) for t in expansion_record['topics'] if t.get('topic_id')]
+                    }
+                elif node_type == "Chunk":
+                    response["relationships"] = {
+                        "messages": [dict(m) for m in expansion_record['messages'] if m.get('message_id')],
+                        "tags": [dict(tag) for tag in expansion_record['tags'] if tag.get('name')],
+                        "topics": [dict(t) for t in expansion_record['topics'] if t.get('topic_id')]
+                    }
+                elif node_type == "Topic":
+                    response["relationships"] = {
+                        "chunks": [dict(ch) for ch in expansion_record['chunks'] if ch.get('chunk_id')],
+                        "tags": [dict(tag) for tag in expansion_record['tags'] if tag.get('name')],
+                        "messages": [dict(m) for m in expansion_record['messages'] if m.get('message_id')]
+                    }
+                
+                return response
+                
+        except Exception as e:
+            logger.error(f"Error expanding node: {e}")
+            raise RuntimeError(f"Failed to expand node: {e}")
+    
+    def advanced_search(self, query: str, filters: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Advanced search with filters"""
+        if not self.driver:
+            raise ConnectionError("Database not connected")
+        
+        try:
+            with self.driver.session() as session:
+                # Build query based on filters
+                base_query = """
+                MATCH (n)
+                """
+                
+                where_conditions = []
+                params = {"search_query": query}
+                
+                # Add filters
+                if filters.get("node_type"):
+                    node_type = filters["node_type"]
+                    if node_type == "Message":
+                        where_conditions.append("n:Message")
+                    elif node_type == "Chunk":
+                        where_conditions.append("n:Chunk")
+                    elif node_type == "Chat":
+                        where_conditions.append("n:Chat")
+                    elif node_type == "Topic":
+                        where_conditions.append("n:Topic")
+                
+                if filters.get("role"):
+                    where_conditions.append("n.role = $role")
+                    params["role"] = filters["role"]
+                
+                if filters.get("cluster_id"):
+                    where_conditions.append("n.cluster_id = $cluster_id")
+                    params["cluster_id"] = filters["cluster_id"]
+                
+                # Add text search
+                if query:
+                    where_conditions.append("toLower(n.content) CONTAINS toLower($search_query) OR toLower(n.text) CONTAINS toLower($search_query)")
+                
+                if where_conditions:
+                    base_query += f" WHERE {' AND '.join(where_conditions)}"
+                
+                base_query += """
+                RETURN n
+                ORDER BY n.timestamp DESC
+                LIMIT 50
+                """
+                
+                result = session.run(base_query, **params)
+                
+                results = []
+                for record in result:
+                    node = record['n']
+                    node_data = {
+                        "id": node.id,
+                        "type": list(node.labels)[0] if node.labels else "Unknown",
+                        "properties": dict(node)
+                    }
+                    results.append(node_data)
+                
+                return results
+                
+        except Exception as e:
+            logger.error(f"Error in advanced search: {e}")
+            raise RuntimeError(f"Failed to perform advanced search: {e}")
 
 class StatsService:
-    """Service for calculating statistics"""
+    """Service for statistics and analytics"""
     
-    def __init__(self, data_dir: str = "data"):
+    def __init__(self, neo4j_service: Neo4jService, data_dir: str = "data"):
+        self.neo4j_service = neo4j_service
         self.data_dir = Path(data_dir)
     
     def get_dashboard_stats(self) -> Dict[str, Any]:
         """Get comprehensive dashboard statistics"""
         try:
-            # Get chat stats
-            chats_file = self.data_dir / "processed" / "chats.jsonl"
-            total_chats = 0
-            total_messages = 0
-            
-            if chats_file.exists():
-                with open(chats_file, 'r') as f:
-                    for line in f:
-                        if line.strip():
-                            chat = json.loads(line)
-                            total_chats += 1
-                            total_messages += len(chat.get('messages', []))
-            
-            # Get tag stats
-            tags_file = self.data_dir / "tags" / "tags_master_list_generic.json"
-            active_tags = 0
-            if tags_file.exists():
-                with open(tags_file, 'r') as f:
-                    tags = json.load(f)
-                    active_tags = len(tags)
-            
-            # Get cost stats
-            cost_db = self.data_dir / "cost_tracker.db"
-            total_cost = 0.0
-            total_calls = 0
-            
-            if cost_db.exists():
-                conn = sqlite3.connect(cost_db)
-                cursor = conn.cursor()
-                cursor.execute("SELECT SUM(cost_usd) FROM api_calls WHERE success = 1")
-                total_cost = cursor.fetchone()[0] or 0.0
-                cursor.execute("SELECT COUNT(*) FROM api_calls")
-                total_calls = cursor.fetchone()[0] or 0
-                conn.close()
-            
-            # Get cluster stats
-            cluster_file = self.data_dir / "embeddings" / "cluster_summaries.json"
-            total_clusters = 0
-            if cluster_file.exists():
-                with open(cluster_file, 'r') as f:
-                    clusters = json.load(f)
-                    total_clusters = len(clusters)
-            
-            return {
-                "total_chats": total_chats,
-                "total_messages": total_messages,
-                "active_tags": active_tags,
-                "total_cost": f"${total_cost:.2f}",
-                "total_clusters": total_clusters,
-                "total_calls": total_calls
-            }
-            
+            # Get Neo4j statistics
+            with self.neo4j_service.driver.session() as session:
+                # Node counts
+                node_counts = {}
+                result = session.run("""
+                    MATCH (n)
+                    RETURN labels(n)[0] as type, count(n) as count
+                """)
+                for record in result:
+                    node_counts[f"{record['type']}_count"] = record['count']
+                
+                # Relationship counts
+                rel_counts = {}
+                result = session.run("""
+                    MATCH ()-[r]->()
+                    RETURN type(r) as type, count(r) as count
+                """)
+                for record in result:
+                    rel_counts[f"{record['type']}_count"] = record['count']
+                
+                # Get cost statistics
+                cost_stats = self.get_cost_statistics()
+                
+                return {
+                    "total_chats": node_counts.get("Chat_count", 0),
+                    "total_messages": node_counts.get("Message_count", 0),
+                    "total_chunks": node_counts.get("Chunk_count", 0),
+                    "total_topics": node_counts.get("Topic_count", 0),
+                    "active_tags": node_counts.get("Tag_count", 0),
+                    "total_relationships": sum(rel_counts.values()),
+                    "total_cost": cost_stats.get("total_cost", "$0.00"),
+                    "total_calls": cost_stats.get("total_calls", 0)
+                }
+                
         except Exception as e:
             logger.error(f"Error getting dashboard stats: {e}")
             return {
                 "total_chats": 0,
                 "total_messages": 0,
+                "total_chunks": 0,
+                "total_topics": 0,
                 "active_tags": 0,
+                "total_relationships": 0,
                 "total_cost": "$0.00",
-                "total_clusters": 0,
                 "total_calls": 0
             }
     
@@ -335,121 +785,91 @@ class StatsService:
         end_date: Optional[str] = None,
         operation: Optional[str] = None
     ) -> Dict[str, Any]:
-        """Get detailed cost statistics"""
+        """Get cost tracking statistics"""
         try:
-            cost_db = self.data_dir / "cost_tracker.db"
-            if not cost_db.exists():
+            cost_db_path = self.data_dir / "cost_tracker.db"
+            if not cost_db_path.exists():
                 return {
+                    "total_cost": "$0.00",
                     "total_calls": 0,
-                    "successful_calls": 0,
-                    "failed_calls": 0,
-                    "success_rate": 0.0,
-                    "total_cost_usd": 0.0,
-                    "total_input_tokens": 0,
-                    "total_output_tokens": 0,
-                    "model_statistics": {},
-                    "operation_statistics": {},
-                    "date_range": {"start_date": start_date, "end_date": end_date}
+                    "operations": {},
+                    "daily_costs": []
                 }
             
-            conn = sqlite3.connect(cost_db)
+            conn = sqlite3.connect(cost_db_path)
             cursor = conn.cursor()
             
-            # Build WHERE clause
-            where_conditions = []
-            params = {}
+            # Build query
+            query = "SELECT operation, SUM(cost) as total_cost, COUNT(*) as call_count FROM api_calls"
+            params = []
             
-            if start_date:
-                where_conditions.append("timestamp >= $start_date")
-                params['start_date'] = start_date
+            if start_date or end_date or operation:
+                conditions = []
+                if start_date:
+                    conditions.append("date(timestamp) >= ?")
+                    params.append(start_date)
+                if end_date:
+                    conditions.append("date(timestamp) <= ?")
+                    params.append(end_date)
+                if operation:
+                    conditions.append("operation = ?")
+                    params.append(operation)
+                
+                if conditions:
+                    query += " WHERE " + " AND ".join(conditions)
             
-            if end_date:
-                where_conditions.append("timestamp <= $end_date")
-                params['end_date'] = end_date
+            query += " GROUP BY operation"
             
-            if operation:
-                where_conditions.append("operation = $operation")
-                params['operation'] = operation
+            cursor.execute(query, params)
+            results = cursor.fetchall()
             
-            where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
+            total_cost = 0.0
+            total_calls = 0
+            operations = {}
             
-            # Get basic stats
-            cursor.execute(f"SELECT COUNT(*) FROM api_calls WHERE {where_clause}", params)
-            total_calls = cursor.fetchone()[0] or 0
-            
-            cursor.execute(f"SELECT COUNT(*) FROM api_calls WHERE success = 1 AND {where_clause}", params)
-            successful_calls = cursor.fetchone()[0] or 0
-            
-            cursor.execute(f"SELECT COUNT(*) FROM api_calls WHERE success = 0 AND {where_clause}", params)
-            failed_calls = cursor.fetchone()[0] or 0
-            
-            cursor.execute(f"SELECT SUM(cost_usd) FROM api_calls WHERE success = 1 AND {where_clause}", params)
-            total_cost = cursor.fetchone()[0] or 0.0
-            
-            cursor.execute(f"SELECT SUM(input_tokens) FROM api_calls WHERE {where_clause}", params)
-            total_input_tokens = cursor.fetchone()[0] or 0
-            
-            cursor.execute(f"SELECT SUM(output_tokens) FROM api_calls WHERE {where_clause}", params)
-            total_output_tokens = cursor.fetchone()[0] or 0
-            
-            # Get model statistics
-            cursor.execute(f"""
-                SELECT model, COUNT(*), SUM(cost_usd), AVG(cost_usd)
-                FROM api_calls 
-                WHERE {where_clause}
-                GROUP BY model
-            """, params)
-            model_stats = {}
-            for row in cursor.fetchall():
-                model_stats[row[0]] = {
-                    "count": row[1],
-                    "total_cost": row[2] or 0.0,
-                    "avg_cost": row[3] or 0.0
+            for row in results:
+                op, cost, calls = row
+                total_cost += cost
+                total_calls += calls
+                operations[op] = {
+                    "cost": f"${cost:.4f}",
+                    "calls": calls
                 }
             
-            # Get operation statistics
-            cursor.execute(f"""
-                SELECT operation, COUNT(*), SUM(cost_usd), AVG(cost_usd)
-                FROM api_calls 
-                WHERE {where_clause}
-                GROUP BY operation
-            """, params)
-            operation_stats = {}
-            for row in cursor.fetchall():
-                operation_stats[row[0]] = {
-                    "count": row[1],
-                    "total_cost": row[2] or 0.0,
-                    "avg_cost": row[3] or 0.0
+            # Get daily costs
+            daily_query = """
+            SELECT date(timestamp) as date, SUM(cost) as daily_cost, COUNT(*) as daily_calls
+            FROM api_calls
+            GROUP BY date(timestamp)
+            ORDER BY date DESC
+            LIMIT 30
+            """
+            cursor.execute(daily_query)
+            daily_results = cursor.fetchall()
+            
+            daily_costs = [
+                {
+                    "date": row[0],
+                    "cost": f"${row[1]:.4f}",
+                    "calls": row[2]
                 }
+                for row in daily_results
+            ]
             
             conn.close()
             
-            success_rate = (successful_calls / total_calls * 100) if total_calls > 0 else 0.0
-            
             return {
+                "total_cost": f"${total_cost:.4f}",
                 "total_calls": total_calls,
-                "successful_calls": successful_calls,
-                "failed_calls": failed_calls,
-                "success_rate": round(success_rate, 2),
-                "total_cost_usd": round(total_cost, 2),
-                "total_input_tokens": total_input_tokens,
-                "total_output_tokens": total_output_tokens,
-                "model_statistics": model_stats,
-                "operation_statistics": operation_stats,
-                "date_range": {"start_date": start_date, "end_date": end_date}
+                "operations": operations,
+                "daily_costs": daily_costs
             }
             
         except Exception as e:
             logger.error(f"Error getting cost statistics: {e}")
             return {
+                "total_cost": "$0.00",
                 "total_calls": 0,
-                "successful_calls": 0,
-                "failed_calls": 0,
-                "success_rate": 0.0,
-                "total_cost_usd": 0.0,
-                "total_input_tokens": 0,
-                "total_output_tokens": 0,
-                "model_statistics": {},
-                "operation_statistics": {},
-                "date_range": {"start_date": start_date, "end_date": end_date}
+                "operations": {},
+                "daily_costs": []
             } 
