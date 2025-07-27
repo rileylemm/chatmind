@@ -1,0 +1,76 @@
+# GitHub repository configuration
+# This file configures various GitHub features for the ChatMind repository
+
+# Issue and PR templates
+# Templates are defined in .github/ISSUE_TEMPLATE/ and .github/DISCUSSION_TEMPLATE/
+
+# Labels configuration (will be created automatically)
+labels:
+  # Bug tracking
+  - name: bug
+    color: d73a4a
+    description: Something isn't working
+  - name: needs-triage
+    color: ffb800
+    description: Issue needs initial review and categorization
+  - name: high-priority
+    color: b60205
+    description: High priority issue
+  - name: low-priority
+    color: 0e8a16
+    description: Low priority issue
+
+  # Feature and enhancement
+  - name: enhancement
+    color: a2eeef
+    description: New feature or request
+  - name: feature-request
+    color: 1d76db
+    description: Request for a new feature
+  - name: good-first-issue
+    color: 7057ff
+    description: Good for newcomers
+
+  # Documentation
+  - name: documentation
+    color: 0075ca
+    description: Improvements or additions to documentation
+
+  # Development
+  - name: frontend
+    color: 0e8a16
+    description: Frontend-related changes
+  - name: backend
+    color: 1d76db
+    description: Backend-related changes
+  - name: api
+    color: 5319e7
+    description: API-related changes
+  - name: database
+    color: fbca04
+    description: Database or Neo4j-related changes
+
+  # Discussion categories
+  - name: discussion
+    color: 0366d6
+    description: General discussion
+  - name: show-and-tell
+    color: 28a745
+    description: Community showcase
+  - name: help-wanted
+    color: 008672
+    description: Community help needed
+  - name: support
+    color: 0075ca
+    description: Support questions
+
+  # Status
+  - name: in-progress
+    color: 1d76db
+    description: Work in progress
+  - name: blocked
+    color: d73a4a
+    description: Blocked by another issue
+  - name: wont-fix
+    color: 000000
+    description: This will not be worked on 

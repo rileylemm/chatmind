@@ -335,9 +335,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/chatmind/issues)
-- **Documentation**: [User Guide](docs/UserGuide.md)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/chatmind/discussions)
+- **Issues**: [GitHub Issues](https://github.com/rileylemm/chatmind/issues) - Report bugs, request features, or suggest improvements
+- **Discussions**: [GitHub Discussions](https://github.com/rileylemm/chatmind/discussions) - Ask questions, share setups, or join community discussions
+- **Documentation**: [User Guide](docs/UserGuide.md) - Complete setup and usage instructions
 
 ## Acknowledgments
 
