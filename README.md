@@ -4,19 +4,19 @@
 
 ChatMind automatically processes your ChatGPT export data, extracts meaningful insights, and presents them in an interactive knowledge graph. Perfect for researchers, writers, developers, and anyone who wants to make their ChatGPT conversations searchable and discoverable.
 
-## ✨ Features
+## Features
 
-- **🔍 Smart Content Processing**: Automatically extracts and normalizes ChatGPT conversations
-- **🏷️ AI-Powered Tagging**: Uses GPT to intelligently tag and categorize your content
-- **📊 Interactive Visualization**: Explore your knowledge graph with Neo4j and React
-- **🔄 Incremental Processing**: Only processes new data, saving time and API costs
-- **🎯 Semantic Clustering**: Groups related conversations together for better insights
-- **📱 Modern Web Interface**: Clean, responsive UI for exploring your data
-- **📈 Real-time Statistics**: Dashboard shows live data from your processed content
-- **🔌 RESTful API**: FastAPI backend with 25+ tested endpoints
-- **🏗️ Dual-Layer Graph**: Raw data + semantic layer for powerful queries
+- **Smart Content Processing**: Automatically extracts and normalizes ChatGPT conversations
+- **AI-Powered Tagging**: Uses GPT to intelligently tag and categorize your content
+- **Interactive Visualization**: Explore your knowledge graph with Neo4j and React
+- **Incremental Processing**: Only processes new data, saving time and API costs
+- **Semantic Clustering**: Groups related conversations together for better insights
+- **Modern Web Interface**: Clean, responsive UI for exploring your data
+- **Real-time Statistics**: Dashboard shows live data from your processed content
+- **RESTful API**: FastAPI backend with 25+ tested endpoints
+- **Dual-Layer Graph**: Raw data + semantic layer for powerful queries
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -33,12 +33,24 @@ ChatMind automatically processes your ChatGPT export data, extracts meaningful i
    cd chatmind
    ```
 
-2. **Install Python dependencies**
+2. **Set up Python virtual environment**
+   ```bash
+   # Create virtual environment
+   python3 -m venv chatmind_env
+   
+   # Activate virtual environment
+   # On macOS/Linux:
+   source chatmind_env/bin/activate
+   # On Windows:
+   # chatmind_env\Scripts\activate
+   ```
+
+3. **Install Python dependencies**
    ```bash
    pip install -r requirements.txt
    ```
    
-3. **Set up environment variables**
+4. **Set up environment variables**
    ```bash
    cp env.example .env
    ```
@@ -50,14 +62,14 @@ ChatMind automatically processes your ChatGPT export data, extracts meaningful i
    NEO4J_PASSWORD=your_password
    ```
 
-4. **Install frontend dependencies**
+5. **Install frontend dependencies**
    ```bash
    cd chatmind/frontend
    npm install
    cd ../..
    ```
 
-5. **Set up Neo4j** (if running locally)
+6. **Set up Neo4j** (if running locally)
    ```bash
    # Option 1: Docker
    docker run -p 7474:7474 -p 7687:7687 -e NEO4J_AUTH=neo4j/password neo4j:latest
@@ -99,7 +111,7 @@ ChatMind automatically processes your ChatGPT export data, extracts meaningful i
    - API: http://localhost:8000
    - API Docs: http://localhost:8000/docs (Swagger UI)
 
-## 🔧 Backend API
+## Backend API
 
 The ChatMind API is built with **FastAPI** and provides a clean, modern REST API for accessing your knowledge graph data.
 
@@ -122,7 +134,7 @@ python3 run.py
 
 **API Documentation:** See [API Documentation](docs/API_DOCUMENTATION.md) for complete endpoint reference.
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 chatmind/
@@ -136,7 +148,7 @@ chatmind/
 └── docs/                  # Documentation
 ```
 
-## 📚 Documentation
+## Documentation
 
 - **[User Guide](docs/UserGuide.md)** - Complete setup and usage instructions
 - **[API Documentation](docs/API_DOCUMENTATION.md)** - Complete API reference
@@ -144,7 +156,7 @@ chatmind/
 - **[Pipeline Overview](docs/PIPELINE_OVERVIEW_AND_INCREMENTAL.md)** - Processing pipeline details
 - **[Neo4j Query Guide](docs/NEO4J_QUERY_GUIDE.md)** - Database query reference
 
-## 🧪 Testing & Quality Assurance
+## Testing & Quality Assurance
 
 - **✅ API Endpoints**: 25 endpoints tested with 100% pass rate
 - **✅ Dual Layer Graph**: 7 comprehensive tests covering all layers
@@ -153,45 +165,45 @@ chatmind/
 
 **Test Scripts:** See [User Guide](docs/UserGuide.md) for testing instructions.
 
-## 🚧 Current Development Status
+## Current Development Status
 
-### ✅ **Completed & Production Ready**
+### Completed & Production Ready
 
 **Backend Infrastructure:**
-- **✅ FastAPI Backend**: 25+ tested endpoints with comprehensive error handling
-- **✅ Data Pipeline**: Complete ChatGPT export processing with incremental updates
-- **✅ AI-Powered Tagging**: Intelligent content categorization using GPT
-- **✅ Semantic Clustering**: Advanced embedding and clustering system
-- **✅ Neo4j Integration**: Dual-layer graph strategy with raw + semantic data
-- **✅ Cost Tracking**: Real-time API usage monitoring and cost analysis
+- **FastAPI Backend**: 25+ tested endpoints with comprehensive error handling
+- **Data Pipeline**: Complete ChatGPT export processing with incremental updates
+- **AI-Powered Tagging**: Intelligent content categorization using GPT
+- **Semantic Clustering**: Advanced embedding and clustering system
+- **Neo4j Integration**: Dual-layer graph strategy with raw + semantic data
+- **Cost Tracking**: Real-time API usage monitoring and cost analysis
 
 **Frontend Foundation:**
-- **✅ Modern Tech Stack**: React 19, TypeScript, Tailwind CSS, Vite
-- **✅ Dashboard**: Real-time statistics with live API integration
-- **✅ Graph Explorer**: Interactive knowledge graph visualization
-- **✅ API Integration**: React Query for efficient data fetching
-- **✅ Responsive Layout**: Header, sidebar, and routing structure
+- **Modern Tech Stack**: React 19, TypeScript, Tailwind CSS, Vite
+- **Dashboard**: Real-time statistics with live API integration
+- **Graph Explorer**: Interactive knowledge graph visualization
+- **API Integration**: React Query for efficient data fetching
+- **Responsive Layout**: Header, sidebar, and routing structure
 
-### 🔄 **Currently In Development**
+### Currently In Development
 
 **Frontend Features:**
-- **🔄 Messages Interface**: Individual message viewing and search
-- **🔄 Analytics Dashboard**: Advanced charts and data visualization
-- **🔄 Tag Management**: Tag browsing, editing, and relationship exploration
-- **🔄 Data Lake Explorer**: Raw data browsing and export capabilities
-- **🔄 Settings Panel**: User preferences and system configuration
+- **Messages Interface**: Individual message viewing and search
+- **Analytics Dashboard**: Advanced charts and data visualization
+- **Tag Management**: Tag browsing, editing, and relationship exploration
+- **Data Lake Explorer**: Raw data browsing and export capabilities
+- **Settings Panel**: User preferences and system configuration
 
 **Enhanced Functionality:**
-- **🔄 Advanced Search**: Multi-criteria search with filters
-- **🔄 Export Features**: Data export in various formats
-- **🔄 User Preferences**: Customizable interface and display options
+- **Advanced Search**: Multi-criteria search with filters
+- **Export Features**: Data export in various formats
+- **User Preferences**: Customizable interface and display options
 
-### 📋 **Next Steps & Roadmap**
+### Next Steps & Roadmap
 
-## 1. 🚀 **Frontend: Finish + Polish**
+## 1. Frontend: Complete Core Features
 
-**Priority:** 🔥 **High**  
-**Why:** You've built powerful infrastructure, now make it easy (and enjoyable) to use.
+**Priority:** High  
+**Focus:** Complete the user interface to make the powerful backend accessible and enjoyable to use.
 
 **Key Milestones:**
 - **Messages Interface**: Paginated, searchable view of all messages by chat
@@ -204,23 +216,23 @@ chatmind/
 
 ---
 
-## 2. 🧠 **Deeper Semantic Intelligence**
+## 2. Enhanced Semantic Intelligence
 
-**Priority:** **Medium**  
-**Why:** You already have clustering + tagging — now push it to the next level.
+**Priority:** Medium  
+**Focus:** Leverage existing clustering and tagging to provide deeper insights.
 
-**Ideas:**
+**Features:**
 - **Tag Relationship Graph**: Build tag–tag co-occurrence network for insights
 - **Topic Drift Detection**: Detect when conversations veer off-topic
-- **Conversation Embedding Summaries**: Represent each chat as an embedding → allow chat-to-chat similarity search
+- **Conversation Embedding Summaries**: Represent each chat as an embedding for chat-to-chat similarity search
 - **RAG Style Search**: Semantic + lexical combo search with highlight matches
 
 ---
 
-## 3. 📤 **Data Export + Portability**
+## 3. Data Export & Portability
 
-**Priority:** **Medium**  
-**Why:** Let users use their data however they want.
+**Priority:** Medium  
+**Focus:** Enable users to use their data in external tools and formats.
 
 **Features:**
 - **Export tagged conversations** as JSON, CSV, or markdown
@@ -229,10 +241,10 @@ chatmind/
 
 ---
 
-## 4. 📶 **Real-Time & Scheduled Updates**
+## 4. Real-Time & Scheduled Updates
 
-**Priority:** **Medium**  
-**Why:** Set it and forget it.
+**Priority:** Medium  
+**Focus:** Automate data processing for a "set it and forget it" experience.
 
 **Tasks:**
 - **Add watcher**: Auto-run pipeline when new ZIPs appear in `data/raw/`
@@ -241,22 +253,22 @@ chatmind/
 
 ---
 
-## 5. 🧪 **Active Learning & Feedback Loops**
+## 5. Active Learning & Feedback Loops
 
-**Priority:** **Lower (experimental)**  
-**Why:** Make the system learn and improve from interaction.
+**Priority:** Lower (experimental)  
+**Focus:** Make the system learn and improve from user interaction.
 
-**Ideas:**
-- **Let users approve or reject tags** → retrain a local model or fine-tune prompts
-- **Tag suggestion interface** → allow adding to `tags_master_list.json`
+**Features:**
+- **User tag approval/rejection**: Retrain local model or fine-tune prompts
+- **Tag suggestion interface**: Allow adding to `tags_master_list.json`
 - **Highlight "unknown" or "weak" clusters** for user curation
 
 ---
 
-## 6. 🛠 **Developer Experience & Extensibility**
+## 6. Developer Experience & Extensibility
 
-**Priority:** **Ongoing**  
-**Why:** Keep it clean, easy to contribute to.
+**Priority:** Ongoing  
+**Focus:** Keep the codebase clean and easy to contribute to.
 
 **Tasks:**
 - **Generate pyproject.toml** and move toward modern Python packaging
@@ -266,48 +278,22 @@ chatmind/
 
 ---
 
-## 🎯 **Stretch Goals (Long-Term)**
+## Stretch Goals (Long-Term)
 - **Natural Language Search Interface**: "Show me chats about vector databases tagged 'AI' and 'Neo4j'"
 - **Multi-Model Support**: Compare responses from different GPT versions
 - **Visual History Map**: Timeline or map-style view of evolving conversations
 - **User accounts + session storage** for multi-user deployments (e.g. internal team dashboards)
 - **3D Graph Interface**: Immersive 3D visualization using `react-force-graph-3d` ([Plan](docs/dev_plans/3d_graph_interface_plan.md))
 
-### 🤝 **Contributing to Frontend Development**
 
-The frontend is built with modern React practices and is well-structured for contributions:
 
-```bash
-# Start frontend development
-cd chatmind/frontend
-npm install
-npm run dev
-
-# Available routes for development:
-# - / (Dashboard) - ✅ Complete
-# - /graph (Graph Explorer) - ✅ Complete  
-# - /messages (Messages) - 🔄 In Progress
-# - /analytics (Analytics) - 🔄 In Progress
-# - /tags (Tag Management) - 🔄 In Progress
-# - /data (Data Lake) - 🔄 In Progress
-# - /settings (Settings) - 🔄 In Progress
-```
-
-**Key Technologies:**
-- **React 19** with TypeScript for type safety
-- **React Query** for efficient API data fetching
-- **Tailwind CSS** for responsive styling
-- **React Force Graph** for interactive visualizations
-- **Recharts** for data visualizations
-- **Zustand** for state management
-
-## 🔧 Utilities
+## Utilities
 
 - **[Graph Utilities](chatmind/utilities/UTILITIES.md)** - Database maintenance and enhancement scripts
   - `create_has_chunk_relationships.py` - Link messages to semantic chunks
   - `create_chat_similarity.py` - Create chat similarity relationships
 
-## 🔧 Configuration
+## Configuration
 
 **Tag Setup:**
 ```bash
@@ -322,7 +308,7 @@ python scripts/setup_tags.py
 
 **Detailed Configuration:** See [User Guide](docs/UserGuide.md) for complete setup instructions.
 
-## 📊 Understanding Your Data
+## Understanding Your Data
 
 **Processing Pipeline:**
 1. **Data Ingestion**: Extracts conversations from ChatGPT ZIP exports
@@ -339,21 +325,21 @@ python scripts/setup_tags.py
 
 **Dashboard Statistics:** Real-time data from your processed content including chats, messages, tags, costs, and clusters.
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🆘 Support
+## Support
 
 - **Issues**: [GitHub Issues](https://github.com/yourusername/chatmind/issues)
 - **Documentation**: [User Guide](docs/UserGuide.md)
 - **Discussions**: [GitHub Discussions](https://github.com/yourusername/chatmind/discussions)
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - Built with [FastAPI](https://fastapi.tiangolo.com/)
 - Visualizations powered by [Cytoscape.js](https://cytoscape.org/)

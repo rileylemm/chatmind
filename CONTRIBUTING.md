@@ -6,7 +6,7 @@ Thank you for your interest in contributing to ChatMind! This document provides 
 
 ### Reporting Issues
 
-- **Bug reports**: Use the [GitHub Issues](https://github.com/yourusername/chatmind/issues) page
+- **Bug reports**: Use the [GitHub Issues](https://github.com/rileylemm/chatmind/issues) page
 - **Feature requests**: Create an issue with the "enhancement" label
 - **Documentation**: Report documentation issues or suggest improvements
 
@@ -37,12 +37,7 @@ Thank you for your interest in contributing to ChatMind! This document provides 
    cd chatmind
    ```
 
-2. **Set up environment**
-   ```bash
-   pip install -r requirements.txt
-   cp env.example .env
-   # Edit .env with your credentials
-   ```
+2. **Follow the installation steps in README.md** (virtual environment, dependencies, environment setup)
 
 3. **Install frontend dependencies**
    ```bash
@@ -57,6 +52,34 @@ Thank you for your interest in contributing to ChatMind! This document provides 
    cp test_data.zip data/raw/
    python run_pipeline.py
    ```
+
+### Frontend Development
+
+The frontend is built with modern React practices and is well-structured for contributions:
+
+```bash
+# Start frontend development
+cd chatmind/frontend
+npm install
+npm run dev
+
+# Available routes for development:
+# - / (Dashboard) - ✅ Complete
+# - /graph (Graph Explorer) - ✅ Complete  
+# - /messages (Messages) - 🔄 In Progress
+# - /analytics (Analytics) - 🔄 In Progress
+# - /tags (Tag Management) - 🔄 In Progress
+# - /data (Data Lake) - 🔄 In Progress
+# - /settings (Settings) - 🔄 In Progress
+```
+
+**Key Technologies:**
+- **React 19** with TypeScript for type safety
+- **React Query** for efficient API data fetching
+- **Tailwind CSS** for responsive styling
+- **React Force Graph** for interactive visualizations
+- **Recharts** for data visualizations
+- **Zustand** for state management
 
 ## 📝 Code Style
 
