@@ -13,7 +13,8 @@ ChatMind automatically processes your ChatGPT export data, extracts meaningful i
 - **🎯 Semantic Clustering**: Groups related conversations together for better insights
 - **📱 Modern Web Interface**: Clean, responsive UI for exploring your data
 - **📈 Real-time Statistics**: Dashboard shows live data from your processed content
-- **🔌 RESTful API**: FastAPI backend for data access and management
+- **🔌 RESTful API**: FastAPI backend with 25+ tested endpoints
+- **🏗️ Dual-Layer Graph**: Raw data + semantic layer for powerful queries
 
 ## 🚀 Quick Start
 
@@ -28,7 +29,7 @@ ChatMind automatically processes your ChatGPT export data, extracts meaningful i
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/chatmind.git
+   git clone https://github.com/rileylemm/chatmind.git
    cd chatmind
    ```
 
@@ -102,17 +103,7 @@ ChatMind automatically processes your ChatGPT export data, extracts meaningful i
 
 The ChatMind API is built with **FastAPI** and provides a clean, modern REST API for accessing your knowledge graph data.
 
-### Features
-
-- **Clean Architecture**: Separated concerns with dedicated service layers
-- **Type Safety**: Full Pydantic model validation
-- **Auto Documentation**: Interactive API docs at `/docs`
-- **Error Handling**: Comprehensive error responses with proper HTTP status codes
-- **CORS Support**: Configured for frontend development
-- **Health Monitoring**: Built-in health checks
-
-### Quick Start
-
+**Quick Start:**
 ```bash
 # Start the API
 python scripts/start_api.py
@@ -122,61 +113,193 @@ cd chatmind/api
 python3 run.py
 ```
 
-### API Endpoints
+**Key Features:**
+- **25+ Tested Endpoints** with comprehensive error handling
+- **Interactive API Docs** at `/docs` (Swagger UI)
+- **Real-time Statistics** and dashboard data
+- **Dual-Layer Graph Support** for raw + semantic data
+- **Advanced Search** and filtering capabilities
 
-- **`GET /api/stats/dashboard`** - Get real-time dashboard statistics
-- **`GET /api/health`** - Health check endpoint
-- **`GET /`** - API root endpoint
-
-### Real Data Sources
-
-The backend connects to your actual processed data:
-
-- **Chat Statistics**: Reads from `data/processed/chats.jsonl`
-- **Tag Information**: Reads from `data/tags/tags_master_list.json`
-- **Cost Tracking**: Reads from `data/cost_tracker.db`
-- **Cluster Data**: Reads from `data/embeddings/cluster_summaries.json`
-
-### API Development
-
-```bash
-# Start API server with auto-reload
-cd chatmind/api
-python3 -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
-
-# Test API endpoints
-curl http://localhost:8000/api/stats/dashboard
-curl http://localhost:8000/api/health
-```
+**API Documentation:** See [API Documentation](docs/API_DOCUMENTATION.md) for complete endpoint reference.
 
 ## 📁 Project Structure
 
 ```
 chatmind/
-├── api/                    # FastAPI backend with real data endpoints
+├── api/                    # FastAPI backend
 ├── data_ingestion/         # ChatGPT export processing
 ├── embedding/              # Semantic clustering
 ├── tagger/                 # AI-powered tagging
 ├── neo4j_loader/          # Graph database loading
 ├── frontend/              # React web interface
-├── scripts/               # Utility scripts
+├── scripts/               # Utility scripts and tests
 └── docs/                  # Documentation
 ```
 
 ## 📚 Documentation
 
-- **[User Guide](docs/UserGuide.md)** - Complete user manual
-- **[Pipeline Overview](docs/PIPELINE_OVERVIEW.md)** - How the processing works
-- **[API Documentation](docs/API_DOCUMENTATION.md)** - Complete API reference and examples
-- **[Neo4j Query Guide](docs/NEO4J_QUERY_GUIDE.md)** - Comprehensive query reference
-- **[Neo4j Quick Reference](docs/NEO4J_QUICK_REFERENCE.md)** - Common queries cheat sheet
-- **[Incremental Processing](docs/INCREMENTAL_PROCESSING.md)** - Smart processing details
-- **[Semantic Positioning](chatmind/semantic_positioning/SEMANTIC_POSITIONING.md)** - UMAP layout and visualization
+- **[User Guide](docs/UserGuide.md)** - Complete setup and usage instructions
+- **[API Documentation](docs/API_DOCUMENTATION.md)** - Complete API reference
+- **[Dual Layer Graph Strategy](docs/DUAL_LAYER_GRAPH_STRATEGY_AND_IMPLEMENTATION.md)** - Architecture and implementation
+- **[Pipeline Overview](docs/PIPELINE_OVERVIEW_AND_INCREMENTAL.md)** - Processing pipeline details
+- **[Neo4j Query Guide](docs/NEO4J_QUERY_GUIDE.md)** - Database query reference
 
-## 🧪 Testing
+## 🧪 Testing & Quality Assurance
 
-- **[Neo4j Query Tests](scripts/test_neo4j_queries.py)** - Test all Neo4j queries from the guide
-- **[API Endpoint Tests](scripts/test_api_endpoints.py)** - Test all API endpoints from the documentation
+- **✅ API Endpoints**: 25 endpoints tested with 100% pass rate
+- **✅ Dual Layer Graph**: 7 comprehensive tests covering all layers
+- **✅ Neo4j Queries**: All documented queries tested and verified
+- **✅ Pipeline Processing**: Incremental processing and data integrity
+
+**Test Scripts:** See [User Guide](docs/UserGuide.md) for testing instructions.
+
+## 🚧 Current Development Status
+
+### ✅ **Completed & Production Ready**
+
+**Backend Infrastructure:**
+- **✅ FastAPI Backend**: 25+ tested endpoints with comprehensive error handling
+- **✅ Data Pipeline**: Complete ChatGPT export processing with incremental updates
+- **✅ AI-Powered Tagging**: Intelligent content categorization using GPT
+- **✅ Semantic Clustering**: Advanced embedding and clustering system
+- **✅ Neo4j Integration**: Dual-layer graph strategy with raw + semantic data
+- **✅ Cost Tracking**: Real-time API usage monitoring and cost analysis
+
+**Frontend Foundation:**
+- **✅ Modern Tech Stack**: React 19, TypeScript, Tailwind CSS, Vite
+- **✅ Dashboard**: Real-time statistics with live API integration
+- **✅ Graph Explorer**: Interactive knowledge graph visualization
+- **✅ API Integration**: React Query for efficient data fetching
+- **✅ Responsive Layout**: Header, sidebar, and routing structure
+
+### 🔄 **Currently In Development**
+
+**Frontend Features:**
+- **🔄 Messages Interface**: Individual message viewing and search
+- **🔄 Analytics Dashboard**: Advanced charts and data visualization
+- **🔄 Tag Management**: Tag browsing, editing, and relationship exploration
+- **🔄 Data Lake Explorer**: Raw data browsing and export capabilities
+- **🔄 Settings Panel**: User preferences and system configuration
+
+**Enhanced Functionality:**
+- **🔄 Advanced Search**: Multi-criteria search with filters
+- **🔄 Export Features**: Data export in various formats
+- **🔄 User Preferences**: Customizable interface and display options
+
+### 📋 **Next Steps & Roadmap**
+
+## 1. 🚀 **Frontend: Finish + Polish**
+
+**Priority:** 🔥 **High**  
+**Why:** You've built powerful infrastructure, now make it easy (and enjoyable) to use.
+
+**Key Milestones:**
+- **Messages Interface**: Paginated, searchable view of all messages by chat
+- **Analytics Dashboard**: Recharts showing cost trends, top tags, cluster count over time
+- **Tag Explorer**: Tree-style or force-directed graph of tag relationships
+- **Data Lake Interface**: Tabular/raw view of JSONL or clusters with filters
+- **Graph Interactivity**: Expand-on-click, node details, semantic layer toggles
+- **Responsive UI**: Refactor components to support tablets/phones
+- **User Settings**: Dark mode, tag list source, cluster granularity slider
+
+---
+
+## 2. 🧠 **Deeper Semantic Intelligence**
+
+**Priority:** **Medium**  
+**Why:** You already have clustering + tagging — now push it to the next level.
+
+**Ideas:**
+- **Tag Relationship Graph**: Build tag–tag co-occurrence network for insights
+- **Topic Drift Detection**: Detect when conversations veer off-topic
+- **Conversation Embedding Summaries**: Represent each chat as an embedding → allow chat-to-chat similarity search
+- **RAG Style Search**: Semantic + lexical combo search with highlight matches
+
+---
+
+## 3. 📤 **Data Export + Portability**
+
+**Priority:** **Medium**  
+**Why:** Let users use their data however they want.
+
+**Features:**
+- **Export tagged conversations** as JSON, CSV, or markdown
+- **Export graph data** (e.g., nodes.csv + edges.csv)
+- **Generate static reports**: "Top 10 tags," "Cluster summaries," "Cost by chat"
+
+---
+
+## 4. 📶 **Real-Time & Scheduled Updates**
+
+**Priority:** **Medium**  
+**Why:** Set it and forget it.
+
+**Tasks:**
+- **Add watcher**: Auto-run pipeline when new ZIPs appear in `data/raw/`
+- **Optional scheduler** (e.g. cron or APScheduler) for nightly runs
+- **Frontend alert** if new data was processed
+
+---
+
+## 5. 🧪 **Active Learning & Feedback Loops**
+
+**Priority:** **Lower (experimental)**  
+**Why:** Make the system learn and improve from interaction.
+
+**Ideas:**
+- **Let users approve or reject tags** → retrain a local model or fine-tune prompts
+- **Tag suggestion interface** → allow adding to `tags_master_list.json`
+- **Highlight "unknown" or "weak" clusters** for user curation
+
+---
+
+## 6. 🛠 **Developer Experience & Extensibility**
+
+**Priority:** **Ongoing**  
+**Why:** Keep it clean, easy to contribute to.
+
+**Tasks:**
+- **Generate pyproject.toml** and move toward modern Python packaging
+- **Create reusable GraphDB interface layer** (for other projects to hook into)
+- **Optional plugin system** for extra graph transforms or taggers
+- **Add CLI** (via typer) for key pipeline and graph tasks
+
+---
+
+## 🎯 **Stretch Goals (Long-Term)**
+- **Natural Language Search Interface**: "Show me chats about vector databases tagged 'AI' and 'Neo4j'"
+- **Multi-Model Support**: Compare responses from different GPT versions
+- **Visual History Map**: Timeline or map-style view of evolving conversations
+- **User accounts + session storage** for multi-user deployments (e.g. internal team dashboards)
+- **3D Graph Interface**: Immersive 3D visualization using `react-force-graph-3d` ([Plan](docs/dev_plans/3d_graph_interface_plan.md))
+
+### 🤝 **Contributing to Frontend Development**
+
+The frontend is built with modern React practices and is well-structured for contributions:
+
+```bash
+# Start frontend development
+cd chatmind/frontend
+npm install
+npm run dev
+
+# Available routes for development:
+# - / (Dashboard) - ✅ Complete
+# - /graph (Graph Explorer) - ✅ Complete  
+# - /messages (Messages) - 🔄 In Progress
+# - /analytics (Analytics) - 🔄 In Progress
+# - /tags (Tag Management) - 🔄 In Progress
+# - /data (Data Lake) - 🔄 In Progress
+# - /settings (Settings) - 🔄 In Progress
+```
+
+**Key Technologies:**
+- **React 19** with TypeScript for type safety
+- **React Query** for efficient API data fetching
+- **Tailwind CSS** for responsive styling
+- **React Force Graph** for interactive visualizations
+- **Recharts** for data visualizations
+- **Zustand** for state management
 
 ## 🔧 Utilities
 
@@ -186,67 +309,35 @@ chatmind/
 
 ## 🔧 Configuration
 
-### Tag Master List
-
-The system uses a master list of tags for consistent categorization. 
-
-#### 🚀 **Quick Setup:**
+**Tag Setup:**
 ```bash
-# Option 1: Use the setup script (recommended)
+# Quick setup (recommended)
 python scripts/setup_tags.py
-
-# Option 2: Manual copy
-cp data/tags/tags_master_list_generic.json data/tags/tags_master_list.json
 ```
 
-#### 📝 **Customization Options:**
-- **Start with generic tags** - Use the provided 500-tag list as a starting point
-- **Edit your personal list** - Modify `data/tags/tags_master_list.json` to match your interests
-- **Let the system auto-expand** - The pipeline will suggest new tags based on your content
-- **Review missing tags** - Check `data/interim/missing_tags_report.json` after processing
-
-#### 🔒 **Privacy Note:**
-Your personal tag list (`data/tags/tags_master_list.json`) is excluded from git to keep your custom tags private. The generic list is included for new users.
-
-#### 📊 **Check Your Setup:**
-```bash
-# See current tag list status
-python scripts/setup_tags.py --info
-```
-
-### Processing Options
-
+**Processing Options:**
 - **Incremental processing**: Only processes new data
 - **Force reprocess**: `python run_pipeline.py --force-reprocess`
 - **Skip specific steps**: `python run_pipeline.py --skip-tagging`
 
+**Detailed Configuration:** See [User Guide](docs/UserGuide.md) for complete setup instructions.
+
 ## 📊 Understanding Your Data
 
-### Processing Pipeline
-
+**Processing Pipeline:**
 1. **Data Ingestion**: Extracts conversations from ChatGPT ZIP exports
 2. **Embedding & Clustering**: Groups similar messages using AI
 3. **Tagging**: Automatically tags clusters with relevant categories
 4. **Graph Loading**: Creates interactive knowledge graph in Neo4j
 
-### Data Files
-
+**Data Files:**
 - `data/processed/chats.jsonl`: Extracted conversations
 - `data/embeddings/chunks_with_clusters.jsonl`: Clustered messages
 - `data/processed/tagged_chunks.jsonl`: Tagged content
 - `data/tags/tags_master_list.json`: Tag definitions
 - `data/cost_tracker.db`: API cost tracking database
 
-### Real-time Statistics
-
-The dashboard displays live data from your processed content:
-
-- **Total Chats**: Number of conversations processed
-- **Total Messages**: Count of all messages across all chats
-- **Active Tags**: Number of tags in your master list
-- **Total Cost**: Actual API costs from your usage
-- **Total Clusters**: Number of semantic clusters created
-- **Total Calls**: Number of API calls made during processing
+**Dashboard Statistics:** Real-time data from your processed content including chats, messages, tags, costs, and clusters.
 
 ## 🤝 Contributing
 

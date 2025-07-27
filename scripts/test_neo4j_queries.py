@@ -815,6 +815,42 @@ class Neo4jQueryTester:
             LIMIT 5
             """
         )
+        
+        # Messages with specific tags (array-based search)
+        self.test_query(
+            "Messages with specific tags (array-based search)",
+            """
+            MATCH (m:Message)-[:HAS_CHUNK]->(chunk:Chunk)-[:TAGGED_WITH]->(tag:Tag)
+            WHERE tag.name IN ["python", "javascript", "react"]
+            RETURN m.content, tag.name
+            ORDER BY m.timestamp DESC
+            LIMIT 5
+            """
+        )
+        
+        # Conversations with many tags (unique tag counting)
+        self.test_query(
+            "Conversations with many tags (unique tag counting)",
+            """
+            MATCH (c:Chat)-[:CONTAINS]->(m:Message)-[:HAS_CHUNK]->(chunk:Chunk)-[:TAGGED_WITH]->(tag:Tag)
+            WITH c, count(DISTINCT tag) as unique_tags
+            WHERE unique_tags > 5
+            RETURN c.title, unique_tags
+            ORDER BY unique_tags DESC
+            LIMIT 5
+            """
+        )
+        
+        # Get message embeddings (for debugging/similarity)
+        self.test_query(
+            "Get message embeddings (for debugging/similarity)",
+            """
+            MATCH (m:Message)
+            WHERE m.embedding IS NOT NULL
+            RETURN m.message_id, m.content, m.embedding
+            LIMIT 5
+            """
+        )
     
     def test_dual_layer_visualization_queries(self):
         """Test dual layer visualization and UMAP queries."""

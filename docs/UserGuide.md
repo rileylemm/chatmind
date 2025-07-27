@@ -1,10 +1,17 @@
-# ChatMind User Guide for Riley
+# ChatMind User Guide
 
-This document guides you through installing, running, and extending the ChatMind pipeline, including recent enhancements:
-  - **Unified smart pipeline** that automatically handles incremental processing
-  - GPT-driven auto-tagging
-  - Direct Chat→Topic edges in Neo4j
-  - Chat↔Chat similarity edges
+This comprehensive guide covers installation, configuration, usage, and advanced features of ChatMind.
+
+## Table of Contents
+1. [Prerequisites](#1-prerequisites)
+2. [Setup & Installation](#2-setup--installation)
+3. [Data Processing Pipeline](#3-data-processing-pipeline)
+4. [Starting Services](#4-starting-services)
+5. [API Usage](#5-api-usage)
+6. [Configuration](#6-configuration)
+7. [Testing](#7-testing)
+8. [Advanced Features](#8-advanced-features)
+9. [Troubleshooting](#9-troubleshooting)
 
 ## 1. Prerequisites
 1. Python 3.8 or higher
@@ -87,11 +94,114 @@ python chatmind/api/main.py       # API at http://localhost:8000
 cd chatmind/frontend && npm start # UI at http://localhost:3000
 ```
 
-## 5. Access & Explore
-- Frontend: http://localhost:3000
-- API Docs: http://localhost:8000/docs
+## 5. API Usage
 
-## 6. Iterative Development
+### Core Endpoints
+- **`GET /api/health`** - Health check endpoint
+- **`GET /api/stats/dashboard`** - Real-time dashboard statistics
+- **`GET /api/graph`** - Knowledge graph data (multiple variants)
+- **`GET /api/topics`** - Semantic topic clusters
+- **`GET /api/chats`** - Chat listings with filtering
+- **`GET /api/search`** - Content search across all data
+
+### Advanced Endpoints
+- **`GET /api/tags`** - Tag management and categorization
+- **`GET /api/messages/{message_id}`** - Individual message details
+- **`GET /api/clusters/{cluster_id}`** - Cluster-specific data
+- **`GET /api/graph/expand/{node_id}`** - Expand graph nodes
+- **`POST /api/search/advanced`** - Advanced search with filters
+- **`POST /api/query/neo4j`** - Direct Neo4j query execution
+- **`POST /api/chats/{chat_id}/summary`** - Generate chat summaries
+
+### API Development
+```bash
+# Start API server with auto-reload
+cd chatmind/api
+python3 -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+# Test API endpoints
+python3 scripts/test_api_endpoints.py
+```
+
+### Real Data Sources
+The backend connects to your actual processed data:
+- **Chat Statistics**: Reads from `data/processed/chats.jsonl`
+- **Tag Information**: Reads from `data/tags/tags_master_list.json`
+- **Cost Tracking**: Reads from `data/cost_tracker.db`
+- **Cluster Data**: Reads from `data/embeddings/cluster_summaries.json`
+
+## 6. Configuration
+
+### Tag Master List Setup
+
+The system uses a master list of tags for consistent categorization.
+
+#### Quick Setup:
+```bash
+# Option 1: Use the setup script (recommended)
+python scripts/setup_tags.py
+
+# Option 2: Manual copy
+cp data/tags/tags_master_list_generic.json data/tags/tags_master_list.json
+```
+
+#### Customization Options:
+- **Start with generic tags** - Use the provided 500-tag list as a starting point
+- **Edit your personal list** - Modify `data/tags/tags_master_list.json` to match your interests
+- **Let the system auto-expand** - The pipeline will suggest new tags based on your content
+- **Review missing tags** - Check `data/interim/missing_tags_report.json` after processing
+
+#### Privacy Note:
+Your personal tag list (`data/tags/tags_master_list.json`) is excluded from git to keep your custom tags private. The generic list is included for new users.
+
+#### Check Your Setup:
+```bash
+# See current tag list status
+python scripts/setup_tags.py --info
+```
+
+### Processing Options
+- **Incremental processing**: Only processes new data
+- **Force reprocess**: `python run_pipeline.py --force-reprocess`
+- **Skip specific steps**: `python run_pipeline.py --skip-tagging`
+
+## 7. Testing
+
+### Test Coverage
+- **✅ API Endpoints**: 25 endpoints tested with 100% pass rate
+- **✅ Dual Layer Graph**: 7 comprehensive tests covering all layers
+- **✅ Neo4j Queries**: All documented queries tested and verified
+- **✅ Pipeline Processing**: Incremental processing and data integrity
+
+### Test Scripts
+- **[API Endpoint Tests](scripts/test_api_endpoints.py)** - Test all API endpoints from the documentation
+- **[Dual Layer Tests](scripts/test_dual_layer.py)** - Test dual layer graph strategy implementation
+- **[Neo4j Query Tests](scripts/test_neo4j_queries.py)** - Test all Neo4j queries from the guide
+
+### Running Tests
+```bash
+# Test API endpoints
+python3 scripts/test_api_endpoints.py
+
+# Test dual layer implementation
+python3 scripts/test_dual_layer.py
+
+# Test Neo4j queries
+python3 scripts/test_neo4j_queries.py
+```
+
+## 8. Advanced Features
+
+### Real-time Statistics
+The dashboard displays live data from your processed content:
+- **Total Chats**: Number of conversations processed
+- **Total Messages**: Count of all messages across all chats
+- **Active Tags**: Number of tags in your master list
+- **Total Cost**: Actual API costs from your usage
+- **Total Clusters**: Number of semantic clusters created
+- **Total Calls**: Number of API calls made during processing
+
+### Iterative Development
 The unified pipeline makes development much easier:
 
 ```bash

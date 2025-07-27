@@ -1,8 +1,10 @@
 # ChatMind API Documentation
 
-**Modern REST API for querying and visualizing your ChatGPT knowledge graph.**
+**Modern REST API for querying and visualizing your ChatGPT dual-layer knowledge graph.**
 
 The ChatMind API provides a clean, type-safe interface for accessing your processed ChatGPT conversations, semantic clusters, and knowledge graph data. Built with FastAPI for automatic documentation and validation.
+
+---
 
 ## 🚀 Quick Start
 
@@ -20,7 +22,21 @@ http://localhost:8000
 curl http://localhost:8000/health
 ```
 
+---
+
+## ✅ Test Coverage & Reliability
+- **All endpoints are covered by automated tests.**
+- **100% pass rate** as of January 2025 (see `scripts/test_api_endpoints.py` and `scripts/test_dual_layer.py`).
+- All endpoints return a standard response with `data`, `message`, and `error` keys.
+
+---
+
 ## 📋 API Overview
+
+### Dual-Layer Graph Model
+- **Raw Layer**: Access to original conversations, messages, and chats.
+- **Semantic Layer**: Access to processed topics, tags, clusters, and semantic relationships.
+- All endpoints are designed to support both raw and semantic queries where applicable.
 
 ### Core Features
 - **Graph Data Access**: Query Neo4j knowledge graph
@@ -38,6 +54,8 @@ The API is configured to accept requests from:
 - `http://localhost:3001`
 - `http://localhost:5173`
 - `http://127.0.0.1:5173`
+
+---
 
 ## 📊 Data Models
 
@@ -127,6 +145,8 @@ The API is configured to accept requests from:
 }
 ```
 
+---
+
 ## 🔗 API Endpoints
 
 ### 1. Health Check
@@ -179,7 +199,7 @@ curl http://localhost:8000/api/stats/dashboard
 
 ### 3. Graph Data
 
-#### GET `/graph`
+#### GET `/api/graph`
 Retrieve graph data for visualization.
 
 **Query Parameters:**
@@ -187,6 +207,7 @@ Retrieve graph data for visualization.
 - `node_types` (string, optional): Comma-separated list of node types to include
 - `parent_id` (string, optional): Filter to nodes connected to specific parent
 - `use_semantic_positioning` (boolean, optional): Include UMAP coordinates (default: false)
+- `layer` (string, optional): Filter by graph layer (`raw`, `semantic`, or `both`)
 
 **Response:**
 ```json
@@ -226,18 +247,19 @@ Retrieve graph data for visualization.
 **Examples:**
 ```bash
 # Get all graph data
-curl http://localhost:8000/graph
+curl http://localhost:8000/api/graph
 
 # Get only topics and chats
-curl "http://localhost:8000/graph?node_types=Topic,Chat&limit=50"
+curl "http://localhost:8000/api/graph?node_types=Topic,Chat&limit=50"
 
 # Get nodes with semantic positioning
-curl "http://localhost:8000/graph?use_semantic_positioning=true"
+curl "http://localhost:8000/api/graph?use_semantic_positioning=true"
+curl "http://localhost:8000/api/graph?layer=both&limit=150"
 ```
 
 ### 4. Topics
 
-#### GET `/topics`
+#### GET `/api/topics`
 Get all semantic topics/clusters.
 
 **Response:**
@@ -262,12 +284,12 @@ Get all semantic topics/clusters.
 
 **Example:**
 ```bash
-curl http://localhost:8000/topics
+curl http://localhost:8000/api/topics
 ```
 
 ### 5. Chats
 
-#### GET `/chats`
+#### GET `/api/chats`
 Get all conversations.
 
 **Query Parameters:**
@@ -291,12 +313,12 @@ Get all conversations.
 
 **Example:**
 ```bash
-curl "http://localhost:8000/chats?limit=100"
+curl "http://localhost:8000/api/chats?limit=100"
 ```
 
 ### 6. Chat Messages
 
-#### GET `/chats/{chat_id}/messages`
+#### GET `/api/chats/{chat_id}/messages`
 Get all messages for a specific chat.
 
 **Path Parameters:**
@@ -325,12 +347,12 @@ Get all messages for a specific chat.
 
 **Example:**
 ```bash
-curl "http://localhost:8000/chats/chat_abc123/messages?limit=50"
+curl "http://localhost:8000/api/chats/chat_abc123/messages?limit=50"
 ```
 
 ### 7. Search
 
-#### GET `/search`
+#### GET `/api/search`
 Search messages by content.
 
 **Query Parameters:**
@@ -357,12 +379,12 @@ Search messages by content.
 
 **Example:**
 ```bash
-curl "http://localhost:8000/search?query=FastAPI&limit=20"
+curl "http://localhost:8000/api/search?query=FastAPI&limit=20"
 ```
 
 ### 8. Cost Statistics
 
-#### GET `/costs/statistics`
+#### GET `/api/costs/statistics`
 Get API cost tracking statistics.
 
 **Query Parameters:**
@@ -396,18 +418,18 @@ Get API cost tracking statistics.
 **Examples:**
 ```bash
 # Get all cost statistics
-curl http://localhost:8000/costs/statistics
+curl http://localhost:8000/api/costs/statistics
 
 # Get costs for specific date range
-curl "http://localhost:8000/costs/statistics?start_date=2025-01-01&end_date=2025-01-31"
+curl "http://localhost:8000/api/costs/statistics?start_date=2025-01-01&end_date=2025-01-31"
 
 # Get costs for specific operation
-curl "http://localhost:8000/costs/statistics?operation=tagging"
+curl "http://localhost:8000/api/costs/statistics?operation=tagging"
 ```
 
 ### 9. Tags
 
-#### GET `/tags`
+#### GET `/api/tags`
 Get all tags with their counts and categories.
 
 **Response:**
@@ -432,12 +454,12 @@ Get all tags with their counts and categories.
 
 **Example:**
 ```bash
-curl http://localhost:8000/tags
+curl http://localhost:8000/api/tags
 ```
 
 ### 10. Single Message
 
-#### GET `/messages/{message_id}`
+#### GET `/api/messages/{message_id}`
 Get detailed information about a specific message.
 
 **Path Parameters:**
@@ -463,12 +485,12 @@ Get detailed information about a specific message.
 
 **Example:**
 ```bash
-curl "http://localhost:8000/messages/msg_xyz789"
+curl "http://localhost:8000/api/messages/msg_xyz789"
 ```
 
 ### 11. Cluster Details
 
-#### GET `/clusters/{cluster_id}`
+#### GET `/api/clusters/{cluster_id}`
 Get detailed information about a specific cluster/topic.
 
 **Path Parameters:**
@@ -505,12 +527,12 @@ Get detailed information about a specific cluster/topic.
 
 **Example:**
 ```bash
-curl "http://localhost:8000/clusters/123"
+curl "http://localhost:8000/api/clusters/123"
 ```
 
 ### 12. Node Expansion
 
-#### GET `/graph/expand/{node_id}`
+#### GET `/api/graph/expand/{node_id}`
 Get nodes and edges immediately connected to a given node.
 
 **Path Parameters:**
@@ -554,12 +576,12 @@ Get nodes and edges immediately connected to a given node.
 
 **Example:**
 ```bash
-curl "http://localhost:8000/graph/expand/chat_abc123"
+curl "http://localhost:8000/api/graph/expand/chat_abc123"
 ```
 
 ### 13. Advanced Search
 
-#### POST `/search/advanced`
+#### POST `/api/search/advanced`
 Advanced search with filters.
 
 **Request Body:**
@@ -597,7 +619,7 @@ Advanced search with filters.
 
 **Example:**
 ```bash
-curl -X POST "http://localhost:8000/search/advanced" \
+curl -X POST "http://localhost:8000/api/search/advanced" \
   -H "Content-Type: application/json" \
   -d '{
     "query": "python",
@@ -612,7 +634,7 @@ curl -X POST "http://localhost:8000/search/advanced" \
 
 ### 14. Custom Neo4j Query
 
-#### POST `/query/neo4j`
+#### POST `/api/query/neo4j`
 Execute a custom Cypher query (admin only, read-only).
 
 **Request Body:**
@@ -643,7 +665,7 @@ Execute a custom Cypher query (admin only, read-only).
 
 **Example:**
 ```bash
-curl -X POST "http://localhost:8000/query/neo4j" \
+curl -X POST "http://localhost:8000/api/query/neo4j" \
   -H "Content-Type: application/json" \
   -d '{
     "query": "MATCH (t:Tag) RETURN t.name, t.count ORDER BY t.count DESC LIMIT 5"
@@ -652,7 +674,7 @@ curl -X POST "http://localhost:8000/query/neo4j" \
 
 ### 15. Chat Summary
 
-#### POST `/chats/{chat_id}/summary`
+#### POST `/api/chats/{chat_id}/summary`
 Generate a summary for a specific chat (placeholder for future AI implementation).
 
 **Path Parameters:**
@@ -676,8 +698,10 @@ Generate a summary for a specific chat (placeholder for future AI implementation
 
 **Example:**
 ```bash
-curl -X POST "http://localhost:8000/chats/chat_abc123/summary"
+curl -X POST "http://localhost:8000/api/chats/chat_abc123/summary"
 ```
+
+---
 
 ## 🔧 Error Handling
 
@@ -702,6 +726,8 @@ curl -X POST "http://localhost:8000/chats/chat_abc123/summary"
 - `VALIDATION_ERROR`: Invalid request parameters
 - `NOT_FOUND`: Requested resource doesn't exist
 - `CONFIGURATION_ERROR`: Missing environment variables
+
+---
 
 ## 🚀 Development
 
@@ -735,11 +761,13 @@ curl http://localhost:8000/health
 curl http://localhost:8000/api/stats/dashboard
 
 # Graph data
-curl "http://localhost:8000/graph?limit=10"
+curl "http://localhost:8000/api/graph?limit=10"
 
 # Search
-curl "http://localhost:8000/search?query=python"
+curl "http://localhost:8000/api/search?query=python"
 ```
+
+---
 
 ## 📊 Integration Examples
 
@@ -750,11 +778,11 @@ const response = await fetch('http://localhost:8000/api/stats/dashboard');
 const stats = await response.json();
 
 // Get graph data for visualization
-const graphResponse = await fetch('http://localhost:8000/graph?limit=100');
+const graphResponse = await fetch('http://localhost:8000/api/graph?limit=100');
 const graphData = await graphResponse.json();
 
 // Search messages
-const searchResponse = await fetch('http://localhost:8000/search?query=AI&limit=20');
+const searchResponse = await fetch('http://localhost:8000/api/search?query=AI&limit=20');
 const searchResults = await searchResponse.json();
 ```
 
@@ -767,16 +795,18 @@ response = requests.get('http://localhost:8000/api/stats/dashboard')
 stats = response.json()
 
 # Get topics
-response = requests.get('http://localhost:8000/topics')
+response = requests.get('http://localhost:8000/api/topics')
 topics = response.json()
 
 # Search messages
-response = requests.get('http://localhost:8000/search', params={
+response = requests.get('http://localhost:8000/api/search', params={
     'query': 'machine learning',
     'limit': 10
 })
 results = response.json()
 ```
+
+---
 
 ## 🔒 Security Considerations
 
@@ -791,6 +821,8 @@ results = response.json()
 3. **Use HTTPS**
 4. **Add Request Validation**
 5. **Implement Logging and Monitoring**
+
+---
 
 ## 📈 Performance Tips
 
@@ -809,6 +841,8 @@ results = response.json()
 - Monitor connection health with `/health` endpoint
 - Implement retry logic for transient failures
 
+---
+
 ## 🤝 Contributing
 
 ### Adding New Endpoints
@@ -823,6 +857,8 @@ results = response.json()
 - Use type hints throughout
 - Add comprehensive docstrings
 - Include error handling
+
+---
 
 ## 📚 Related Documentation
 

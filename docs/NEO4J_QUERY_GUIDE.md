@@ -512,6 +512,114 @@ OPTIONAL MATCH (m)-[:HAS_CHUNK]->(ch:Chunk)
 RETURN c.title, count(m) as message_count, count(ch) as chunk_count
 ```
 
+## 🎯 Common Use Cases
+
+### Find Related Content
+```cypher
+-- All messages about Python
+MATCH (m:Message)-[:TAGGED_WITH]->(tag:Tag {name: "python"})
+RETURN m.content, m.role ORDER BY m.timestamp DESC
+
+-- Chats with similar topics
+MATCH (c1:Chat)-[:HAS_TOPIC]->(t:Topic)<-[:HAS_TOPIC]-(c2:Chat)
+WHERE c1.chat_id = "chat_123" AND c1.chat_id <> c2.chat_id
+RETURN c2.title, t.name
+
+-- Get message embeddings (for debugging/similarity)
+MATCH (m:Message)
+WHERE m.embedding IS NOT NULL
+RETURN m.message_id, m.content, m.embedding LIMIT 10
+```
+
+### Content Discovery
+```cypher
+-- Most active topics
+MATCH (t:Topic) RETURN t.name, t.size, t.sample_titles ORDER BY t.size DESC LIMIT 10
+
+-- Messages with specific tags
+MATCH (m:Message)-[:TAGGED_WITH]->(tag:Tag)
+WHERE tag.name IN ["python", "javascript", "react"]
+RETURN m.content, tag.name ORDER BY m.timestamp DESC
+
+-- Graph UMAP overview (topic-based)
+MATCH (t:Topic)
+WHERE t.x IS NOT NULL AND t.y IS NOT NULL
+RETURN t.name, t.topic_id, t.size, t.x, t.y, t.top_words ORDER BY t.size DESC
+```
+
+### Quality Analysis
+```cypher
+-- Long conversations (>20 messages)
+MATCH (c:Chat)-[:CONTAINS]->(m:Message)
+WITH c, count(m) as message_count
+WHERE message_count > 20
+RETURN c.title, message_count ORDER BY message_count DESC
+
+-- Conversations with many tags (>5 unique tags)
+MATCH (c:Chat)-[:CONTAINS]->(m:Message)-[:TAGGED_WITH]->(tag:Tag)
+WITH c, count(DISTINCT tag) as unique_tags
+WHERE unique_tags > 5
+RETURN c.title, unique_tags ORDER BY unique_tags DESC
+```
+
+### Advanced Search Patterns
+```cypher
+-- Search messages by content
+MATCH (m:Message)
+WHERE toLower(m.content) CONTAINS toLower("python")
+RETURN m.content, m.role ORDER BY m.timestamp DESC
+
+-- Search by tag
+MATCH (m:Message)-[:TAGGED_WITH]->(tag:Tag {name: "python"})
+RETURN m.content, m.role ORDER BY m.timestamp DESC
+
+-- Search by topic
+MATCH (t:Topic)-[:SUMMARIZES]->(m:Message)
+WHERE t.name CONTAINS "programming"
+RETURN t.name, m.content
+```
+
+### Graph Exploration
+```cypher
+-- Get chat with all related data
+MATCH (c:Chat {chat_id: "chat_123"})
+OPTIONAL MATCH (c)-[:CONTAINS]->(m:Message)
+OPTIONAL MATCH (m)-[:TAGGED_WITH]->(tag:Tag)
+OPTIONAL MATCH (t:Topic)-[:SUMMARIZES]->(m)
+RETURN c, collect(DISTINCT m) as messages, collect(DISTINCT tag) as tags
+
+-- Find similar chats
+MATCH (c1:Chat)-[:SIMILAR_TO]-(c2:Chat)
+WHERE c1.chat_id = "chat_123"
+RETURN c2.title, c2.chat_id
+
+-- Chat-topic-message full context
+MATCH (c:Chat {chat_id: $chat_id})-[:CONTAINS]->(m:Message)
+OPTIONAL MATCH (m)-[:TAGGED_WITH]->(tag:Tag)
+OPTIONAL MATCH (c)-[:HAS_TOPIC]->(t:Topic)
+RETURN c, m, collect(DISTINCT tag) as tags, collect(DISTINCT t) as topics
+```
+
+### Additional Statistics
+```cypher
+-- Node counts
+MATCH (n) RETURN labels(n)[0] as type, count(n) as count ORDER BY count DESC
+
+-- Relationship counts
+MATCH ()-[r]->() RETURN type(r) as type, count(r) as count ORDER BY count DESC
+
+-- Average messages per chat
+MATCH (c:Chat)-[:CONTAINS]->(m:Message)
+WITH c, count(m) as message_count
+RETURN avg(message_count) as avg_messages_per_chat
+
+-- Topic distribution with percentage
+MATCH (t:Topic)
+WITH t, sum(t.size) as total_size
+RETURN t.name, t.size, round(t.size * 100.0 / total_size, 2) as percentage
+ORDER BY t.size DESC
+```
+
 ## 📚 Additional Resources
 
 - [Neo4j Cypher Manual](https://neo4j.com/docs/cypher-manual/current/)
