@@ -1,16 +1,10 @@
-#!/usr/bin/env python3
 """
-Auto-Tagger Package for ChatMind
+ChatMind Tagger Package
 
-Provides GPT-driven automatic tagging of semantic chunks.
+Organized into subdirectories:
+- deprecated/: Original basic tagger (no longer used)
+- cloud_api/: Enhanced tagger using OpenAI API
+- local/: Enhanced tagger using local models (Ollama)
 """
 
-from .tagger import ChunkTagger, tag_chunk
-from .prompts import tagging_prompt, get_tagging_prompt
-
-__all__ = [
-    'ChunkTagger',
-    'tag_chunk',
-    'tagging_prompt',
-    'get_tagging_prompt'
-] 
+__version__ = "2.0.0" 

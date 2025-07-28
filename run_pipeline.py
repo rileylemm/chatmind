@@ -76,26 +76,26 @@ def save_processed_message_hashes(hashes: set) -> None:
 
 def get_processed_chunk_hashes() -> set:
     """Get hashes of chunks that have been tagged."""
-    state_file = Path("data/processed/tagging_state.pkl")
+    state_file = Path("data/processed/enhanced_tagging_state.pkl")
     if state_file.exists():
         try:
             with open(state_file, 'rb') as f:
                 return pickle.load(f)
         except Exception as e:
-            logger.warning(f"Failed to load chunk tagging state: {e}")
+            logger.warning(f"Failed to load enhanced chunk tagging state: {e}")
     return set()
 
 
 def save_processed_chunk_hashes(hashes: set) -> None:
     """Save hashes of processed chunks."""
-    state_file = Path("data/processed/tagging_state.pkl")
+    state_file = Path("data/processed/enhanced_tagging_state.pkl")
     state_file.parent.mkdir(parents=True, exist_ok=True)
     try:
         with open(state_file, 'wb') as f:
             pickle.dump(hashes, f)
         logger.info(f"Saved {len(hashes)} processed chunk hashes")
     except Exception as e:
-        logger.error(f"Failed to save chunk tagging state: {e}")
+        logger.error(f"Failed to save enhanced chunk tagging state: {e}")
 
 
 def check_needs_processing() -> dict:
@@ -104,6 +104,7 @@ def check_needs_processing() -> dict:
         'ingestion': False,
         'embedding': False,
         'tagging': False,
+        'summarization': False,
         'positioning': False,
         'loading': False
     }
@@ -165,10 +166,10 @@ def check_needs_processing() -> dict:
             needs_processing['tagging'] = True
             needs_processing['loading'] = True
     
-    # Check if tagging exists
-    tagged_file = Path("data/processed/tagged_chunks.jsonl")
+    # Check if enhanced tagging exists
+    tagged_file = Path("data/processed/enhanced_tagged_chunks.jsonl")
     if not check_file_exists(tagged_file):
-        logger.info("🏷️ Tagging needed: No tagged_chunks.jsonl found")
+        logger.info("🏷️ Enhanced tagging needed: No enhanced_tagged_chunks.jsonl found")
         needs_processing['tagging'] = True
         needs_processing['loading'] = True
     else:
@@ -195,11 +196,11 @@ def check_needs_processing() -> dict:
                         new_chunks += 1
             
             if new_chunks > 0:
-                logger.info(f"🏷️ Tagging needed: {new_chunks} new chunks out of {total_chunks} total")
+                logger.info(f"🏷️ Enhanced tagging needed: {new_chunks} new chunks out of {total_chunks} total")
                 needs_processing['tagging'] = True
                 needs_processing['loading'] = True
             else:
-                logger.info("✅ Tagging up to date: All chunks already processed")
+                logger.info("✅ Enhanced tagging up to date: All chunks already processed")
                 
         except Exception as e:
             logger.warning(f"Could not check chunk state: {e}")
@@ -229,15 +230,42 @@ def check_needs_processing() -> dict:
 @click.option('--skip-ingestion', is_flag=True, help='Skip data ingestion step')
 @click.option('--skip-embedding', is_flag=True, help='Skip embedding and clustering step')
 @click.option('--skip-tagging', is_flag=True, help='Skip auto-tagging step')
+@click.option('--skip-summarization', is_flag=True, help='Skip cluster summarization step')
 @click.option('--skip-positioning', is_flag=True, help='Skip semantic positioning step')
 @click.option('--skip-loading', is_flag=True, help='Skip Neo4j loading step')
+@click.option('--cloud', is_flag=True, help='Use cloud API for all AI components (embedding, tagging, summarization)')
+@click.option('--local', is_flag=True, help='Use local models for all AI components (embedding, tagging, summarization)')
+@click.option('--tagger-method', 
+              type=click.Choice(['cloud', 'local']), 
+              default='cloud',
+              help='Tagger method to use (cloud or local)')
+@click.option('--embedder-method', 
+              type=click.Choice(['cloud', 'local']), 
+              default='local',
+              help='Embedder method to use (cloud or local)')
+@click.option('--summarizer-method', 
+              type=click.Choice(['cloud', 'local']), 
+              default='cloud',
+              help='Summarizer method to use (cloud or local)')
 @click.option('--clear-neo4j', is_flag=True, help='Clear existing Neo4j data before loading')
 @click.option('--force-reprocess', is_flag=True, help='Force reprocess all files (ignore previous state)')
 @click.option('--clear-state', is_flag=True, help='Clear all processed state and start fresh')
 @click.option('--check-only', is_flag=True, help='Only check what needs processing, don\'t run pipeline')
-def main(skip_ingestion: bool, skip_embedding: bool, skip_tagging: bool, skip_positioning: bool, skip_loading: bool, 
-         clear_neo4j: bool, force_reprocess: bool, clear_state: bool, check_only: bool):
+def main(skip_ingestion: bool, skip_embedding: bool, skip_tagging: bool, skip_summarization: bool, skip_positioning: bool, skip_loading: bool, 
+         cloud: bool, local: bool, embedder_method: str, tagger_method: str, summarizer_method: str, clear_neo4j: bool, force_reprocess: bool, clear_state: bool, check_only: bool):
     """Run the complete ChatMind pipeline with smart incremental processing."""
+    
+    # Override individual methods if cloud/local flags are used
+    if cloud:
+        embedder_method = 'cloud'
+        tagger_method = 'cloud'
+        summarizer_method = 'cloud'
+        logger.info("☁️  Using cloud API for all AI components")
+    elif local:
+        embedder_method = 'local'
+        tagger_method = 'local'
+        summarizer_method = 'local'
+        logger.info("🏠 Using local models for all AI components")
     
     logger.info("🚀 Starting ChatMind unified pipeline...")
     
@@ -247,7 +275,7 @@ def main(skip_ingestion: bool, skip_embedding: bool, skip_tagging: bool, skip_po
         state_files = [
             "data/processed/chat_processing_state.pkl",
             "data/processed/direct_embedding_state.pkl", 
-            "data/processed/tagging_state.pkl"
+            "data/processed/enhanced_tagging_state.pkl"
         ]
         for state_file in state_files:
             Path(state_file).unlink(missing_ok=True)
@@ -305,10 +333,11 @@ def main(skip_ingestion: bool, skip_embedding: bool, skip_tagging: bool, skip_po
         logger.info("⏭️ Skipping data ingestion (already up to date)")
     
     # Step 2: Embedding and Clustering
-    if needs_processing['embedding']:
-        logger.info("🧠 Step 2: Generating embeddings and clustering...")
+    if needs_processing['embedding'] and not skip_embedding:
+        logger.info(f"🧠 Step 2: Generating embeddings and clustering using {embedder_method} method...")
         try:
-            cmd = [sys.executable, "chatmind/embedding/embed_and_cluster_direct_incremental.py"]
+            # Use the new unified embedder interface
+            cmd = [sys.executable, "chatmind/embedding/run_embedding.py", "--method", embedder_method]
             if force_reprocess:
                 cmd.append("--force")
             # Set PYTHONPATH to include current directory
@@ -319,26 +348,31 @@ def main(skip_ingestion: bool, skip_embedding: bool, skip_tagging: bool, skip_po
         except subprocess.CalledProcessError as e:
             logger.error(f"❌ Embedding and clustering failed: {e}")
             return 1
+    elif skip_embedding:
+        logger.info("⏭️ Skipping embedding and clustering (--skip-embedding flag)")
     else:
         logger.info("⏭️ Skipping embedding and clustering (already up to date)")
     
-    # Step 3: Auto-Tagging
-    if needs_processing['tagging']:
-        logger.info("🏷️ Step 3: Auto-tagging chunks...")
+    # Step 3: Enhanced Auto-Tagging
+    if needs_processing['tagging'] and not skip_tagging:
+        logger.info(f"🏷️ Step 3: Enhanced auto-tagging chunks using {tagger_method} method...")
         try:
-            cmd = [sys.executable, "chatmind/tagger/run_tagging_incremental.py"]
+            # Use the new unified tagger interface
+            cmd = [sys.executable, "chatmind/tagger/run_tagging.py", "--method", tagger_method]
             if force_reprocess:
                 cmd.append("--force")
             # Set PYTHONPATH to include current directory
             env = os.environ.copy()
             env['PYTHONPATH'] = '.'
             subprocess.run(cmd, check=True, env=env)
-            logger.info("✅ Auto-tagging completed")
+            logger.info("✅ Enhanced auto-tagging completed")
         except subprocess.CalledProcessError as e:
-            logger.error(f"❌ Auto-tagging failed: {e}")
+            logger.error(f"❌ Enhanced auto-tagging failed: {e}")
             return 1
+    elif skip_tagging:
+        logger.info("⏭️ Skipping enhanced auto-tagging (--skip-tagging flag)")
     else:
-        logger.info("⏭️ Skipping auto-tagging (already up to date)")
+        logger.info("⏭️ Skipping enhanced auto-tagging (already up to date)")
     
     # Step 3.5: Post-process tags to map to master list
     logger.info("🔧 Step 3.5: Post-processing tags...")
@@ -354,17 +388,23 @@ def main(skip_ingestion: bool, skip_embedding: bool, skip_tagging: bool, skip_po
         return 1
     
     # Step 3.6: Generate cluster summaries for Neo4j
-    logger.info("📊 Step 3.6: Generating cluster summaries...")
-    try:
-        cmd = [sys.executable, "chatmind/embedding/generate_cluster_summaries.py"]
-        # Set PYTHONPATH to include current directory
-        env = os.environ.copy()
-        env['PYTHONPATH'] = '.'
-        subprocess.run(cmd, check=True, env=env)
-        logger.info("✅ Cluster summaries generated")
-    except subprocess.CalledProcessError as e:
-        logger.error(f"❌ Cluster summary generation failed: {e}")
-        return 1
+    if not skip_summarization:
+        logger.info(f"📊 Step 3.6: Generating cluster summaries using {summarizer_method} method...")
+        try:
+            # Use the new unified cluster summary interface
+            cmd = [sys.executable, "chatmind/summarizer/run_cluster_summaries.py", "--method", summarizer_method]
+            if force_reprocess:
+                cmd.append("--force")
+            # Set PYTHONPATH to include current directory
+            env = os.environ.copy()
+            env['PYTHONPATH'] = '.'
+            subprocess.run(cmd, check=True, env=env)
+            logger.info("✅ Cluster summaries generated")
+        except subprocess.CalledProcessError as e:
+            logger.error(f"❌ Cluster summary generation failed: {e}")
+            return 1
+    else:
+        logger.info("⏭️ Skipping cluster summarization (--skip-summarization flag)")
     
     # Step 3.7: Apply semantic positioning to topic nodes
     if needs_processing['positioning']:

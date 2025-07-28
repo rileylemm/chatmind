@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-ChatMind Tagger Selection Script
+ChatMind Cluster Summary Selection Script
 
-Choose between different tagging approaches:
+Choose between different cluster summarization approaches:
 - Cloud API (OpenAI): Fast, high quality, but costs money
 - Local Model (Ollama): Free, slower, good quality
 """
@@ -16,52 +16,45 @@ from pathlib import Path
 @click.command()
 @click.option('--method', 
               type=click.Choice(['cloud', 'local']),
-              prompt='Choose tagging method',
-              help='Tagging method to use')
+              prompt='Choose summarization method',
+              help='Summarization method to use')
 @click.option('--input-file', 
               default='data/embeddings/chunks_with_clusters.jsonl',
               help='Input JSONL file with chunks')
 @click.option('--output-file', 
               default=None,
-              help='Output JSONL file for tagged chunks (auto-generated if not specified)')
+              help='Output JSON file for cluster summaries (auto-generated if not specified)')
 @click.option('--model', 
               default=None,
               help='Model to use (auto-selected based on method)')
-@click.option('--enable-validation/--disable-validation',
-              default=True,
-              help='Enable/disable tag validation')
-@click.option('--enable-conversation-context/--disable-conversation-context',
-              default=True,
-              help='Enable/disable conversation-level context')
-@click.option('--force', is_flag=True, help='Force reprocess all chunks (ignore state)')
-@click.option('--check-only', is_flag=True, help='Only check setup, don\'t run tagging')
+@click.option('--force', is_flag=True, help='Force reprocess all clusters (ignore state)')
+@click.option('--check-only', is_flag=True, help='Only check setup, don\'t run summarization')
 def main(method: str, input_file: str, output_file: str, model: str, 
-         enable_validation: bool, enable_conversation_context: bool, 
          force: bool, check_only: bool):
     """
-    Run ChatMind tagging with your choice of method.
+    Run ChatMind cluster summarization with your choice of method.
     
     METHODS:
     - cloud: Use OpenAI API (fast, high quality, costs money)
     - local: Use local models via Ollama (free, slower, good quality)
     
     EXAMPLES:
-    # Quick cloud tagging
-    python3 chatmind/tagger/run_tagging.py --method cloud
+    # Quick cloud summarization
+    python3 chatmind/embedding/run_cluster_summaries.py --method cloud
     
-    # Local tagging with specific model
-    python3 chatmind/tagger/run_tagging.py --method local --model mistral:latest
+    # Local summarization with specific model
+    python3 chatmind/embedding/run_cluster_summaries.py --method local --model mistral:latest
     
     # Check local setup only
-    python3 chatmind/tagger/run_tagging.py --method local --check-only
+    python3 chatmind/embedding/run_cluster_summaries.py --method local --check-only
     """
     
     # Auto-generate output file if not specified
     if output_file is None:
         if method == 'cloud':
-            output_file = 'data/processed/enhanced_tagged_chunks.jsonl'
+            output_file = 'data/embeddings/enhanced_cluster_summaries.json'
         else:
-            output_file = 'data/processed/local_enhanced_tagged_chunks.jsonl'
+            output_file = 'data/embeddings/local_enhanced_cluster_summaries.json'
     
     # Auto-select model if not specified
     if model is None:
@@ -70,13 +63,11 @@ def main(method: str, input_file: str, output_file: str, model: str,
         else:
             model = 'mistral:latest'
     
-    print(f"🤖 ChatMind Tagger - {method.upper()} Method")
+    print(f"📊 ChatMind Cluster Summarizer - {method.upper()} Method")
     print("=" * 50)
     print(f"Input: {input_file}")
     print(f"Output: {output_file}")
     print(f"Model: {model}")
-    print(f"Validation: {'enabled' if enable_validation else 'disabled'}")
-    print(f"Conversation Context: {'enabled' if enable_conversation_context else 'disabled'}")
     print(f"Force reprocess: {'yes' if force else 'no'}")
     print()
     
@@ -93,13 +84,11 @@ def main(method: str, input_file: str, output_file: str, model: str,
         print(f"❌ Input file not found: {input_file}")
         return 1
     
-    # Run the appropriate tagger
+    # Run the appropriate summarizer
     if method == 'cloud':
-        return run_cloud_tagging(input_file, output_file, model, enable_validation, 
-                               enable_conversation_context, force)
+        return run_cloud_summarization(input_file, output_file, model, force)
     else:
-        return run_local_tagging(input_file, output_file, model, enable_validation, 
-                               enable_conversation_context, force)
+        return run_local_summarization(input_file, output_file, model, force)
 
 
 def check_cloud_setup():
@@ -140,10 +129,9 @@ def check_local_setup():
         return False
 
 
-def run_cloud_tagging(input_file: str, output_file: str, model: str, 
-                     enable_validation: bool, enable_conversation_context: bool, force: bool) -> int:
-    """Run cloud API tagging."""
-    print("☁️  Running Cloud API Enhanced Tagging...")
+def run_cloud_summarization(input_file: str, output_file: str, model: str, force: bool) -> int:
+    """Run cloud API summarization."""
+    print("☁️  Running Cloud API Enhanced Cluster Summarization...")
     
     # Check cloud setup
     if not check_cloud_setup():
@@ -152,17 +140,13 @@ def run_cloud_tagging(input_file: str, output_file: str, model: str,
     # Build command
     cmd = [
         sys.executable, 
-        "chatmind/tagger/cloud_api/run_enhanced_tagging_incremental.py",
+        "chatmind/summarizer/cloud_api/enhanced_cluster_summarizer.py",
         "--input-file", input_file,
         "--output-file", output_file,
         "--model", model,
         "--delay", "1.0"
     ]
     
-    if not enable_validation:
-        cmd.append("--disable-validation")
-    if not enable_conversation_context:
-        cmd.append("--disable-conversation-context")
     if force:
         cmd.append("--force")
     
@@ -172,17 +156,16 @@ def run_cloud_tagging(input_file: str, output_file: str, model: str,
     
     try:
         subprocess.run(cmd, check=True, env=env)
-        print("✅ Cloud API tagging completed successfully!")
+        print("✅ Cloud API cluster summarization completed successfully!")
         return 0
     except subprocess.CalledProcessError as e:
-        print(f"❌ Cloud API tagging failed: {e}")
+        print(f"❌ Cloud API cluster summarization failed: {e}")
         return 1
 
 
-def run_local_tagging(input_file: str, output_file: str, model: str, 
-                     enable_validation: bool, enable_conversation_context: bool, force: bool) -> int:
-    """Run local model tagging."""
-    print("🏠 Running Local Model Enhanced Tagging...")
+def run_local_summarization(input_file: str, output_file: str, model: str, force: bool) -> int:
+    """Run local model summarization."""
+    print("🏠 Running Local Model Enhanced Cluster Summarization...")
     
     # Check local setup
     if not check_local_setup():
@@ -191,17 +174,13 @@ def run_local_tagging(input_file: str, output_file: str, model: str,
     # Build command
     cmd = [
         sys.executable, 
-        "chatmind/tagger/local/run_local_enhanced_tagging.py",
+        "chatmind/summarizer/local/local_enhanced_cluster_summarizer.py",
         "--input-file", input_file,
         "--output-file", output_file,
         "--model", model,
         "--delay", "0.5"
     ]
     
-    if not enable_validation:
-        cmd.append("--disable-validation")
-    if not enable_conversation_context:
-        cmd.append("--disable-conversation-context")
     if force:
         cmd.append("--force")
     
@@ -211,10 +190,10 @@ def run_local_tagging(input_file: str, output_file: str, model: str,
     
     try:
         subprocess.run(cmd, check=True, env=env)
-        print("✅ Local model tagging completed successfully!")
+        print("✅ Local model cluster summarization completed successfully!")
         return 0
     except subprocess.CalledProcessError as e:
-        print(f"❌ Local model tagging failed: {e}")
+        print(f"❌ Local model cluster summarization failed: {e}")
         return 1
 
 

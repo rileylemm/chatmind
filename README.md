@@ -15,6 +15,7 @@ ChatMind automatically processes your ChatGPT export data, extracts meaningful i
 - **Real-time Statistics**: Dashboard shows live data from your processed content
 - **RESTful API**: FastAPI backend with 25+ tested endpoints
 - **Dual-Layer Graph**: Raw data + semantic layer for powerful queries
+- **Flexible AI Processing**: Choose between cloud API (fast, paid) and local models (free, slower)
 
 ## Quick Start
 
@@ -23,7 +24,9 @@ ChatMind automatically processes your ChatGPT export data, extracts meaningful i
 - **Python 3.8+**
 - **Node.js 16+** (for frontend)
 - **Neo4j Database** (local or cloud)
-- **OpenAI API Key**
+- **Tagger Selection**: Choose between:
+  - **Cloud API** (OpenAI): Fast, high quality, costs money (~$42-65 for 32K chunks)
+  - **Local Model** (Ollama): Free, slower, good quality (6-8 hours for 32K chunks)
 
 ### Installation
 
@@ -54,12 +57,15 @@ ChatMind automatically processes your ChatGPT export data, extracts meaningful i
    ```bash
    cp env.example .env
    ```
-   Edit `.env` and add your API keys:
+   Edit `.env` and add your configuration:
    ```
-   OPENAI_API_KEY=your_openai_key_here
+   # Required for all setups
    NEO4J_URI=bolt://localhost:7687
    NEO4J_USER=neo4j
    NEO4J_PASSWORD=your_password
+   
+   # Only required for Cloud API tagger
+   OPENAI_API_KEY=your_openai_key_here
    ```
 
 5. **Install frontend dependencies**
@@ -78,6 +84,32 @@ ChatMind automatically processes your ChatGPT export data, extracts meaningful i
    # Download and install from https://neo4j.com/download/
    ```
 
+7. **Set up your chosen tagger**
+   
+   **For Cloud API (OpenAI):**
+   ```bash
+   # Verify OpenAI API key is set
+   echo $OPENAI_API_KEY
+   
+   # Test cloud setup
+   python3 chatmind/tagger/run_tagging.py --method cloud --check-only
+   ```
+   
+   **For Local Model (Ollama):**
+   ```bash
+   # Install Ollama (if not already installed)
+   curl -fsSL https://ollama.ai/install.sh | sh
+   
+   # Start Ollama service
+   ollama serve
+   
+   # Pull a model (recommended: mistral:latest)
+   ollama pull mistral:latest
+   
+   # Test local setup
+   python3 chatmind/tagger/run_tagging.py --method local --check-only
+   ```
+
 ### Usage
 
 1. **Add your ChatGPT export**
@@ -87,8 +119,31 @@ ChatMind automatically processes your ChatGPT export data, extracts meaningful i
 
 2. **Run the processing pipeline**
    ```bash
+   # Use cloud API for everything (fast, high quality, costs money)
+   python run_pipeline.py --cloud
+   
+   # Use local models for everything (free, slower, good quality)
+   python run_pipeline.py --local
+   
+   # Use default mixed approach (local embedding, cloud tagging/summarization)
    python run_pipeline.py
+   
+   # For development: skip expensive steps
+   python run_pipeline.py --local --skip-tagging
    ```
+
+### Pipeline Options
+
+**Quick Start:**
+- `--cloud`: Use cloud API for all AI components (embedding, tagging, summarization)
+- `--local`: Use local models for all AI components (embedding, tagging, summarization)
+- Default: Mixed approach (local embedding, cloud tagging/summarization)
+
+**Development:**
+- `--local --skip-tagging`: Fast iteration with local models
+- `--cloud --skip-summarization`: Test cloud setup without expensive steps
+- `--check-only`: Preview what will be processed
+- `--force-reprocess`: Reprocess everything from scratch
 
 3. **Start the backend API server**
    ```bash
@@ -152,6 +207,7 @@ chatmind/
 
 - **[User Guide](docs/UserGuide.md)** - Complete setup and usage instructions
 - **[API Documentation](docs/API_DOCUMENTATION.md)** - Complete API reference
+- **[Enhanced Tagging System](docs/ENHANCED_TAGGING_SYSTEM.md)** - AI-powered tagging with cloud/local options
 - **[Dual Layer Graph Strategy](docs/DUAL_LAYER_GRAPH_STRATEGY_AND_IMPLEMENTATION.md)** - Architecture and implementation
 - **[Pipeline Overview](docs/PIPELINE_OVERVIEW_AND_INCREMENTAL.md)** - Processing pipeline details
 - **[Neo4j Query Guide](docs/NEO4J_QUERY_GUIDE.md)** - Database query reference
@@ -305,6 +361,8 @@ python scripts/setup_tags.py
 - **Incremental processing**: Only processes new data
 - **Force reprocess**: `python run_pipeline.py --force-reprocess`
 - **Skip specific steps**: `python run_pipeline.py --skip-tagging`
+- **Method selection**: `--cloud` for all cloud API, `--local` for all local models
+- **Development mode**: `--local --skip-tagging` for fast iteration
 
 **Detailed Configuration:** See [User Guide](docs/UserGuide.md) for complete setup instructions.
 

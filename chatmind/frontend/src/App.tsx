@@ -4,6 +4,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Layout } from './components/layout/Layout';
 import Dashboard from './pages/Dashboard';
 import GraphExplorer from './pages/GraphExplorer';
+import Messages from './pages/Messages';
+import Analytics from './pages/Analytics';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -24,8 +26,8 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             {/* Add more routes as we build them */}
             <Route path="/graph" element={<GraphExplorer />} />
-            <Route path="/messages" element={<div>Messages (Coming Soon)</div>} />
-            <Route path="/analytics" element={<div>Analytics (Coming Soon)</div>} />
+            <Route path="/messages" element={<Messages />} />
+            <Route path="/analytics" element={<Analytics />} />
             <Route path="/tags" element={<div>Tags (Coming Soon)</div>} />
             <Route path="/data" element={<div>Data Lake (Coming Soon)</div>} />
             <Route path="/settings" element={<div>Settings (Coming Soon)</div>} />
