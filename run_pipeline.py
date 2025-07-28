@@ -116,6 +116,8 @@ def check_needs_processing() -> dict:
         needs_processing['ingestion'] = True
         needs_processing['embedding'] = True
         needs_processing['tagging'] = True
+        needs_processing['summarization'] = True
+        needs_processing['positioning'] = True
         needs_processing['loading'] = True
         return needs_processing
     
@@ -207,6 +209,18 @@ def check_needs_processing() -> dict:
             needs_processing['tagging'] = True
             needs_processing['loading'] = True
     
+    # Check if cluster summarization is needed
+    cluster_summaries_file = Path("data/embeddings/enhanced_cluster_summaries.json")
+    local_summaries_file = Path("data/embeddings/local_enhanced_cluster_summaries.json")
+    cloud_exists = check_file_exists(cluster_summaries_file)
+    local_exists = check_file_exists(local_summaries_file)
+    logger.info(f"📊 Checking cluster summaries: cloud={cloud_exists}, local={local_exists}")
+    if not cloud_exists and not local_exists:
+        logger.info("📊 Cluster summarization needed: No cluster summaries found")
+        needs_processing['summarization'] = True
+    else:
+        logger.info("✅ Cluster summarization up to date: Cluster summaries exist")
+    
     # Check if semantic positioning is needed
     topics_with_coords_file = Path("data/processed/topics_with_coords.jsonl")
     if not check_file_exists(topics_with_coords_file):
@@ -217,8 +231,8 @@ def check_needs_processing() -> dict:
         logger.info("✅ Semantic positioning up to date: Topics with coordinates exist")
     
     # Check if Neo4j needs loading
-    if needs_processing['tagging'] or needs_processing['positioning']:
-        logger.info("🗄️ Neo4j loading needed: New tagged data or coordinates available")
+    if needs_processing['tagging'] or needs_processing['positioning'] or needs_processing['summarization']:
+        logger.info("🗄️ Neo4j loading needed: New tagged data, coordinates, or summaries available")
         needs_processing['loading'] = True
     else:
         logger.info("✅ Neo4j up to date: No new data to load")
