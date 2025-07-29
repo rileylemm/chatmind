@@ -94,13 +94,14 @@ def process_chunks_local_enhanced_incremental(
     input_file: Path,
     output_file: Path,
     state_file: Path,
-    model: str = "llama3.1:8b",
+    model: str = "tinyllama:latest",
     temperature: float = 0.2,
     max_retries: int = 3,
-    delay_between_calls: float = 0.5,
+    delay_between_calls: float = 0.1,
     enable_validation: bool = True,
     enable_conversation_context: bool = True,
-    force_reprocess: bool = False
+    force_reprocess: bool = False,
+    save_interval: int = 500  # Save every 500 chunks
 ) -> None:
     """
     Process chunks using local enhanced auto-tagging with incremental processing.
@@ -116,6 +117,7 @@ def process_chunks_local_enhanced_incremental(
         enable_validation: Whether to enable tag validation
         enable_conversation_context: Whether to enable conversation-level context
         force_reprocess: Whether to force reprocessing of all chunks
+        save_interval: How often to save progress (number of chunks)
     """
     # Load chunks
     chunks = load_chunks(input_file)
@@ -169,6 +171,7 @@ def process_chunks_local_enhanced_incremental(
     logger.info(f"Starting local enhanced auto-tagging with {model}...")
     logger.info(f"Validation: {'enabled' if enable_validation else 'disabled'}")
     logger.info(f"Conversation context: {'enabled' if enable_conversation_context else 'disabled'}")
+    logger.info(f"Save interval: Every {save_interval} chunks")
     
     # Group new chunks by conversation for context
     from collections import defaultdict
@@ -178,20 +181,43 @@ def process_chunks_local_enhanced_incremental(
         conversation_groups[conv_id].append(chunk)
     
     all_new_tagged_chunks = []
+    processed_count = 0
+    total_conversations = len(conversation_groups)
+    current_conversation = 0
     
     for conv_id, conv_chunks in conversation_groups.items():
-        logger.info(f"Processing conversation {conv_id} with {len(conv_chunks)} new chunks")
+        current_conversation += 1
+        logger.info(f"Processing conversation {conv_id} with {len(conv_chunks)} new chunks ({current_conversation}/{total_conversations})")
         
         # Tag chunks with conversation context
         tagged_chunks = tagger.tag_conversation_chunks(conv_chunks)
         all_new_tagged_chunks.extend(tagged_chunks)
+        processed_count += len(tagged_chunks)
+        
+        # Save incrementally every save_interval chunks
+        if processed_count >= save_interval:
+            logger.info(f"Saving progress: {processed_count} chunks processed so far")
+            save_tagged_chunks_incremental(all_new_tagged_chunks, output_file)
+            
+            # Update processed hashes for the chunks we just saved
+            for chunk in all_new_tagged_chunks:
+                chunk_hash = generate_chunk_hash(chunk)
+                processed_hashes.add(chunk_hash)
+            save_processed_chunk_hashes(processed_hashes, state_file)
+            
+            # Reset for next batch
+            all_new_tagged_chunks = []
+            processed_count = 0
     
-    # Save new tagged chunks
-    save_tagged_chunks_incremental(all_new_tagged_chunks, output_file)
-    
-    # Update processed hashes
-    if not force_reprocess:
-        processed_hashes.update(new_hashes)
+    # Save any remaining chunks
+    if all_new_tagged_chunks:
+        logger.info(f"Saving final batch: {len(all_new_tagged_chunks)} chunks")
+        save_tagged_chunks_incremental(all_new_tagged_chunks, output_file)
+        
+        # Update processed hashes for remaining chunks
+        for chunk in all_new_tagged_chunks:
+            chunk_hash = generate_chunk_hash(chunk)
+            processed_hashes.add(chunk_hash)
         save_processed_chunk_hashes(processed_hashes, state_file)
     
     # Generate and display statistics
@@ -243,8 +269,8 @@ def process_chunks_local_enhanced_incremental(
               default='data/processed/local_enhanced_tagging_state.pkl',
               help='State file for tracking processed chunks')
 @click.option('--model', 
-              default='llama3.1:8b',
-              help='Local model to use (e.g., llama3.1:8b, mistral:7b, codellama:7b)')
+              default='gemma:2b',
+              help='Local model to use (e.g., gemma:2b, phi:2.7b, llama3.2:latest, tinyllama:latest)')
 @click.option('--temperature', 
               default=0.2,
               help='Temperature for model generation')
@@ -252,11 +278,11 @@ def process_chunks_local_enhanced_incremental(
               default=3,
               help='Maximum retries for failed calls')
 @click.option('--delay', 
-              default=0.5,
+              default=0.1,
               help='Delay between API calls (seconds)')
 @click.option('--enable-validation/--disable-validation',
-              default=True,
-              help='Enable/disable tag validation')
+              default=False,
+              help='Enable/disable tag validation (disabled by default for speed)')
 @click.option('--enable-conversation-context/--disable-conversation-context',
               default=True,
               help='Enable/disable conversation-level context')
@@ -311,7 +337,8 @@ def main(input_file: str, output_file: str, state_file: str, model: str, tempera
             delay_between_calls=delay,
             enable_validation=enable_validation,
             enable_conversation_context=enable_conversation_context,
-            force_reprocess=force
+            force_reprocess=force,
+            save_interval=500  # Save every 500 chunks
         )
         logger.info("Local enhanced incremental auto-tagging completed successfully!")
         

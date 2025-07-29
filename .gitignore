@@ -56,6 +56,7 @@ data/processed/
 data/embeddings/
 data/lake/
 data/interim/
+data_copy/
 
 # Personal tag list (keep user's personal tags private)
 data/tags/tags_master_list.json

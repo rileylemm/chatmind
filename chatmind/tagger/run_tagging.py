@@ -28,8 +28,8 @@ from pathlib import Path
               default=None,
               help='Model to use (auto-selected based on method)')
 @click.option('--enable-validation/--disable-validation',
-              default=True,
-              help='Enable/disable tag validation')
+              default=False,
+              help='Enable/disable tag validation (disabled by default for speed)')
 @click.option('--enable-conversation-context/--disable-conversation-context',
               default=True,
               help='Enable/disable conversation-level context')
@@ -68,7 +68,7 @@ def main(method: str, input_file: str, output_file: str, model: str,
         if method == 'cloud':
             model = 'gpt-3.5-turbo'
         else:
-            model = 'mistral:latest'
+            model = 'gemma:2b'
     
     print(f"🤖 ChatMind Tagger - {method.upper()} Method")
     print("=" * 50)
@@ -195,7 +195,7 @@ def run_local_tagging(input_file: str, output_file: str, model: str,
         "--input-file", input_file,
         "--output-file", output_file,
         "--model", model,
-        "--delay", "0.5"
+        "--delay", "0.1"
     ]
     
     if not enable_validation:

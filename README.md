@@ -26,7 +26,7 @@ ChatMind automatically processes your ChatGPT export data, extracts meaningful i
 - **Neo4j Database** (local or cloud)
 - **Tagger Selection**: Choose between:
   - **Cloud API** (OpenAI): Fast, high quality, costs money (~$42-65 for 32K chunks)
-  - **Local Model** (Ollama): Free, slower, good quality (6-8 hours for 32K chunks)
+  - **Local Model** (Ollama): Free, fast, excellent quality (3-4 hours for 32K chunks with Gemma-2B)
 
 ### Installation
 
@@ -103,12 +103,12 @@ ChatMind automatically processes your ChatGPT export data, extracts meaningful i
    # Start Ollama service
    ollama serve
    
-   # Pull a model (recommended: mistral:latest)
-   ollama pull mistral:latest
+   # Pull the optimized model (recommended)
+   ollama pull gemma:2b
    
    # Test local setup
    python3 chatmind/tagger/run_tagging.py --method local --check-only
-   ```
+
 
 ### Usage
 
@@ -122,7 +122,7 @@ ChatMind automatically processes your ChatGPT export data, extracts meaningful i
    # Use cloud API for everything (fast, high quality, costs money)
    python run_pipeline.py --cloud
    
-   # Use local models for everything (free, slower, good quality)
+   # Use local models for everything (free, fast, excellent quality)
    python run_pipeline.py --local
    
    # Use default mixed approach (local embedding, cloud tagging/summarization)

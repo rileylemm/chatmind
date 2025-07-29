@@ -16,21 +16,49 @@ from collections import defaultdict, Counter
 import requests
 import subprocess
 import sys
+import os
+from datetime import datetime
 
 from chatmind.tagger.cloud_api.enhanced_prompts import get_enhanced_prompt, conversation_level_prompt, validation_prompt
+from chatmind.tagger.local.local_prompts import (
+    get_gemma_tagging_prompt, get_gemma_conversation_prompt, get_gemma_validation_prompt
+)
 
-logging.basicConfig(level=logging.INFO)
+# Create logs directory if it doesn't exist
+log_dir = Path("chatmind/tagger/logs")
+log_dir.mkdir(parents=True, exist_ok=True)
+
+# Set up file logging
+log_file = log_dir / f"local_tagger_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+file_handler = logging.FileHandler(log_file)
+file_handler.setLevel(logging.DEBUG)
+
+# Set up console logging
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+
+# Create formatter
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
+console_handler.setFormatter(formatter)
+
+# Set up logger
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
+
+logger.info(f"Logging to: {log_file}")
 
 
 class LocalEnhancedChunkTagger:
     """Enhanced auto-tagger using local models instead of OpenAI API."""
     
     def __init__(self, 
-                 model: str = "llama3.1:8b",  # Default to Llama 3.1 8B
+                 model: str = "gemma:2b",  # Default to Gemma-2B for better JSON compliance
                  temperature: float = 0.2,
                  max_retries: int = 3,
-                 delay_between_calls: float = 0.5,  # Faster for local models
+                 delay_between_calls: float = 0.1,  # Fast for Gemma-2B
                  enable_validation: bool = True,
                  enable_conversation_context: bool = True,
                  ollama_url: str = "http://localhost:11434"):
@@ -54,7 +82,7 @@ class LocalEnhancedChunkTagger:
     
     def _call_local_model(self, prompt: str, system_prompt: str = "") -> str:
         """
-        Call local model via Ollama API.
+        Call local model via Ollama API with retries and better error handling.
         
         Args:
             prompt: The user prompt
@@ -63,56 +91,199 @@ class LocalEnhancedChunkTagger:
         Returns:
             Model response as string
         """
-        try:
-            # Prepare messages
-            messages = []
-            if system_prompt:
-                messages.append({"role": "system", "content": system_prompt})
-            messages.append({"role": "user", "content": prompt})
-            
-            # Call Ollama API
-            response = requests.post(
-                f"{self.ollama_url}/api/chat",
-                json={
-                    "model": self.model,
-                    "messages": messages,
-                    "temperature": self.temperature,
-                    "stream": False
-                },
-                timeout=60  # 60 second timeout
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                self.stats['successful_calls'] += 1
-                return result['message']['content']
-            else:
-                logger.error(f"Ollama API error: {response.status_code} - {response.text}")
-                self.stats['failed_calls'] += 1
-                raise Exception(f"API call failed: {response.status_code}")
+        logger.debug(f"Calling local model: {self.model}")
+        logger.debug(f"Prompt length: {len(prompt)} chars")
+        logger.debug(f"System prompt: {system_prompt[:100] if system_prompt else 'None'}...")
+        
+        for attempt in range(self.max_retries):
+            try:
+                # Prepare messages
+                messages = []
+                if system_prompt:
+                    messages.append({"role": "system", "content": system_prompt})
+                messages.append({"role": "user", "content": prompt})
                 
-        except Exception as e:
-            logger.error(f"Error calling local model: {e}")
-            self.stats['failed_calls'] += 1
-            raise
+                logger.debug(f"API call attempt {attempt + 1}/{self.max_retries}")
+                logger.debug(f"Request URL: {self.ollama_url}/api/chat")
+                logger.debug(f"Request payload: model={self.model}, temperature={self.temperature}")
+                
+                # Call Ollama API
+                response = requests.post(
+                    f"{self.ollama_url}/api/chat",
+                    json={
+                        "model": self.model,
+                        "messages": messages,
+                        "temperature": self.temperature,
+                        "stream": False
+                    },
+                    timeout=60  # 60 second timeout
+                )
+                
+                logger.debug(f"Response status: {response.status_code}")
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    content = result.get('message', {}).get('content', '')
+                    
+                    logger.debug(f"Response content length: {len(content)} chars")
+                    logger.debug(f"Response preview: {content[:200]}...")
+                    
+                    if not content or content.strip() == "":
+                        logger.warning(f"Empty response from model (attempt {attempt + 1}/{self.max_retries})")
+                        if attempt < self.max_retries - 1:
+                            time.sleep(self.delay_between_calls * 2)  # Longer delay for empty responses
+                            continue
+                        else:
+                            raise Exception("Model returned empty response after all retries")
+                    
+                    self.stats['successful_calls'] += 1
+                    logger.debug(f"Successful API call (attempt {attempt + 1})")
+                    return content
+                else:
+                    logger.error(f"Ollama API error: {response.status_code} - {response.text}")
+                    self.stats['failed_calls'] += 1
+                    if attempt < self.max_retries - 1:
+                        time.sleep(self.delay_between_calls)
+                        continue
+                    else:
+                        raise Exception(f"API call failed: {response.status_code}")
+                        
+            except Exception as e:
+                logger.error(f"Error calling local model (attempt {attempt + 1}/{self.max_retries}): {e}")
+                self.stats['failed_calls'] += 1
+                if attempt < self.max_retries - 1:
+                    time.sleep(self.delay_between_calls)
+                    continue
+                else:
+                    raise
     
     def _extract_json_from_response(self, response: str) -> Dict:
-        """Extract JSON from model response, handling various formats."""
-        try:
-            # Try to find JSON in the response
-            start = response.find('{')
-            end = response.rfind('}')
-            
-            if start != -1 and end != -1:
-                json_str = response[start:end+1]
-                return json.loads(json_str)
-            else:
-                # If no JSON found, try to parse the entire response
-                return json.loads(response.strip())
-        except json.JSONDecodeError as e:
-            logger.warning(f"Failed to parse JSON from response: {e}")
-            logger.debug(f"Raw response: {response[:200]}...")
-            raise
+        """Extract JSON from model response, handling various formats with robust fallbacks."""
+        logger.debug(f"Extracting JSON from response of length {len(response)}")
+        
+        if not response or response.strip() == "":
+            logger.warning("Empty response from model")
+            return self._get_fallback_response()
+        
+        # Clean the response
+        cleaned_response = response.strip()
+        logger.debug(f"Cleaned response length: {len(cleaned_response)}")
+        logger.debug(f"Response preview: {cleaned_response[:300]}...")
+        
+        # Try multiple JSON extraction strategies
+        strategies = [
+            # Strategy 1: Find JSON between braces
+            lambda: self._extract_json_between_braces(cleaned_response),
+            # Strategy 2: Try to parse the entire response
+            lambda: json.loads(cleaned_response),
+            # Strategy 3: Look for JSON after "```json" or "```"
+            lambda: self._extract_json_from_code_blocks(cleaned_response),
+            # Strategy 4: Try to fix common JSON issues
+            lambda: self._fix_and_parse_json(cleaned_response)
+        ]
+        
+        for i, strategy in enumerate(strategies, 1):
+            try:
+                logger.debug(f"Trying JSON extraction strategy {i}")
+                result = strategy()
+                if result:
+                    logger.debug(f"JSON extraction succeeded with strategy {i}")
+                    logger.debug(f"Extracted JSON keys: {list(result.keys())}")
+                    return result
+            except Exception as e:
+                logger.debug(f"Strategy {i} failed: {e}")
+                continue
+        
+        # All strategies failed
+        logger.warning(f"All JSON extraction strategies failed for response: {cleaned_response[:200]}...")
+        logger.debug(f"Full response for debugging: {cleaned_response}")
+        return self._get_fallback_response()
+    
+    def _extract_json_between_braces(self, response: str) -> Dict:
+        """Extract JSON between the first { and last }."""
+        start = response.find('{')
+        end = response.rfind('}')
+        
+        if start != -1 and end != -1 and end > start:
+            json_str = response[start:end+1]
+            return json.loads(json_str)
+        raise ValueError("No JSON braces found")
+    
+    def _extract_json_from_code_blocks(self, response: str) -> Dict:
+        """Extract JSON from code blocks like ```json or ```."""
+        import re
+        
+        # Look for ```json ... ``` or ``` ... ```
+        patterns = [
+            r'```json\s*(.*?)\s*```',
+            r'```\s*(.*?)\s*```'
+        ]
+        
+        for pattern in patterns:
+            matches = re.findall(pattern, response, re.DOTALL)
+            if matches:
+                return json.loads(matches[0].strip())
+        
+        raise ValueError("No code blocks found")
+    
+    def _fix_and_parse_json(self, response: str) -> Dict:
+        """Try to fix common JSON issues and parse."""
+        # Remove common prefixes/suffixes that break JSON
+        cleaned = response
+        prefixes = [
+            'Here is the JSON:', 'JSON:', 'Response:', 'Answer:', 
+            'Sure, here\'s', 'Here\'s', 'Here is', 'Sure,',
+            'Your AI assistant has', 'I can help you',
+            'Dear [Your Name],', 'Tag this text with',
+            'Content:', 'Context:', 'Response: [No response]'
+        ]
+        
+        for prefix in prefixes:
+            if cleaned.lower().startswith(prefix.lower()):
+                cleaned = cleaned[len(prefix):].strip()
+        
+        # Remove any trailing text after the JSON
+        if '}' in cleaned:
+            last_brace = cleaned.rfind('}')
+            cleaned = cleaned[:last_brace + 1]
+        
+        # Try to find JSON-like structure
+        start = cleaned.find('{')
+        if start != -1:
+            # Count braces to find proper end
+            brace_count = 0
+            for i, char in enumerate(cleaned[start:], start):
+                if char == '{':
+                    brace_count += 1
+                elif char == '}':
+                    brace_count -= 1
+                    if brace_count == 0:
+                        json_str = cleaned[start:i+1]
+                        return json.loads(json_str)
+        
+        # If no braces found, try to construct basic JSON from content
+        if 'tags' in cleaned.lower() or 'category' in cleaned.lower():
+            # Try to extract tags and category from text
+            import re
+            tags_match = re.findall(r'#\w+', cleaned)
+            if tags_match:
+                return {
+                    'tags': tags_match[:5],  # Limit to 5 tags
+                    'category': 'Extracted from text',
+                    'domain': 'unknown'
+                }
+        
+        raise ValueError("Could not fix JSON")
+    
+    def _get_fallback_response(self) -> Dict:
+        """Return a fallback response when JSON parsing fails."""
+        return {
+            'tags': ['#unprocessed', '#needs-review'],
+            'category': 'Content requiring manual review',
+            'domain': 'unknown',
+            'confidence': 'low',
+            'note': 'JSON parsing failed - needs manual tagging'
+        }
     
     def analyze_conversation(self, chunks: List[Dict]) -> Dict:
         """
@@ -124,7 +295,10 @@ class LocalEnhancedChunkTagger:
         Returns:
             Conversation analysis with domain and key topics
         """
+        logger.debug(f"Analyzing conversation with {len(chunks)} chunks")
+        
         if not self.enable_conversation_context or not chunks:
+            logger.debug("Conversation analysis disabled or no chunks")
             return {}
         
         # Create a representative sample of the conversation
@@ -133,23 +307,36 @@ class LocalEnhancedChunkTagger:
             content = chunk.get('content', '')
             total_content += content[:500] + "\n"  # Limit each chunk
         
+        logger.debug(f"Total conversation content length: {len(total_content)}")
+        
         if len(total_content) > 4000:  # Truncate if too long
             total_content = total_content[:4000]
+            logger.debug(f"Truncated conversation content to 4000 chars")
         
         try:
-            prompt = conversation_level_prompt(total_content)
-            system_prompt = "You are an expert conversation classifier."
+            prompt = get_gemma_conversation_prompt(total_content)
+            system_prompt = ""  # Local prompts include system prompt
+            
+            logger.debug(f"Conversation analysis prompt length: {len(prompt)}")
             
             response = self._call_local_model(prompt, system_prompt)
             result = self._extract_json_from_response(response)
             
             self.stats['conversation_analyses'] += 1
             logger.info(f"Conversation analysis: {result.get('primary_domain', 'unknown')} domain")
+            logger.debug(f"Conversation analysis result: {result}")
             return result
             
         except Exception as e:
             logger.warning(f"Failed to analyze conversation: {e}")
-            return {}
+            logger.debug(f"Conversation analysis error details: {str(e)}")
+            # Return a basic fallback instead of empty dict
+            return {
+                'primary_domain': 'general',
+                'key_topics': ['general'],
+                'conversation_type': 'general',
+                'complexity': 'medium'
+            }
     
     def validate_tags(self, chunk_text: str, proposed_tags: List[str], conversation_context: str = "") -> Tuple[bool, List[str], str]:
         """
@@ -167,8 +354,8 @@ class LocalEnhancedChunkTagger:
             return True, proposed_tags, "Validation disabled"
         
         try:
-            prompt = validation_prompt(chunk_text, proposed_tags, conversation_context)
-            system_prompt = "You are a tag validation expert."
+            prompt = get_gemma_validation_prompt(chunk_text, proposed_tags, conversation_context)
+            system_prompt = ""  # Local prompts include system prompt
             
             response = self._call_local_model(prompt, system_prompt)
             result = self._extract_json_from_response(response)
@@ -197,9 +384,15 @@ class LocalEnhancedChunkTagger:
         Returns:
             Dictionary with enhanced tags and metadata
         """
+        chunk_id = chunk.get('message_id', chunk.get('id', 'unknown'))
+        logger.debug(f"Tagging chunk: {chunk_id}")
+        
         # Prepare content for tagging
         content = chunk.get('content', '')
         title = chunk.get('title', '')
+        
+        logger.debug(f"Chunk content length: {len(content)}")
+        logger.debug(f"Chunk title: {title}")
         
         # Combine title and content for better context
         full_text = f"Title: {title}\n\nContent: {content}" if title else content
@@ -210,17 +403,25 @@ class LocalEnhancedChunkTagger:
             domain = conversation_context.get('primary_domain', '')
             topics = conversation_context.get('key_topics', [])
             context_str = f"Domain: {domain}, Topics: {', '.join(topics[:3])}"
+            logger.debug(f"Conversation context: {context_str}")
         
         # Get initial tags from local model
         try:
-            prompt = get_enhanced_prompt(full_text, context_str, "enhanced")
-            system_prompt = "You are an expert content classifier and tagger."
+            # Use Gemma-optimized prompts
+            prompt = get_gemma_tagging_prompt(full_text, context_str)
+            system_prompt = ""
+            
+            logger.debug(f"Tagging prompt length: {len(prompt)}")
+            logger.debug(f"Full text preview: {full_text[:200]}...")
             
             response = self._call_local_model(prompt, system_prompt)
             result = self._extract_json_from_response(response)
             
+            logger.debug(f"Initial tagging result: {result}")
+            
             # Validate tags if enabled
             if self.enable_validation:
+                logger.debug("Running tag validation")
                 is_valid, suggested_tags, reasoning = self.validate_tags(
                     full_text, result.get('tags', []), context_str
                 )
@@ -244,10 +445,12 @@ class LocalEnhancedChunkTagger:
             }
             
             self.stats['chunks_tagged'] += 1
+            logger.debug(f"Successfully tagged chunk {chunk_id} with {len(result.get('tags', []))} tags")
             return enhanced_chunk
             
         except Exception as e:
-            logger.error(f"Failed to tag chunk: {e}")
+            logger.error(f"Failed to tag chunk {chunk_id}: {e}")
+            logger.debug(f"Chunk tagging error details: {str(e)}")
             # Return fallback tags
             return {
                 **chunk,
@@ -271,6 +474,7 @@ class LocalEnhancedChunkTagger:
             List of tagged chunks
         """
         if not chunks:
+            logger.debug("No chunks to tag")
             return []
         
         # Get conversation ID for logging
@@ -278,17 +482,46 @@ class LocalEnhancedChunkTagger:
         logger.info(f"Processing conversation {conv_id} with {len(chunks)} chunks")
         
         # Analyze conversation context
+        logger.debug(f"Starting conversation analysis for {conv_id}")
         conversation_context = self.analyze_conversation(chunks)
+        logger.debug(f"Conversation context for {conv_id}: {conversation_context}")
         
         # Tag each chunk with conversation context
         tagged_chunks = []
-        for chunk in tqdm(chunks, desc=f"Tagging chunks in {conv_id}"):
-            tagged_chunk = self.tag_chunk(chunk, conversation_context)
-            tagged_chunks.append(tagged_chunk)
+        error_count = 0
+        success_count = 0
+        
+        for i, chunk in enumerate(tqdm(chunks, desc=f"Tagging chunks in {conv_id}")):
+            logger.debug(f"Processing chunk {i+1}/{len(chunks)} in conversation {conv_id}")
+            
+            try:
+                tagged_chunk = self.tag_chunk(chunk, conversation_context)
+                tagged_chunks.append(tagged_chunk)
+                success_count += 1
+                
+                # Log progress every 10 chunks
+                if (i + 1) % 10 == 0:
+                    logger.info(f"Progress: {i+1}/{len(chunks)} chunks tagged in {conv_id}")
+                
+            except Exception as e:
+                logger.error(f"Failed to tag chunk {i+1} in conversation {conv_id}: {e}")
+                error_count += 1
+                # Add fallback chunk
+                tagged_chunks.append({
+                    **chunk,
+                    'tags': ['#error', '#chunk-tagging-failed'],
+                    'category': 'Error in chunk tagging',
+                    'domain': 'unknown',
+                    'confidence': 'low',
+                    'tagging_model': f"local-{self.model}-fallback",
+                    'tagging_timestamp': int(time.time()),
+                    'error': str(e)
+                })
             
             # Add delay between calls
             time.sleep(self.delay_between_calls)
         
+        logger.info(f"Completed tagging conversation {conv_id}: {success_count} success, {error_count} errors")
         return tagged_chunks
     
     def get_enhanced_tagging_stats(self, tagged_chunks: List[Dict]) -> Dict:
