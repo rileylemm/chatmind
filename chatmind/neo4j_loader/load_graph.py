@@ -502,6 +502,32 @@ class Neo4jGraphLoader:
                         rel_count += 1
         logger.info(f"Created {rel_count} Chat↔Chat similarity relationships (threshold={similarity_threshold})")
     
+    def load_precalculated_similarities(self, similarities_file: Path):
+        """Load pre-calculated similarity relationships from file."""
+        logger.info("🔗 Loading pre-calculated similarity relationships...")
+        
+        if not similarities_file.exists():
+            logger.warning(f"Similarities file not found: {similarities_file}")
+            return
+        
+        rel_count = 0
+        with self.driver.session() as session:
+            with jsonlines.open(similarities_file) as reader:
+                for similarity in tqdm(reader, desc="Loading similarities"):
+                    session.run("""
+                        MATCH (c1:Chat {chat_id: $chat1})
+                        MATCH (c2:Chat {chat_id: $chat2})
+                        MERGE (c1)-[r:SIMILAR_TO]->(c2)
+                        SET r.score = $sim
+                    """, {
+                        'chat1': similarity['chat1_id'],
+                        'chat2': similarity['chat2_id'],
+                        'sim': similarity['similarity']
+                    })
+                    rel_count += 1
+        
+        logger.info(f"✅ Loaded {rel_count} pre-calculated similarity relationships")
+    
     def load_pipeline(self):
         """Load all data into Neo4j following the dual layer strategy."""
         logger.info("Starting dual layer graph loading pipeline...")
@@ -521,6 +547,7 @@ class Neo4jGraphLoader:
             chunks_file = Path("data/processed/processed_tagged_chunks.jsonl")
             topics_file = Path("data/processed/topics_with_coords.jsonl")
             chat_coords_file = Path("data/processed/chats_with_coords.jsonl")
+            similarities_file = Path("data/processed/chat_similarities.jsonl")
             
             # Step 1: Load raw layer (Chat and Message nodes)
             if chats_file.exists():
@@ -554,11 +581,8 @@ class Neo4jGraphLoader:
             else:
                 logger.warning(f"Chunks file not found: {chunks_file}")
             
-            # Step 5: Create chat similarity relationships
-            if chunks_file.exists():
-                self.create_chat_similarity_relationships(chunks_file, similarity_threshold=0.1)
-            else:
-                logger.warning(f"Chunks file not found: {chunks_file}")
+            # Step 5: Load pre-calculated similarity relationships
+            self.load_precalculated_similarities(similarities_file)
             
             logger.info("Dual layer graph loading pipeline completed!")
             

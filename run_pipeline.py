@@ -106,6 +106,7 @@ def check_needs_processing() -> dict:
         'tagging': False,
         'summarization': False,
         'positioning': False,
+        'similarity': False,
         'loading': False
     }
     
@@ -118,6 +119,7 @@ def check_needs_processing() -> dict:
         needs_processing['tagging'] = True
         needs_processing['summarization'] = True
         needs_processing['positioning'] = True
+        needs_processing['similarity'] = True
         needs_processing['loading'] = True
         return needs_processing
     
@@ -127,6 +129,7 @@ def check_needs_processing() -> dict:
         logger.info("🧠 Embedding needed: No chunks_with_clusters.jsonl found")
         needs_processing['embedding'] = True
         needs_processing['tagging'] = True
+        needs_processing['similarity'] = True
         needs_processing['loading'] = True
     else:
         # Check if there are new messages to embed
@@ -158,6 +161,7 @@ def check_needs_processing() -> dict:
                 logger.info(f"🧠 Embedding needed: {new_messages} new messages out of {total_messages} total")
                 needs_processing['embedding'] = True
                 needs_processing['tagging'] = True
+                needs_processing['similarity'] = True
                 needs_processing['loading'] = True
             else:
                 logger.info("✅ Embedding up to date: All messages already processed")
@@ -166,6 +170,7 @@ def check_needs_processing() -> dict:
             logger.warning(f"Could not check message state: {e}")
             needs_processing['embedding'] = True
             needs_processing['tagging'] = True
+            needs_processing['similarity'] = True
             needs_processing['loading'] = True
     
     # Check if enhanced tagging exists
@@ -226,13 +231,24 @@ def check_needs_processing() -> dict:
     if not check_file_exists(topics_with_coords_file):
         logger.info("🗺️ Semantic positioning needed: No topics_with_coords.jsonl found")
         needs_processing['positioning'] = True
+        needs_processing['similarity'] = True
         needs_processing['loading'] = True
     else:
         logger.info("✅ Semantic positioning up to date: Topics with coordinates exist")
     
+    # Check if similarity calculation is needed
+    chat_similarities_file = Path("data/processed/chat_similarities.jsonl")
+    chat_embeddings_file = Path("data/processed/chat_embeddings.jsonl")
+    if not check_file_exists(chat_similarities_file) or not check_file_exists(chat_embeddings_file):
+        logger.info("🔗 Similarity calculation needed: No similarity files found")
+        needs_processing['similarity'] = True
+        needs_processing['loading'] = True
+    else:
+        logger.info("✅ Similarity calculation up to date: Similarity files exist")
+    
     # Check if Neo4j needs loading
-    if needs_processing['tagging'] or needs_processing['positioning'] or needs_processing['summarization']:
-        logger.info("🗄️ Neo4j loading needed: New tagged data, coordinates, or summaries available")
+    if needs_processing['tagging'] or needs_processing['positioning'] or needs_processing['summarization'] or needs_processing['similarity']:
+        logger.info("🗄️ Neo4j loading needed: New tagged data, coordinates, summaries, or similarities available")
         needs_processing['loading'] = True
     else:
         logger.info("✅ Neo4j up to date: No new data to load")
@@ -246,6 +262,7 @@ def check_needs_processing() -> dict:
 @click.option('--skip-tagging', is_flag=True, help='Skip auto-tagging step')
 @click.option('--skip-summarization', is_flag=True, help='Skip cluster summarization step')
 @click.option('--skip-positioning', is_flag=True, help='Skip semantic positioning step')
+@click.option('--skip-similarity', is_flag=True, help='Skip similarity calculation step')
 @click.option('--skip-loading', is_flag=True, help='Skip Neo4j loading step')
 @click.option('--cloud', is_flag=True, help='Use cloud API for all AI components (embedding, tagging, summarization)')
 @click.option('--local', is_flag=True, help='Use local models for all AI components (embedding, tagging, summarization)')
@@ -265,7 +282,7 @@ def check_needs_processing() -> dict:
 @click.option('--force-reprocess', is_flag=True, help='Force reprocess all files (ignore previous state)')
 @click.option('--clear-state', is_flag=True, help='Clear all processed state and start fresh')
 @click.option('--check-only', is_flag=True, help='Only check what needs processing, don\'t run pipeline')
-def main(skip_ingestion: bool, skip_embedding: bool, skip_tagging: bool, skip_summarization: bool, skip_positioning: bool, skip_loading: bool, 
+def main(skip_ingestion: bool, skip_embedding: bool, skip_tagging: bool, skip_summarization: bool, skip_positioning: bool, skip_similarity: bool, skip_loading: bool, 
          cloud: bool, local: bool, embedder_method: str, tagger_method: str, summarizer_method: str, clear_neo4j: bool, force_reprocess: bool, clear_state: bool, check_only: bool):
     """Run the complete ChatMind pipeline with smart incremental processing."""
     
@@ -303,6 +320,7 @@ def main(skip_ingestion: bool, skip_embedding: bool, skip_tagging: bool, skip_su
             'embedding': not skip_embedding,
             'tagging': not skip_tagging,
             'positioning': not skip_positioning,
+            'similarity': not skip_similarity,
             'loading': not skip_loading
         }
     else:
@@ -318,6 +336,8 @@ def main(skip_ingestion: bool, skip_embedding: bool, skip_tagging: bool, skip_su
             needs_processing['tagging'] = False
         if skip_positioning:
             needs_processing['positioning'] = False
+        if skip_similarity:
+            needs_processing['similarity'] = False
         if skip_loading:
             needs_processing['loading'] = False
     
@@ -437,6 +457,24 @@ def main(skip_ingestion: bool, skip_embedding: bool, skip_tagging: bool, skip_su
             return 1
     else:
         logger.info("⏭️ Skipping semantic positioning (already up to date)")
+    
+    # Step 3.8: Calculate chat similarities
+    if needs_processing['similarity']:
+        logger.info("🔗 Step 3.8: Calculating chat similarities...")
+        try:
+            cmd = [sys.executable, "chatmind/similarity/calculate_chat_similarities.py"]
+            if force_reprocess:
+                cmd.append("--force")
+            # Set PYTHONPATH to include current directory
+            env = os.environ.copy()
+            env['PYTHONPATH'] = '.'
+            subprocess.run(cmd, check=True, env=env)
+            logger.info("✅ Chat similarity calculation completed")
+        except subprocess.CalledProcessError as e:
+            logger.error(f"❌ Chat similarity calculation failed: {e}")
+            return 1
+    else:
+        logger.info("⏭️ Skipping similarity calculation (already up to date)")
     
     # Step 4: Neo4j Loading
     if needs_processing['loading']:
