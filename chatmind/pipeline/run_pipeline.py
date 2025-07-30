@@ -229,38 +229,73 @@ class PipelineRunner:
         return self._run_step("chat_summarization", command, f"Running chat summarization step ({method})")
     
     def run_positioning(self, force: bool = False) -> bool:
-        """Run the positioning step."""
-        if not force and self._check_step_output("positioning", ["topics_with_coords.jsonl", "metadata.json"]):
+        """Run the positioning step (both cluster and chat positioning)."""
+        if not force and self._check_step_output("positioning", [
+            "cluster_positions.jsonl", "chat_positions.jsonl", 
+            "cluster_positioning_metadata.json", "chat_positioning_metadata.json",
+            "cluster_summary_embeddings.jsonl", "chat_summary_embeddings.jsonl"
+        ]):
             logger.info("ℹ️ Positioning already completed, skipping...")
             return True
         
-        command = [
-            sys.executable, str(self.pipeline_dir / "positioning" / "apply_topic_layout.py"),
-            "--input-file", str(self.processed_dir / "tagging" / "tagged_chunks.jsonl"),
-            "--output-file", str(self.processed_dir / "positioning" / "topics_with_coords.jsonl")
+        # Run cluster positioning
+        cluster_command = [
+            sys.executable, str(self.pipeline_dir / "positioning" / "position_clusters.py"),
+            "--cluster-summaries-file", str(self.processed_dir / "cluster_summarization" / "cluster_summaries.json")
         ]
         
         if force:
-            command.append("--force")
+            cluster_command.append("--force")
         
-        return self._run_step("positioning", command, "Running positioning step")
+        cluster_success = self._run_step("cluster_positioning", cluster_command, "Running cluster positioning step")
+        
+        # Run chat positioning
+        chat_command = [
+            sys.executable, str(self.pipeline_dir / "positioning" / "position_chats.py"),
+            "--chat-summaries-file", str(self.processed_dir / "chat_summarization" / "chat_summaries.json")
+        ]
+        
+        if force:
+            chat_command.append("--force")
+        
+        chat_success = self._run_step("chat_positioning", chat_command, "Running chat positioning step")
+        
+        return cluster_success and chat_success
     
     def run_similarity(self, force: bool = False) -> bool:
-        """Run the similarity step."""
-        if not force and self._check_step_output("similarity", ["chat_similarities.jsonl", "chat_embeddings.jsonl"]):
-            logger.info("ℹ️ Similarity already completed, skipping...")
+        """Run the similarity steps (chat and cluster)."""
+        # Check if both similarity steps are already completed
+        chat_similarity_complete = self._check_step_output("similarity", ["chat_similarities.jsonl", "chat_similarity_hashes.pkl"])
+        cluster_similarity_complete = self._check_step_output("similarity", ["cluster_similarities.jsonl", "cluster_similarity_hashes.pkl"])
+        
+        if not force and chat_similarity_complete and cluster_similarity_complete:
+            logger.info("ℹ️ Similarity calculations already completed, skipping...")
             return True
         
-        command = [
+        # Run chat similarity
+        chat_command = [
             sys.executable, str(self.pipeline_dir / "similarity" / "calculate_chat_similarities.py"),
-            "--input-file", str(self.processed_dir / "tagging" / "tagged_chunks.jsonl"),
-            "--output-dir", str(self.processed_dir / "similarity")
+            "--embeddings-file", str(self.processed_dir / "positioning" / "chat_summary_embeddings.jsonl")
         ]
         
         if force:
-            command.append("--force")
+            chat_command.append("--force")
         
-        return self._run_step("similarity", command, "Running similarity step")
+        chat_success = self._run_step("similarity", chat_command, "Running chat similarity calculation")
+        if not chat_success:
+            return False
+        
+        # Run cluster similarity
+        cluster_command = [
+            sys.executable, str(self.pipeline_dir / "similarity" / "calculate_cluster_similarities.py"),
+            "--embeddings-file", str(self.processed_dir / "positioning" / "cluster_summary_embeddings.jsonl")
+        ]
+        
+        if force:
+            cluster_command.append("--force")
+        
+        cluster_success = self._run_step("similarity", cluster_command, "Running cluster similarity calculation")
+        return cluster_success
     
     def run_loading(self, force: bool = False) -> bool:
         """Run the Neo4j loading step."""

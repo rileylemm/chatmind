@@ -29,7 +29,7 @@ from typing import List
 @click.option('--steps', 
               multiple=True,
               type=click.Choice(['ingestion', 'chunking', 'embedding', 'clustering', 
-                               'tagging', 'tag_propagation', 'summarization', 
+                               'tagging', 'tag_propagation', 'cluster_summarization', 'chat_summarization',
                                'positioning', 'similarity', 'loading']),
               help='Specific steps to run (can specify multiple)')
 @click.option('--check-only', is_flag=True, help='Only check setup, don\'t run pipeline')
@@ -50,6 +50,9 @@ def main(embedding_method: str, tagging_method: str, summarization_method: str,
     
     # Run only specific steps
     python3 run_pipeline.py --steps ingestion chunking embedding
+    
+    # Run summarization steps
+    python3 run_pipeline.py --steps cluster_summarization chat_summarization
     
     # Force reprocess everything
     python3 run_pipeline.py --force

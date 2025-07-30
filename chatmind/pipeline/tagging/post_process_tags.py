@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 class GemmaOptimizedTagPostProcessor:
     """Post-processes tags optimized for Gemma-2B's clean output."""
     
-    def __init__(self, master_list_path: str = "data/tags/tags_master_list.json"):
+    def __init__(self, master_list_path: str = "data/tags_masterlist/tags_master_list.json"):
         self.master_list_path = Path(master_list_path)
         self.master_tags = self.load_master_tags()
         self.missing_tags = Counter()
@@ -280,7 +280,7 @@ def main(input_file: str, output_file: str, missing_report: str,
             return 1
         
         # Check master tag list
-        master_list_path = Path("data/tags/tags_master_list.json")
+        master_list_path = Path("data/tags_masterlist/tags_master_list.json")
         if master_list_path.exists():
             logger.info(f"✅ Master tag list exists: {master_list_path}")
         else:

@@ -9,141 +9,104 @@ ChatMind automatically processes your ChatGPT export data, extracts meaningful i
 - **Smart Content Processing**: Automatically extracts and normalizes ChatGPT conversations
 - **AI-Powered Tagging**: Uses GPT to intelligently tag and categorize your content
 - **Interactive Visualization**: Explore your knowledge graph with Neo4j and React
-- **Incremental Processing**: Only processes new data, saving time and API costs
+- **Incremental Processing**: Only processes new data using hash-based tracking
 - **Semantic Clustering**: Groups related conversations together for better insights
 - **Modern Web Interface**: Clean, responsive UI for exploring your data
 - **Real-time Statistics**: Dashboard shows live data from your processed content
 - **RESTful API**: FastAPI backend with 25+ tested endpoints
 - **Dual-Layer Graph**: Raw data + semantic layer for powerful queries
-- **Flexible AI Processing**: Choose between cloud API (fast, paid) and local models (free, slower)
+- **Optimized Pipeline**: Embedding reuse and separate chat/cluster processing
+- **Flexible AI Processing**: Choose between cloud API (fast, paid) and local models (free, excellent quality)
 
-## Quick Start
+## 🚀 Quick Start
 
-### Prerequisites
+### 1. Clone and Setup
 
-- **Python 3.8+**
-- **Node.js 16+** (for frontend)
-- **Neo4j Database** (local or cloud)
-- **Tagger Selection**: Choose between:
-  - **Cloud API** (OpenAI): Fast, high quality, costs money (~$42-65 for 32K chunks)
-  - **Local Model** (Ollama): Free, fast, excellent quality (3-4 hours for 32K chunks with Gemma-2B)
+```bash
+git clone <repository-url>
+cd ai_memory
 
-### Installation
+# Install dependencies
+pip install -r requirements.txt
+```
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/rileylemm/chatmind.git
-   cd chatmind
-   ```
+### 2. Environment Configuration
 
-2. **Set up Python virtual environment**
-   ```bash
-   # Create virtual environment
-   python3 -m venv chatmind_env
-   
-   # Activate virtual environment
-   # On macOS/Linux:
-   source chatmind_env/bin/activate
-   # On Windows:
-   # chatmind_env\Scripts\activate
-   ```
+The project uses a hierarchical configuration system:
 
-3. **Install Python dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-   
-4. **Set up environment variables**
-   ```bash
-   cp env.example .env
-   ```
-   Edit `.env` and add your configuration:
-   ```
-   # Required for all setups
-   NEO4J_URI=bolt://localhost:7687
-   NEO4J_USER=neo4j
-   NEO4J_PASSWORD=your_password
-   
-   # Only required for Cloud API tagger
-   OPENAI_API_KEY=your_openai_key_here
-   ```
+```bash
+# Copy root environment template
+cp env.example .env
 
-5. **Install frontend dependencies**
-   ```bash
-   cd chatmind/frontend
-   npm install
-   cd ../..
-   ```
+# Configure pipeline environment (optional)
+cp chatmind/pipeline/env.example chatmind/pipeline/.env
 
-6. **Set up Neo4j** (if running locally)
-   ```bash
-   # Option 1: Docker
-   docker run -p 7474:7474 -p 7687:7687 -e NEO4J_AUTH=neo4j/password neo4j:latest
-   
-   # Option 2: Neo4j Desktop
-   # Download and install from https://neo4j.com/download/
-   ```
+# Edit with your settings
+nano .env
+nano chatmind/pipeline/.env
+```
 
-7. **Set up your chosen tagger**
-   
-   **For Cloud API (OpenAI):**
-   ```bash
-   # Verify OpenAI API key is set
-   echo $OPENAI_API_KEY
-   
-   # Test cloud setup
-   python3 chatmind/tagger/run_tagging.py --method cloud --check-only
-   ```
-   
-   **For Local Model (Ollama):**
-   ```bash
-   # Install Ollama (if not already installed)
-   curl -fsSL https://ollama.ai/install.sh | sh
-   
-   # Start Ollama service
-   ollama serve
-   
-   # Pull the optimized model (recommended)
-   ollama pull gemma:2b
-   
-   # Test local setup
-   python3 chatmind/tagger/run_tagging.py --method local --check-only
+**Configuration Precedence:**
+- Pipeline `.env` (highest priority - for overrides)
+- Root `.env` (fallback)
+- Default values (lowest priority)
 
+### 3. Start Services
 
-### Usage
+```bash
+# Start Neo4j (Docker)
+docker run -d \
+  --name neo4j-chatmind \
+  -p 7474:7474 -p 7687:7687 \
+  -e NEO4J_AUTH=neo4j/chatmind123 \
+  neo4j:latest
 
-1. **Add your ChatGPT export**
-   ```bash
-   cp your_chatgpt_export.zip data/raw/
-   ```
+# Start API server
+python chatmind/api/run.py
+```
 
-2. **Run the processing pipeline**
-   ```bash
-   # Use cloud API for everything (fast, high quality, costs money)
-   python run_pipeline.py --cloud
-   
-   # Use local models for everything (free, fast, excellent quality)
-   python run_pipeline.py --local
-   
-   # Use default mixed approach (local embedding, cloud tagging/summarization)
-   python run_pipeline.py
-   
-   # For development: skip expensive steps
-   python run_pipeline.py --local --skip-tagging
-   ```
+### 4. Run Pipeline
+
+```bash
+# Activate pipeline environment
+source chatmind/pipeline/activate_pipeline.sh
+
+# Run full pipeline
+python chatmind/pipeline/run_pipeline.py --local
+
+# Or use the wrapper
+python run_pipeline.py --local
+```
 
 ### Pipeline Options
 
 **Quick Start:**
-- `--cloud`: Use cloud API for all AI components (embedding, tagging, summarization)
-- `--local`: Use local models for all AI components (embedding, tagging, summarization)
+- `--embedding-method cloud --tagging-method cloud --summarization-method cloud`: Use cloud API for all AI components
+- `--embedding-method local --tagging-method local --summarization-method local`: Use local models for all AI components
 - Default: Mixed approach (local embedding, cloud tagging/summarization)
 
+**Optimization Features:**
+- `--steps positioning similarity`: Run only positioning and similarity (uses embedding reuse)
+- `--steps chat_summarization positioning similarity`: Run only chat-related steps
+- `--steps cluster_summarization positioning similarity`: Run only cluster-related steps
+
 **Development:**
-- `--local --skip-tagging`: Fast iteration with local models
-- `--cloud --skip-summarization`: Test cloud setup without expensive steps
 - `--check-only`: Preview what will be processed
-- `--force-reprocess`: Reprocess everything from scratch
+- `--force`: Reprocess everything from scratch
+- `--embedding-method local --tagging-method local`: Fast iteration with local models
+
+**Quick Reference:**
+
+| Flag | Options | Description | Default |
+|------|---------|-------------|---------|
+| `--embedding-method` | `local`, `cloud` | Embedding generation method | `local` |
+| `--tagging-method` | `local`, `cloud` | Tagging method | `local` |
+| `--summarization-method` | `local`, `cloud` | Summarization method | `local` |
+| `--steps` | `ingestion`, `chunking`, `embedding`, `clustering`, `tagging`, `tag_propagation`, `cluster_summarization`, `chat_summarization`, `positioning`, `similarity`, `loading` | Specific steps to run | All steps |
+| `--force` | Flag | Force reprocess all steps | False |
+| `--check-only` | Flag | Check setup without running | False |
+
+**For complete documentation:** See [User Guide](docs/UserGuide.md) for detailed pipeline flags reference.
 
 3. **Start the backend API server**
    ```bash
@@ -194,13 +157,37 @@ python3 run.py
 ```
 chatmind/
 ├── api/                    # FastAPI backend
-├── data_ingestion/         # ChatGPT export processing
-├── embedding/              # Semantic clustering
-├── tagger/                 # AI-powered tagging
-├── neo4j_loader/          # Graph database loading
+├── pipeline/               # Modular pipeline components
+│   ├── ingestion/         # ChatGPT export processing
+│   ├── chunking/          # Semantic chunking
+│   ├── embedding/         # Embedding generation (cloud/local)
+│   ├── clustering/        # Semantic clustering
+│   ├── tagging/           # AI-powered tagging (cloud/local)
+│   ├── cluster_summarization/ # Cluster summarization (cloud/local)
+│   ├── chat_summarization/    # Chat summarization (cloud/local)
+│   ├── positioning/       # 2D positioning with embedding reuse
+│   ├── similarity/        # Similarity calculations using saved embeddings
+│   └── loading/           # Neo4j graph database loading
 ├── frontend/              # React web interface
+├── cost_tracker/          # API usage tracking
 ├── scripts/               # Utility scripts and tests
 └── docs/                  # Documentation
+
+data/
+├── raw/                   # Raw ChatGPT exports
+├── processed/             # Processed data by pipeline step
+│   ├── ingestion/        # Flattened chat data
+│   ├── chunking/         # Semantic chunks
+│   ├── embedding/        # Chunk embeddings
+│   ├── clustering/       # Clustered embeddings
+│   ├── tagging/          # Tagged chunks and processed tags
+│   ├── cluster_summarization/ # Cluster summaries
+│   ├── chat_summarization/    # Chat summaries
+│   ├── positioning/      # 2D coordinates and embeddings
+│   └── similarity/       # Similarity relationships
+├── lake/                 # Data lake structure
+├── tags_masterlist/      # Master tag definitions
+└── interim/              # Intermediate processing files
 ```
 
 ## Documentation
@@ -358,11 +345,11 @@ python scripts/setup_tags.py
 ```
 
 **Processing Options:**
-- **Incremental processing**: Only processes new data
-- **Force reprocess**: `python run_pipeline.py --force-reprocess`
-- **Skip specific steps**: `python run_pipeline.py --skip-tagging`
-- **Method selection**: `--cloud` for all cloud API, `--local` for all local models
-- **Development mode**: `--local --skip-tagging` for fast iteration
+- **Incremental processing**: Only processes new data using hash-based tracking
+- **Force reprocess**: `python run_pipeline.py --force`
+- **Run specific steps**: `python run_pipeline.py --steps positioning similarity`
+- **Method selection**: `--embedding-method cloud --tagging-method cloud --summarization-method cloud` for all cloud API
+- **Development mode**: `--embedding-method local --tagging-method local` for fast iteration
 
 **Detailed Configuration:** See [User Guide](docs/UserGuide.md) for complete setup instructions.
 
@@ -370,18 +357,30 @@ python scripts/setup_tags.py
 
 **Processing Pipeline:**
 1. **Data Ingestion**: Extracts conversations from ChatGPT ZIP exports
-2. **Embedding & Clustering**: Groups similar messages using AI
-3. **Tagging**: Automatically tags clusters with relevant categories
-4. **Graph Loading**: Creates interactive knowledge graph in Neo4j
+2. **Semantic Chunking**: Breaks conversations into meaningful segments
+3. **Embedding & Clustering**: Groups similar messages using AI
+4. **Tagging**: Automatically tags content with relevant categories
+5. **Summarization**: Generates summaries for clusters and chats
+6. **Positioning**: Creates 2D coordinates with embedding reuse
+7. **Similarity**: Calculates similarities using saved embeddings
+8. **Graph Loading**: Creates interactive knowledge graph in Neo4j
 
 **Data Files:**
-- `data/processed/chats.jsonl`: Extracted conversations
-- `data/embeddings/chunks_with_clusters.jsonl`: Clustered messages
-- `data/processed/tagged_chunks.jsonl`: Tagged content
-- `data/tags/tags_master_list.json`: Tag definitions
+- `data/processed/ingestion/chats.jsonl`: Extracted conversations
+- `data/processed/chunking/chunks.jsonl`: Semantic chunks
+- `data/processed/embedding/embeddings.jsonl`: Chunk embeddings
+- `data/processed/clustering/clustered_embeddings.jsonl`: Clustered embeddings
+- `data/processed/tagging/tagged_chunks.jsonl`: Tagged content
+- `data/processed/cluster_summarization/cluster_summaries.json`: Cluster summaries
+- `data/processed/chat_summarization/chat_summaries.json`: Chat summaries
+- `data/processed/positioning/chat_positions.jsonl`: Chat coordinates
+- `data/processed/positioning/cluster_positions.jsonl`: Cluster coordinates
+- `data/processed/similarity/chat_similarities.jsonl`: Chat similarity relationships
+- `data/processed/similarity/cluster_similarities.jsonl`: Cluster similarity relationships
+- `data/tags_masterlist/tags_master_list.json`: Tag definitions
 - `data/cost_tracker.db`: API cost tracking database
 
-**Dashboard Statistics:** Real-time data from your processed content including chats, messages, tags, costs, and clusters.
+**Dashboard Statistics:** Real-time data from your processed content including chats, messages, tags, costs, clusters, and similarities.
 
 ## Contributing
 

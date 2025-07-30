@@ -19,7 +19,7 @@ def setup_personal_tags():
     """Set up personal tag list from generic template."""
     
     generic_file = Path("data/tags/tags_master_list_generic.json")
-    personal_file = Path("data/tags/tags_master_list.json")
+    personal_file = Path("data/tags_masterlist/tags_master_list.json")
     
     # Check if generic file exists
     if not generic_file.exists():
@@ -62,7 +62,7 @@ def show_tag_info():
     """Show information about the current tag setup."""
     
     generic_file = Path("data/tags/tags_master_list_generic.json")
-    personal_file = Path("data/tags/tags_master_list.json")
+    personal_file = Path("data/tags_masterlist/tags_master_list.json")
     
     print("\n📋 Tag List Status:")
     print(f"  Generic tags: {'✅' if generic_file.exists() else '❌'} {generic_file}")
@@ -98,7 +98,7 @@ def main(info: bool):
     if success:
         print("\n✅ Tag setup completed successfully!")
         print("\nNext steps:")
-        print("1. Edit data/tags/tags_master_list.json to customize your tags")
+        print("1. Edit data/tags_masterlist/tags_master_list.json to customize your tags")
         print("2. Run the pipeline: python run_pipeline.py")
         print("3. Check data/interim/missing_tags_report.json for suggested new tags")
     else:
