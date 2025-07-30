@@ -142,8 +142,8 @@ def run_cloud_embedding(chats_file: str, state_file: str, model: str, force: boo
     # Build command
     cmd = [
         sys.executable, 
-        "chatmind/embedding/cloud_api/enhanced_embedder.py",
-        "--chats-file", chats_file,
+        "chatmind/pipeline/embedding/cloud_api/enhanced_embedder.py",
+        "--chunks-file", chats_file,
         "--state-file", state_file,
         "--model", model,
         "--delay", "0.1"
@@ -176,8 +176,8 @@ def run_local_embedding(chats_file: str, state_file: str, model: str, force: boo
     # Build command
     cmd = [
         sys.executable, 
-        "chatmind/embedding/local/embed_and_cluster_direct_incremental.py",
-        "--chats-file", chats_file,
+        "chatmind/pipeline/embedding/local/embed_chunks.py",
+        "--chunks-file", chats_file,
         "--state-file", state_file,
         "--model", model
     ]

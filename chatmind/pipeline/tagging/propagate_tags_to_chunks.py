@@ -2,8 +2,8 @@
 """
 Tag Propagation Script
 
-Propagates tags from tagged messages to chunks.
-This ensures chunks inherit tags from their parent messages.
+Propagates tags from post-processed tagged messages to chunks.
+Outputs only chunk hashes with tags to avoid data duplication.
 Uses modular directory structure: data/processed/tagging/
 """
 
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class TagPropagator:
-    """Propagates tags from messages to chunks."""
+    """Propagates tags from post-processed messages to chunks."""
     
     def __init__(self, processed_dir: str = "data/processed"):
         self.processed_dir = Path(processed_dir)
@@ -32,17 +32,17 @@ class TagPropagator:
         self.tagging_dir = self.processed_dir / "tagging"
         self.tagging_dir.mkdir(parents=True, exist_ok=True)
         
-    def _load_tagged_messages(self, tagged_messages_file: Path) -> Dict[str, Dict]:
-        """Load tagged messages indexed by message_id."""
-        tagged_messages = {}
-        if tagged_messages_file.exists():
-            with jsonlines.open(tagged_messages_file) as reader:
-                for message in reader:
-                    message_id = message.get('message_id', '')
-                    if message_id:
-                        tagged_messages[message_id] = message
-            logger.info(f"Loaded {len(tagged_messages)} tagged messages")
-        return tagged_messages
+    def _load_post_processed_tags(self, processed_tags_file: Path) -> Dict[str, Dict]:
+        """Load post-processed tags indexed by message_hash."""
+        processed_tags = {}
+        if processed_tags_file.exists():
+            with jsonlines.open(processed_tags_file) as reader:
+                for tag_entry in reader:
+                    message_hash = tag_entry.get('message_hash', '')
+                    if message_hash:
+                        processed_tags[message_hash] = tag_entry
+            logger.info(f"Loaded {len(processed_tags)} post-processed tag entries")
+        return processed_tags
     
     def _load_chunks(self, chunks_file: Path) -> List[Dict]:
         """Load chunks from JSONL file."""
@@ -54,29 +54,17 @@ class TagPropagator:
         logger.info(f"Loaded {len(chunks)} chunks from {chunks_file}")
         return chunks
     
-    def _load_tag_entries(self, tags_file: Path) -> Dict[str, Dict]:
-        """Load tag entries indexed by message_hash."""
-        tag_entries = {}
-        if tags_file.exists():
-            with jsonlines.open(tags_file) as reader:
-                for tag_entry in reader:
-                    message_hash = tag_entry.get('message_hash', '')
-                    if message_hash:
-                        tag_entries[message_hash] = tag_entry
-            logger.info(f"Loaded {len(tag_entries)} tag entries")
-        return tag_entries
-    
-    def _propagate_tags_to_chunk(self, chunk: Dict, tag_entries: Dict[str, Dict]) -> Dict:
-        """Propagate tags from parent message to chunk."""
+    def _propagate_tags_to_chunk(self, chunk: Dict, processed_tags: Dict[str, Dict]) -> Optional[Dict]:
+        """Propagate tags from parent message to chunk. Returns only chunk hash with tags."""
         # Get the message ID from the chunk
         message_ids = chunk.get('message_ids', [])
         if not message_ids:
-            return chunk
+            return None
         
         # Use the first message ID (chunks should only have one message ID now)
         message_id = message_ids[0]
         
-        # Generate message hash to find the tag entry
+        # Generate message hash to find the processed tag entry
         # We need to reconstruct the message hash from the chunk data
         message_data = {
             'content': chunk.get('content', ''),
@@ -86,36 +74,37 @@ class TagPropagator:
         }
         message_hash = hashlib.sha256(json.dumps(message_data, sort_keys=True).encode()).hexdigest()
         
-        # Find the tag entry
-        tag_entry = tag_entries.get(message_hash)
+        # Find the processed tag entry
+        processed_tag_entry = processed_tags.get(message_hash)
         
-        if tag_entry:
-            # Propagate tags to chunk
-            tagged_chunk = {
-                **chunk,
-                'tags': tag_entry.get('tags', []),
-                'topics': tag_entry.get('topics', []),
-                'domain': tag_entry.get('domain', 'other'),
-                'complexity': tag_entry.get('complexity', 'medium'),
-                'sentiment': tag_entry.get('sentiment', 'neutral'),
-                'intent': tag_entry.get('intent', 'other'),
+        if processed_tag_entry:
+            # Return only chunk hash with tags (no full chunk data)
+            chunk_tag_entry = {
+                'chunk_hash': chunk.get('chunk_hash', ''),
+                'chunk_id': chunk.get('chunk_id', ''),
+                'message_id': message_id,
+                'chat_id': chunk.get('chat_id', ''),
+                'tags': processed_tag_entry.get('tags', []),
+                'domain': processed_tag_entry.get('domain', 'unknown'),
+                'complexity': processed_tag_entry.get('complexity', 'unknown'),
+                'confidence': processed_tag_entry.get('confidence', 0.0),
                 'parent_message_hash': message_hash,
-                'tagged_at': tag_entry.get('tagged_at', datetime.now().isoformat())
+                'tagged_at': datetime.now().isoformat()
             }
-            return tagged_chunk
+            return chunk_tag_entry
         else:
-            # No tag entry found, keep chunk as is
-            logger.warning(f"No tag entry found for chunk {chunk.get('chunk_id', 'unknown')}")
-            return chunk
+            # No processed tag entry found
+            logger.warning(f"No processed tag entry found for chunk {chunk.get('chunk_id', 'unknown')}")
+            return None
     
-    def _save_tagged_chunks(self, tagged_chunks: List[Dict]) -> None:
-        """Save tagged chunks to file."""
-        tagged_chunks_file = self.tagging_dir / "tagged_chunks.jsonl"
-        with jsonlines.open(tagged_chunks_file, mode='w') as writer:
-            for chunk in tagged_chunks:
-                writer.write(chunk)
+    def _save_chunk_tags(self, chunk_tags: List[Dict]) -> None:
+        """Save chunk tags to file."""
+        chunk_tags_file = self.tagging_dir / "chunk_tags.jsonl"
+        with jsonlines.open(chunk_tags_file, mode='w') as writer:
+            for chunk_tag in chunk_tags:
+                writer.write(chunk_tag)
         
-        logger.info(f"Saved {len(tagged_chunks)} tagged chunks to {tagged_chunks_file}")
+        logger.info(f"Saved {len(chunk_tags)} chunk tag entries to {chunk_tags_file}")
     
     def _save_metadata(self, stats: Dict) -> None:
         """Save processing metadata."""
@@ -133,15 +122,15 @@ class TagPropagator:
         except Exception as e:
             logger.error(f"Failed to save metadata: {e}")
     
-    def propagate_tags(self, tags_file: Path, chunks_file: Path) -> Dict:
-        """Propagate tags from tag entries to chunks."""
+    def propagate_tags(self, processed_tags_file: Path, chunks_file: Path) -> Dict:
+        """Propagate tags from post-processed tag entries to chunks."""
         logger.info("🚀 Starting tag propagation...")
         
-        # Load tag entries
-        tag_entries = self._load_tag_entries(tags_file)
-        if not tag_entries:
-            logger.warning("No tag entries found")
-            return {'status': 'no_tag_entries'}
+        # Load post-processed tags
+        processed_tags = self._load_post_processed_tags(processed_tags_file)
+        if not processed_tags:
+            logger.warning("No post-processed tag entries found")
+            return {'status': 'no_processed_tags'}
         
         # Load chunks
         chunks = self._load_chunks(chunks_file)
@@ -150,27 +139,25 @@ class TagPropagator:
             return {'status': 'no_chunks'}
         
         # Propagate tags to chunks
-        tagged_chunks = []
+        chunk_tags = []
         chunks_with_tags = 0
         
         for chunk in tqdm(chunks, desc="Propagating tags"):
-            tagged_chunk = self._propagate_tags_to_chunk(chunk, tag_entries)
-            tagged_chunks.append(tagged_chunk)
-            
-            # Count chunks that got tags
-            if tagged_chunk.get('tags'):
+            chunk_tag_entry = self._propagate_tags_to_chunk(chunk, processed_tags)
+            if chunk_tag_entry:
+                chunk_tags.append(chunk_tag_entry)
                 chunks_with_tags += 1
         
-        # Save tagged chunks
-        self._save_tagged_chunks(tagged_chunks)
+        # Save chunk tags
+        self._save_chunk_tags(chunk_tags)
         
         # Calculate statistics
         stats = {
             'status': 'success',
-            'total_chunks': len(tagged_chunks),
+            'total_chunks': len(chunks),
             'chunks_with_tags': chunks_with_tags,
-            'tag_entries_available': len(tag_entries),
-            'tag_propagation_rate': chunks_with_tags / len(tagged_chunks) if tagged_chunks else 0
+            'processed_tag_entries_available': len(processed_tags),
+            'tag_propagation_rate': chunks_with_tags / len(chunks) if chunks else 0
         }
         
         self._save_metadata(stats)
@@ -184,25 +171,25 @@ class TagPropagator:
 
 
 @click.command()
-@click.option('--tags-file', 
-              default='data/processed/tagging/tags.jsonl',
-              help='Input JSONL file with tag entries')
+@click.option('--processed-tags-file', 
+              default='data/processed/tagging/processed_tags.jsonl',
+              help='Input JSONL file with post-processed tag entries')
 @click.option('--chunks-file', 
               default='data/processed/chunking/chunks.jsonl',
               help='Input JSONL file with chunks')
 @click.option('--check-only', is_flag=True, help='Only check setup, don\'t process')
-def main(tags_file: str, chunks_file: str, check_only: bool):
-    """Propagate tags from tag entries to chunks."""
+def main(processed_tags_file: str, chunks_file: str, check_only: bool):
+    """Propagate tags from post-processed tag entries to chunks."""
     
     if check_only:
         logger.info("🔍 Checking tag propagation setup...")
-        tags_path = Path(tags_file)
+        processed_tags_path = Path(processed_tags_file)
         chunks_path = Path(chunks_file)
         
-        if tags_path.exists():
-            logger.info(f"✅ Tags file exists: {tags_path}")
+        if processed_tags_path.exists():
+            logger.info(f"✅ Post-processed tags file exists: {processed_tags_path}")
         else:
-            logger.error(f"❌ Tags file not found: {tags_path}")
+            logger.error(f"❌ Post-processed tags file not found: {processed_tags_path}")
         
         if chunks_path.exists():
             logger.info(f"✅ Chunks file exists: {chunks_path}")
@@ -213,7 +200,7 @@ def main(tags_file: str, chunks_file: str, check_only: bool):
     
     propagator = TagPropagator()
     stats = propagator.propagate_tags(
-        tags_file=Path(tags_file),
+        processed_tags_file=Path(processed_tags_file),
         chunks_file=Path(chunks_file)
     )
     

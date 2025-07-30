@@ -105,6 +105,12 @@ class DirectIncrementalChunkEmbedder:
         logger.info(f"Found {len(new_chunks)} new chunks out of {len(all_chunks)} total")
         return new_chunks
     
+    def _generate_embedding_hash(self, embedding: List[float]) -> str:
+        """Generate a hash for an embedding vector."""
+        # Convert embedding to bytes for hashing
+        embedding_bytes = json.dumps(embedding, sort_keys=True).encode()
+        return hashlib.sha256(embedding_bytes).hexdigest()
+    
     def _embed_chunks(self, chunks: List[Dict]) -> Tuple[np.ndarray, List[Dict]]:
         """Generate embeddings for chunks."""
         if not chunks:
@@ -126,7 +132,9 @@ class DirectIncrementalChunkEmbedder:
         embedded_chunks = []
         for i, chunk in enumerate(chunks):
             chunk_with_embedding = chunk.copy()
-            chunk_with_embedding['embedding'] = embeddings[i].tolist()
+            embedding_vector = embeddings[i].tolist()
+            chunk_with_embedding['embedding'] = embedding_vector
+            chunk_with_embedding['embedding_hash'] = self._generate_embedding_hash(embedding_vector)
             embedded_chunks.append(chunk_with_embedding)
         
         logger.info(f"Generated embeddings for {len(embedded_chunks)} chunks")

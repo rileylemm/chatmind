@@ -18,6 +18,7 @@ import pickle
 from datetime import datetime
 import subprocess
 import time
+import re
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -35,7 +36,54 @@ class LocalEnhancedMessageTagger:
         # Use modular directory structure
         self.tagging_dir = self.processed_dir / "tagging"
         self.tagging_dir.mkdir(parents=True, exist_ok=True)
+    
+    def _sanitize_text(self, text: str) -> str:
+        """Sanitize text to remove problematic Unicode characters."""
+        if not text:
+            return text
         
+        # Remove or replace problematic Unicode characters
+        # Replace common problematic characters
+        replacements = {
+            '\u2028': '\n',  # Line separator
+            '\u2029': '\n',  # Paragraph separator
+            '\u200b': '',    # Zero-width space
+            '\u200c': '',    # Zero-width non-joiner
+            '\u200d': '',    # Zero-width joiner
+            '\u2060': '',    # Word joiner
+            '\u2061': '',    # Function application
+            '\u2062': '',    # Invisible times
+            '\u2063': '',    # Invisible separator
+            '\u2064': '',    # Invisible plus
+            '\u2066': '',    # Left-to-right isolate
+            '\u2067': '',    # Right-to-left isolate
+            '\u2068': '',    # First strong isolate
+            '\u2069': '',    # Pop directional isolate
+            '\u206a': '',    # Inhibit symmetric swapping
+            '\u206b': '',    # Activate symmetric swapping
+            '\u206c': '',    # Inhibit arabic form shaping
+            '\u206d': '',    # Activate arabic form shaping
+            '\u206e': '',    # National digit shapes
+            '\u206f': '',    # Nominal digit shapes
+        }
+        
+        # Apply replacements
+        for old, new in replacements.items():
+            text = text.replace(old, new)
+        
+        # Remove other control characters except newlines and tabs
+        text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]', '', text)
+        
+        # Normalize Unicode
+        import unicodedata
+        text = unicodedata.normalize('NFKC', text)
+        
+        # Remove excessive whitespace
+        text = re.sub(r'\s+', ' ', text)
+        text = text.strip()
+        
+        return text
+    
     def _generate_message_hash(self, message: Dict) -> str:
         """Generate a hash for a message to track if it's been processed."""
         # Create a normalized version for hashing
@@ -90,7 +138,8 @@ class LocalEnhancedMessageTagger:
                 # Extract individual messages from each chat
                 for message in chat.get('messages', []):
                     # Only process user and assistant messages with content
-                    if message.get('role') in ['user', 'assistant'] and message.get('content', '').strip():
+                    content = message.get('content', '')
+                    if message.get('role') in ['user', 'assistant'] and content.strip():
                         # Add chat context to message
                         message_with_context = {
                             **message,
@@ -116,17 +165,22 @@ class LocalEnhancedMessageTagger:
     
     def _generate_tagging_prompt(self, message: Dict) -> str:
         """Generate a prompt for tagging a message."""
-        content = message.get('content', '').strip()
+        content = message.get('content', '').strip()  # Use sanitized content if available
         role = message.get('role', '')
         
         if not content:
+            return ""
+        
+        # Sanitize the content (in case it wasn't sanitized at ingestion)
+        sanitized_content = self._sanitize_text(content)
+        if not sanitized_content:
             return ""
         
         # Create the prompt
         prompt = f"""You are an AI assistant that tags conversation messages with relevant topics and categories.
 
 Message (Role: {role}):
-{content}
+{sanitized_content}
 
 Please provide a JSON response with the following structure:
 {{

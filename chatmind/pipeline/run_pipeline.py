@@ -92,20 +92,20 @@ class PipelineRunner:
         
         # Check if cloud_api version exists for the method
         cloud_script = self.pipeline_dir / "embedding" / "cloud_api" / "enhanced_embedder.py"
-        local_script = self.pipeline_dir / "embedding" / "local" / "embed_and_cluster_direct_incremental.py"
+        local_script = self.pipeline_dir / "embedding" / "local" / "embed_chunks.py"
         
         if method == "cloud" and cloud_script.exists():
             command = [
                 sys.executable, str(cloud_script),
                 "--chunks-file", str(self.processed_dir / "chunking" / "chunks.jsonl"),
-                "--output-dir", str(self.processed_dir / "embedding")
+                "--state-file", str(self.processed_dir / "embedding" / "hashes.pkl")
             ]
         else:
             # Default to local method
             command = [
                 sys.executable, str(local_script),
                 "--chunks-file", str(self.processed_dir / "chunking" / "chunks.jsonl"),
-                "--output-dir", str(self.processed_dir / "embedding")
+                "--state-file", str(self.processed_dir / "embedding" / "hashes.pkl")
             ]
         
         if force:
@@ -121,8 +121,7 @@ class PipelineRunner:
         
         command = [
             sys.executable, str(self.pipeline_dir / "clustering" / "clusterer.py"),
-            "--input-file", str(self.processed_dir / "embedding" / "embeddings.jsonl"),
-            "--output-dir", str(self.processed_dir / "clustering")
+            "--input-file", str(self.processed_dir / "embedding" / "embeddings.jsonl")
         ]
         
         if force:
@@ -161,46 +160,73 @@ class PipelineRunner:
     
     def run_tag_propagation(self, force: bool = False) -> bool:
         """Run the tag propagation step."""
-        if not force and self._check_step_output("tagging", ["tagged_chunks.jsonl"]):
+        if not force and self._check_step_output("tagging", ["chunk_tags.jsonl"]):
             logger.info("ℹ️ Tag propagation already completed, skipping...")
             return True
         
         command = [
             sys.executable, str(self.pipeline_dir / "tagging" / "propagate_tags_to_chunks.py"),
-            "--tags-file", str(self.processed_dir / "tagging" / "tags.jsonl"),
+            "--processed-tags-file", str(self.processed_dir / "tagging" / "processed_tags.jsonl"),
             "--chunks-file", str(self.processed_dir / "chunking" / "chunks.jsonl")
         ]
         
         return self._run_step("tag_propagation", command, "Running tag propagation step")
     
-    def run_summarization(self, method: str = "local", force: bool = False) -> bool:
-        """Run the summarization step."""
-        if not force and self._check_step_output("summarization", ["cluster_summaries.json", "metadata.json"]):
-            logger.info("ℹ️ Summarization already completed, skipping...")
+    def run_cluster_summarization(self, method: str = "local", force: bool = False) -> bool:
+        """Run the cluster summarization step."""
+        if not force and self._check_step_output("cluster_summarization", ["cluster_summaries.json", "metadata.json"]):
+            logger.info("ℹ️ Cluster summarization already completed, skipping...")
             return True
         
         # Check if cloud_api version exists for the method
-        cloud_script = self.pipeline_dir / "summarization" / "cloud_api" / "enhanced_cluster_summarizer.py"
-        local_script = self.pipeline_dir / "summarization" / "local" / "local_enhanced_cluster_summarizer.py"
+        cloud_script = self.pipeline_dir / "cluster_summarization" / "cloud_api" / "enhanced_cluster_summarizer.py"
+        local_script = self.pipeline_dir / "cluster_summarization" / "local" / "local_enhanced_cluster_summarizer.py"
         
         if method == "cloud" and cloud_script.exists():
             command = [
                 sys.executable, str(cloud_script),
-                "--input-file", str(self.processed_dir / "tagging" / "tagged_chunks.jsonl"),
-                "--output-file", str(self.processed_dir / "summarization" / "cluster_summaries.json")
+                "--clustered-embeddings-file", str(self.processed_dir / "clustering" / "clustered_embeddings.jsonl"),
+                "--chunks-file", str(self.processed_dir / "chunking" / "chunks.jsonl")
             ]
         else:
             # Default to local method
             command = [
                 sys.executable, str(local_script),
-                "--input-file", str(self.processed_dir / "tagging" / "tagged_chunks.jsonl"),
-                "--output-file", str(self.processed_dir / "summarization" / "cluster_summaries.json")
+                "--clustered-embeddings-file", str(self.processed_dir / "clustering" / "clustered_embeddings.jsonl"),
+                "--chunks-file", str(self.processed_dir / "chunking" / "chunks.jsonl")
             ]
         
         if force:
             command.append("--force")
         
-        return self._run_step("summarization", command, f"Running summarization step ({method})")
+        return self._run_step("cluster_summarization", command, f"Running cluster summarization step ({method})")
+    
+    def run_chat_summarization(self, method: str = "local", force: bool = False) -> bool:
+        """Run the chat summarization step."""
+        if not force and self._check_step_output("chat_summarization", ["chat_summaries.json", "metadata.json"]):
+            logger.info("ℹ️ Chat summarization already completed, skipping...")
+            return True
+        
+        # Check if cloud_api version exists for the method
+        cloud_script = self.pipeline_dir / "chat_summarization" / "cloud_api" / "cloud_chat_summarizer.py"
+        local_script = self.pipeline_dir / "chat_summarization" / "local" / "local_chat_summarizer.py"
+        
+        if method == "cloud" and cloud_script.exists():
+            command = [
+                sys.executable, str(cloud_script),
+                "--chats-file", str(self.processed_dir / "ingestion" / "chats.jsonl")
+            ]
+        else:
+            # Default to local method
+            command = [
+                sys.executable, str(local_script),
+                "--chats-file", str(self.processed_dir / "ingestion" / "chats.jsonl")
+            ]
+        
+        if force:
+            command.append("--force")
+        
+        return self._run_step("chat_summarization", command, f"Running chat summarization step ({method})")
     
     def run_positioning(self, force: bool = False) -> bool:
         """Run the positioning step."""
@@ -268,7 +294,8 @@ class PipelineRunner:
             ("clustering", self.run_clustering),
             ("tagging", lambda f: self.run_tagging(tagging_method, f)),
             ("tag_propagation", self.run_tag_propagation),
-            ("summarization", lambda f: self.run_summarization(summarization_method, f)),
+            ("cluster_summarization", lambda f: self.run_cluster_summarization(summarization_method, f)),
+            ("chat_summarization", lambda f: self.run_chat_summarization(summarization_method, f)),
             ("positioning", self.run_positioning),
             ("similarity", self.run_similarity),
             ("loading", self.run_loading)
@@ -330,7 +357,7 @@ class PipelineRunner:
 @click.option('--steps', 
               multiple=True,
               type=click.Choice(['ingestion', 'chunking', 'embedding', 'clustering', 
-                               'tagging', 'tag_propagation', 'summarization', 
+                               'tagging', 'tag_propagation', 'cluster_summarization', 'chat_summarization',
                                'positioning', 'similarity', 'loading']),
               help='Specific steps to run (can specify multiple)')
 @click.option('--check-only', is_flag=True, help='Only check setup, don\'t run pipeline')
@@ -346,10 +373,11 @@ def main(embedding_method: str, tagging_method: str, summarization_method: str,
     4. Clustering: Group similar embeddings
     5. Tagging: Tag messages with topics
     6. Tag Propagation: Propagate tags to chunks
-    7. Summarization: Create cluster summaries
-    8. Positioning: Add spatial coordinates
-    9. Similarity: Calculate chat similarities
-    10. Loading: Load into Neo4j database
+    7. Cluster Summarization: Create cluster summaries
+    8. Chat Summarization: Create chat summaries
+    9. Positioning: Add spatial coordinates
+    10. Similarity: Calculate chat similarities
+    11. Loading: Load into Neo4j database
     
     EXAMPLES:
     # Run complete pipeline with local models
@@ -374,7 +402,8 @@ def main(embedding_method: str, tagging_method: str, summarization_method: str,
             "chatmind/pipeline/embedding",
             "chatmind/pipeline/clustering",
             "chatmind/pipeline/tagging",
-            "chatmind/pipeline/summarization",
+            "chatmind/pipeline/cluster_summarization",
+            "chatmind/pipeline/chat_summarization",
             "chatmind/pipeline/positioning",
             "chatmind/pipeline/similarity",
             "chatmind/pipeline/loading"

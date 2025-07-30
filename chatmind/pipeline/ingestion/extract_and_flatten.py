@@ -18,10 +18,11 @@ import click
 from tqdm import tqdm
 import logging
 import pickle
+import re
 
 # Import data lake storage
-from chatmind.data_ingestion.data_lake_storage import DataLakeStorage, DataLakeExtractor
-from chatmind.data_ingestion.chatgpt_url_mapper import ChatGPTURLMapper, URLMappingExtractor
+from chatmind.pipeline.ingestion.data_lake_storage import DataLakeStorage, DataLakeExtractor
+from chatmind.pipeline.ingestion.chatgpt_url_mapper import ChatGPTURLMapper, URLMappingExtractor
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -48,7 +49,54 @@ class ChatExtractor:
         
         # Load existing hashes to enable content-based deduplication
         self.seen_hashes: Set[str] = self._load_existing_hashes()
+    
+    def _sanitize_text(self, text: str) -> str:
+        """Sanitize text to remove problematic Unicode characters."""
+        if not text:
+            return text
         
+        # Remove or replace problematic Unicode characters
+        # Replace common problematic characters
+        replacements = {
+            '\u2028': '\n',  # Line separator
+            '\u2029': '\n',  # Paragraph separator
+            '\u200b': '',    # Zero-width space
+            '\u200c': '',    # Zero-width non-joiner
+            '\u200d': '',    # Zero-width joiner
+            '\u2060': '',    # Word joiner
+            '\u2061': '',    # Function application
+            '\u2062': '',    # Invisible times
+            '\u2063': '',    # Invisible separator
+            '\u2064': '',    # Invisible plus
+            '\u2066': '',    # Left-to-right isolate
+            '\u2067': '',    # Right-to-left isolate
+            '\u2068': '',    # First strong isolate
+            '\u2069': '',    # Pop directional isolate
+            '\u206a': '',    # Inhibit symmetric swapping
+            '\u206b': '',    # Activate symmetric swapping
+            '\u206c': '',    # Inhibit arabic form shaping
+            '\u206d': '',    # Activate arabic form shaping
+            '\u206e': '',    # National digit shapes
+            '\u206f': '',    # Nominal digit shapes
+        }
+        
+        # Apply replacements
+        for old, new in replacements.items():
+            text = text.replace(old, new)
+        
+        # Remove other control characters except newlines and tabs
+        text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]', '', text)
+        
+        # Normalize Unicode
+        import unicodedata
+        text = unicodedata.normalize('NFKC', text)
+        
+        # Remove excessive whitespace
+        text = re.sub(r'\s+', ' ', text)
+        text = text.strip()
+        
+        return text
+    
     def _load_existing_hashes(self) -> Set[str]:
         """Load existing content hashes from previous runs."""
         hash_file = self.ingestion_dir / "hashes.pkl"
@@ -148,16 +196,19 @@ class ChatExtractor:
                             text_parts.append(part['text'])
                         elif isinstance(part, str):
                             text_parts.append(part)
-                    
                     if text_parts:
-                        messages.append({
-                            'id': node_id,
-                            'role': message.get('author', {}).get('role', 'unknown'),
-                            'content': ' '.join(text_parts),
-                            'timestamp': message.get('create_time'),
-                            'parent_id': message.get('parent_id')
-                        })
-        
+                        combined_text = ' '.join(text_parts)
+                        # For chats.jsonl: fully sanitize
+                        sanitized_text = self._sanitize_text(combined_text)
+                        if sanitized_text:  # Only add message if sanitized text is not empty
+                            messages.append({
+                                'id': node_id,
+                                'role': message.get('author', {}).get('role', 'unknown'),
+                                'content': sanitized_text,  # Only sanitized content in chats.jsonl
+                                'timestamp': message.get('create_time'),
+                                'parent_id': message.get('parent_id'),
+                                '_original_content': combined_text  # Keep for data lake, will not be written to chats.jsonl
+                            })
         return {
             'title': chat_data.get('title', 'Untitled'),
             'create_time': chat_data.get('create_time'),
@@ -219,9 +270,19 @@ class ChatExtractor:
         if all_chats:  # Only write if we have new chats
             with jsonlines.open(output_file, mode='a') as writer:
                 for chat in all_chats:
+                    # Remove _original_content before writing to chats.jsonl
+                    for msg in chat['messages']:
+                        if '_original_content' in msg:
+                            del msg['_original_content']
                     writer.write(chat)
-            
             # Store in data lake
+            # For data lake, use original content (lightly cleaned)
+            for chat in all_chats:
+                for msg in chat['messages']:
+                    if '_original_content' in msg:
+                        # Minimal cleaning: normalize whitespace
+                        msg['content'] = ' '.join(msg['_original_content'].split())
+                        del msg['_original_content']
             chat_ids = self.data_lake_extractor.process_chats(all_chats)
             logger.info(f"Stored {len(chat_ids)} chats in data lake")
             
