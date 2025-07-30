@@ -58,6 +58,10 @@ data/lake/
 data/interim/
 data_copy/
 
+# Backup data (should not be committed)
+data/backup*/
+data/*backup*/
+
 # Personal tag list (keep user's personal tags private)
 data/tags_masterlist/tags_master_list.json
 
