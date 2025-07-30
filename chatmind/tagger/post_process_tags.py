@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-Tag Post-Processing for ChatMind
+Optimized Tag Post-Processing for ChatMind with Gemma-2B
 
 Maps unconstrained tags to master list, tracks missing tags,
 and provides mechanisms for auto-adding good tags.
+Optimized for Gemma-2B's 100% JSON compliance and clean output.
 """
 
 import json
@@ -13,19 +14,21 @@ from typing import Dict, List, Set, Tuple
 import logging
 from collections import Counter
 import click
+import sys
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class TagPostProcessor:
-    """Post-processes tags to map to master list and track missing tags."""
+class GemmaOptimizedTagPostProcessor:
+    """Post-processes tags optimized for Gemma-2B's clean output."""
     
     def __init__(self, master_list_path: str = "data/tags/tags_master_list.json"):
         self.master_list_path = Path(master_list_path)
         self.master_tags = self.load_master_tags()
         self.missing_tags = Counter()
         self.mapped_tags = Counter()
+        self.domain_fixes = Counter()
         
     def load_master_tags(self) -> Set[str]:
         """Load master tag list."""
@@ -60,6 +63,28 @@ class TagPostProcessor:
         
         return tag
     
+    def fix_domain_field(self, domain: str) -> str:
+        """Fix Gemma-2B's domain field which sometimes includes the full enum."""
+        if not domain:
+            return "unknown"
+        
+        # Gemma sometimes returns the full enum string instead of a single value
+        if "|" in domain:
+            # Extract the first valid domain from the enum
+            domains = domain.split("|")
+            for d in domains:
+                d = d.strip().lower()
+                if d in ["technical", "personal", "medical", "business", "creative"]:
+                    return d
+            return "unknown"
+        
+        # Normalize single domain
+        domain = domain.strip().lower()
+        if domain in ["technical", "personal", "medical", "business", "creative"]:
+            return domain
+        
+        return "unknown"
+    
     def find_best_match(self, tag: str, master_tags: Set[str]) -> str:
         """Find the best matching tag in master list."""
         normalized_tag = self.normalize_tag(tag)
@@ -77,9 +102,15 @@ class TagPostProcessor:
         return None
     
     def process_chunk_tags(self, chunk: Dict) -> Dict:
-        """Process tags for a single chunk."""
+        """Process tags for a single chunk with Gemma-2B optimizations."""
         original_tags = chunk.get('tags', [])
         processed_tags = []
+        
+        # Fix domain field if needed
+        original_domain = chunk.get('domain', 'unknown')
+        fixed_domain = self.fix_domain_field(original_domain)
+        if fixed_domain != original_domain:
+            self.domain_fixes[original_domain] += 1
         
         for tag in original_tags:
             best_match = self.find_best_match(tag, self.master_tags)
@@ -94,11 +125,12 @@ class TagPostProcessor:
                 # Keep original tag for now
                 processed_tags.append(tag)
         
-        # Update chunk with processed tags
+        # Update chunk with processed tags and fixed domain
         processed_chunk = {
             **chunk,
             'tags': processed_tags,
             'original_tags': original_tags,
+            'domain': fixed_domain,
             'tags_mapped': len([t for t in original_tags if self.find_best_match(t, self.master_tags) is not None]),
             'tags_unmapped': len([t for t in original_tags if self.find_best_match(t, self.master_tags) is None])
         }
@@ -106,13 +138,14 @@ class TagPostProcessor:
         return processed_chunk
     
     def process_file(self, input_file: Path, output_file: Path) -> Dict:
-        """Process all chunks in a file."""
+        """Process all chunks in a file with Gemma-2B optimizations."""
         logger.info(f"Processing tags in {input_file}")
         
         processed_chunks = []
         total_chunks = 0
         total_mapped = 0
         total_unmapped = 0
+        domain_fixes_count = 0
         
         with jsonlines.open(input_file) as reader:
             for chunk in reader:
@@ -121,6 +154,10 @@ class TagPostProcessor:
                 total_chunks += 1
                 total_mapped += processed_chunk['tags_mapped']
                 total_unmapped += processed_chunk['tags_unmapped']
+                
+                # Count domain fixes
+                if processed_chunk.get('domain') != chunk.get('domain'):
+                    domain_fixes_count += 1
         
         # Save processed chunks
         with jsonlines.open(output_file, 'w') as writer:
@@ -130,13 +167,16 @@ class TagPostProcessor:
         logger.info(f"Processed {total_chunks} chunks")
         logger.info(f"Total tags mapped: {total_mapped}")
         logger.info(f"Total tags unmapped: {total_unmapped}")
+        logger.info(f"Domain fields fixed: {domain_fixes_count}")
         
         return {
             'total_chunks': total_chunks,
             'total_mapped': total_mapped,
             'total_unmapped': total_unmapped,
+            'domain_fixes': domain_fixes_count,
             'missing_tags': dict(self.missing_tags),
-            'mapped_tags': dict(self.mapped_tags)
+            'mapped_tags': dict(self.mapped_tags),
+            'domain_fixes_breakdown': dict(self.domain_fixes)
         }
     
     def save_missing_tags_report(self, output_file: Path):
@@ -148,7 +188,8 @@ class TagPostProcessor:
         report = {
             'missing_tags': dict(self.missing_tags),
             'total_missing_occurrences': sum(self.missing_tags.values()),
-            'unique_missing_tags': len(self.missing_tags)
+            'unique_missing_tags': len(self.missing_tags),
+            'domain_fixes': dict(self.domain_fixes)
         }
         
         with open(output_file, 'w') as f:
@@ -157,6 +198,7 @@ class TagPostProcessor:
         logger.info(f"Missing tags report saved to {output_file}")
         logger.info(f"Found {len(self.missing_tags)} unique missing tags")
         logger.info(f"Total missing tag occurrences: {sum(self.missing_tags.values())}")
+        logger.info(f"Domain fixes: {sum(self.domain_fixes.values())}")
     
     def suggest_auto_additions(self, min_occurrences: int = 3) -> List[str]:
         """Suggest tags to auto-add based on frequency."""
@@ -199,7 +241,7 @@ class TagPostProcessor:
 
 @click.command()
 @click.option('--input-file', 
-              default='data/processed/tagged_chunks.jsonl',
+              default='data/processed/local_enhanced_tagged_chunks.jsonl',
               help='Input file with tagged chunks')
 @click.option('--output-file', 
               default='data/processed/processed_tagged_chunks.jsonl',
@@ -212,35 +254,85 @@ class TagPostProcessor:
               help='Minimum occurrences to auto-add tag')
 @click.option('--auto-add', is_flag=True,
               help='Automatically add frequently occurring missing tags')
+@click.option('--check-only', is_flag=True,
+              help='Only check setup, don\'t process')
 def main(input_file: str, output_file: str, missing_report: str, 
-         auto_add_threshold: int, auto_add: bool):
-    """Post-process tags to map to master list."""
+         auto_add_threshold: int, auto_add: bool, check_only: bool):
+    """Post-process tags optimized for Gemma-2B output."""
     
-    processor = TagPostProcessor()
+    if check_only:
+        logger.info("🔍 Checking post-processing setup...")
+        
+        # Check input file
+        input_path = Path(input_file)
+        if input_path.exists():
+            logger.info(f"✅ Input file exists: {input_file}")
+        else:
+            logger.error(f"❌ Input file not found: {input_file}")
+            return 1
+        
+        # Check master tag list
+        master_list_path = Path("data/tags/tags_master_list.json")
+        if master_list_path.exists():
+            logger.info(f"✅ Master tag list exists: {master_list_path}")
+        else:
+            logger.error(f"❌ Master tag list not found: {master_list_path}")
+            return 1
+        
+        # Check output directory
+        output_path = Path(output_file)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        logger.info(f"✅ Output directory ready: {output_path.parent}")
+        
+        logger.info("✅ Post-processing setup looks good!")
+        return 0
+    
+    # Initialize processor
+    processor = GemmaOptimizedTagPostProcessor()
     
     # Process the file
-    stats = processor.process_file(Path(input_file), Path(output_file))
+    input_path = Path(input_file)
+    output_path = Path(output_file)
+    
+    if not input_path.exists():
+        logger.error(f"Input file not found: {input_file}")
+        return 1
+    
+    # Ensure output directory exists
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Process the file
+    stats = processor.process_file(input_path, output_path)
     
     # Save missing tags report
-    processor.save_missing_tags_report(Path(missing_report))
+    missing_report_path = Path(missing_report)
+    missing_report_path.parent.mkdir(parents=True, exist_ok=True)
+    processor.save_missing_tags_report(missing_report_path)
     
-    # Auto-add if requested
+    # Auto-add tags if requested
     if auto_add:
         processor.auto_add_suggested_tags(auto_add_threshold)
     
     # Print summary
-    print(f"\n📊 Tag Processing Summary:")
-    print(f"  - Total chunks processed: {stats['total_chunks']}")
-    print(f"  - Tags successfully mapped: {stats['total_mapped']}")
-    print(f"  - Tags that couldn't be mapped: {stats['total_unmapped']}")
-    print(f"  - Unique missing tags: {len(stats['missing_tags'])}")
+    logger.info("")
+    logger.info("📊 Post-processing Summary:")
+    logger.info(f"  Total chunks processed: {stats['total_chunks']}")
+    logger.info(f"  Tags mapped to master list: {stats['total_mapped']}")
+    logger.info(f"  Tags not in master list: {stats['total_unmapped']}")
+    logger.info(f"  Domain fields fixed: {stats['domain_fixes']}")
+    logger.info(f"  Unique missing tags: {len(stats['missing_tags'])}")
     
     if stats['missing_tags']:
-        print(f"\n🔍 Top missing tags:")
-        for tag, count in sorted(stats['missing_tags'].items(), 
-                                key=lambda x: x[1], reverse=True)[:10]:
-            print(f"  - {tag}: {count} occurrences")
+        logger.info("")
+        logger.info("🔍 Top missing tags:")
+        for tag, count in sorted(stats['missing_tags'].items(), key=lambda x: x[1], reverse=True)[:10]:
+            logger.info(f"  {tag}: {count} occurrences")
+    
+    logger.info("")
+    logger.info("✅ Post-processing completed successfully!")
+    
+    return 0
 
 
 if __name__ == "__main__":
-    main() 
+    sys.exit(main()) 
