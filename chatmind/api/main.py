@@ -581,7 +581,7 @@ async def get_visualization_data(
 ):
     """Get data for 2D/3D graph visualization"""
     try:
-        node_type_list = [nt.strip() for nt in node_types.split(",")] if node_types else None
+        node_type_list = [nt.strip() for nt in node_types.split(",")] if node_types and "," in node_types else [node_types.strip()] if node_types else None
         data = neo4j_service.get_visualization_data(node_type_list, limit, include_edges, filter_domain)
         return ApiResponse(data=data, message="Visualization data retrieved")
     except Exception as e:

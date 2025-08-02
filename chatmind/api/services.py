@@ -31,6 +31,19 @@ def debug_rel_inspection(rel):
         logger.warning(f"Logging exploded: {e}")
     logger.warning(">>> DEBUG END")
 
+def convert_neo4j_to_json(obj):
+    """Convert Neo4j objects to JSON-serializable format"""
+    if hasattr(obj, 'iso_format'):  # Neo4j DateTime objects
+        return obj.iso_format()
+    elif hasattr(obj, 'to_native'):  # Other Neo4j time objects
+        return obj.to_native().isoformat()
+    elif isinstance(obj, dict):
+        return {k: convert_neo4j_to_json(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_neo4j_to_json(item) for item in obj]
+    else:
+        return obj
+
 class Neo4jService:
     """Service for Neo4j database operations with dual layer support"""
     
@@ -77,56 +90,77 @@ class Neo4jService:
         
         try:
             with self.driver.session() as session:
-                # Build a more comprehensive query that finds all relationships between our node types
+                # Simplified query to get nodes and relationships
                 query = """
-                MATCH (n)-[r]->(m)
+                MATCH (n)
                 WHERE (n:Chat OR n:Message OR n:Chunk OR n:Topic OR n:Tag)
-                AND (m:Chat OR m:Message OR m:Chunk OR m:Topic OR m:Tag)
-                RETURN n AS source, r AS relationship, m AS target
+                RETURN n
                 LIMIT $limit
                 """
                 
                 result = session.run(query, limit=limit)
                 
-                nodes = {}
+                nodes = []
                 edges = []
                 
                 for record in result:
-                    source = record.get("source")
-                    target = record.get("target")
-                    rel = record.get("relationship")
-
-                    # Process relationship
-
-                    if rel is not None and hasattr(rel, 'type') and hasattr(rel, 'element_id'):
-                        source_id = str(source.element_id)
-                        target_id = str(target.element_id)
-
-                        # Add nodes
-                        for node in [source, target]:
-                            node_id = str(node.element_id)
-                            if node_id not in nodes:
-                                nodes[node_id] = {
-                                    "id": node_id,
-                                    "type": list(node.labels)[0] if node.labels else "Unknown",
-                                    "properties": dict(node)
-                                }
-
-                        # Add edge
-                        edges.append({
-                            "source": source_id,
-                            "target": target_id,
+                    node = record.get("n")
+                    if node:
+                        # Convert Neo4j properties to JSON-serializable format
+                        properties = dict(node)
+                        for key, value in properties.items():
+                            if hasattr(value, 'iso_format'):  # Neo4j DateTime objects
+                                properties[key] = value.iso_format()
+                            elif hasattr(value, 'to_native'):  # Other Neo4j time objects
+                                properties[key] = value.to_native().isoformat()
+                        
+                        node_data = {
+                            "id": str(node.element_id),
+                            "type": list(node.labels)[0] if node.labels else "Unknown",
+                            "properties": properties
+                        }
+                        nodes.append(node_data)
+                
+                # Get some basic relationships
+                rel_query = """
+                MATCH (n)-[r]->(m)
+                WHERE (n:Chat OR n:Message OR n:Chunk OR n:Topic OR n:Tag)
+                AND (m:Chat OR m:Message OR m:Chunk OR m:Topic OR m:Tag)
+                RETURN n, r, m
+                LIMIT 50
+                """
+                
+                rel_result = session.run(rel_query)
+                
+                for record in rel_result:
+                    source = record.get("n")
+                    target = record.get("m")
+                    rel = record.get("r")
+                    
+                    if source and target and rel:
+                        # Convert Neo4j relationship properties to JSON-serializable format
+                        rel_properties = dict(rel)
+                        for key, value in rel_properties.items():
+                            if hasattr(value, 'iso_format'):  # Neo4j DateTime objects
+                                rel_properties[key] = value.iso_format()
+                            elif hasattr(value, 'to_native'):  # Other Neo4j time objects
+                                rel_properties[key] = value.to_native().isoformat()
+                        
+                        edge_data = {
+                            "source": str(source.element_id),
+                            "target": str(target.element_id),
                             "type": rel.type,
-                            "properties": dict(rel)
-                        })
+                            "properties": rel_properties
+                        }
+                        edges.append(edge_data)
                 
                 logger.info(f"Found {len(nodes)} nodes and {len(edges)} edges")
                 
-                return {"nodes": list(nodes.values()), "edges": edges}
+                return {"nodes": nodes, "edges": edges}
                 
         except Exception as e:
             logger.error(f"Error fetching graph data: {e}")
-            raise RuntimeError(f"Failed to fetch graph data: {e}")
+            return {"nodes": [], "edges": []}
     
     def get_raw_conversations(self, limit: int = 50) -> List[Dict[str, Any]]:
         """Get raw conversation data (Chat and Message nodes)"""
@@ -562,7 +596,7 @@ class Neo4jService:
                 # First, determine the node type
                 node_query = """
                 MATCH (n)
-                WHERE n.chat_id = $node_id OR n.message_id = $node_id OR n.chunk_id = $node_id OR n.topic_id = $node_id OR n.name = $node_id
+                WHERE n.chat_id = $node_id OR n.message_id = $node_id OR n.chunk_id = $node_id OR n.topic_id = $node_id OR n.name = $node_id OR n.id = $node_id
                 RETURN n
                 LIMIT 1
                 """
@@ -621,40 +655,40 @@ class Neo4jService:
                 # Build response based on node type
                 response = {
                     "node_type": node_type,
-                    "node": dict(node),
+                    "node": convert_neo4j_to_json(dict(node)),
                     "relationships": {}
                 }
                 
                 if node_type == "Chat":
                     response["relationships"] = {
-                        "messages": [dict(m) for m in expansion_record['messages'] if m.get('message_id')],
-                        "topics": [dict(t) for t in expansion_record['topics'] if t.get('topic_id')],
-                        "similar_chats": [dict(c) for c in expansion_record['similar_chats'] if c.get('chat_id')]
+                        "messages": [convert_neo4j_to_json(dict(m)) for m in expansion_record['messages'] if m.get('message_id')],
+                        "topics": [convert_neo4j_to_json(dict(t)) for t in expansion_record['topics'] if t.get('topic_id')],
+                        "similar_chats": [convert_neo4j_to_json(dict(c)) for c in expansion_record['similar_chats'] if c.get('chat_id')]
                     }
                 elif node_type == "Message":
                     response["relationships"] = {
-                        "chunks": [dict(ch) for ch in expansion_record['chunks'] if ch.get('chunk_id')],
-                        "tags": [dict(tag) for tag in expansion_record['tags'] if tag.get('name')],
-                        "topics": [dict(t) for t in expansion_record['topics'] if t.get('topic_id')]
+                        "chunks": [convert_neo4j_to_json(dict(ch)) for ch in expansion_record['chunks'] if ch.get('chunk_id')],
+                        "tags": [convert_neo4j_to_json(dict(tag)) for tag in expansion_record['tags'] if tag.get('name')],
+                        "topics": [convert_neo4j_to_json(dict(t)) for t in expansion_record['topics'] if t.get('topic_id')]
                     }
                 elif node_type == "Chunk":
                     response["relationships"] = {
-                        "messages": [dict(m) for m in expansion_record['messages'] if m.get('message_id')],
-                        "tags": [dict(tag) for tag in expansion_record['tags'] if tag.get('name')],
-                        "topics": [dict(t) for t in expansion_record['topics'] if t.get('topic_id')]
+                        "messages": [convert_neo4j_to_json(dict(m)) for m in expansion_record['messages'] if m.get('message_id')],
+                        "tags": [convert_neo4j_to_json(dict(tag)) for tag in expansion_record['tags'] if tag.get('name')],
+                        "topics": [convert_neo4j_to_json(dict(t)) for t in expansion_record['topics'] if t.get('topic_id')]
                     }
                 elif node_type == "Topic":
                     response["relationships"] = {
-                        "chunks": [dict(ch) for ch in expansion_record['chunks'] if ch.get('chunk_id')],
-                        "tags": [dict(tag) for tag in expansion_record['tags'] if tag.get('name')],
-                        "messages": [dict(m) for m in expansion_record['messages'] if m.get('message_id')]
+                        "chunks": [convert_neo4j_to_json(dict(ch)) for ch in expansion_record['chunks'] if ch.get('chunk_id')],
+                        "tags": [convert_neo4j_to_json(dict(tag)) for tag in expansion_record['tags'] if tag.get('name')],
+                        "messages": [convert_neo4j_to_json(dict(m)) for m in expansion_record['messages'] if m.get('message_id')]
                     }
                 
                 return response
                 
         except Exception as e:
             logger.error(f"Error expanding node: {e}")
-            raise RuntimeError(f"Failed to expand node: {e}")
+            return {"error": f"Failed to expand node: {e}"}
     
     def advanced_search(self, query: str, filters: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Advanced search with filters"""
@@ -712,7 +746,7 @@ class Neo4jService:
                     node_data = {
                         "id": node.id,
                         "type": list(node.labels)[0] if node.labels else "Unknown",
-                        "properties": dict(node)
+                        "properties": convert_neo4j_to_json(dict(node))
                     }
                     results.append(node_data)
                 
@@ -720,7 +754,7 @@ class Neo4jService:
                 
         except Exception as e:
             logger.error(f"Error in advanced search: {e}")
-            raise RuntimeError(f"Failed to perform advanced search: {e}")
+            return []
     
     # ============================================================================
     # Discovery Methods
@@ -939,11 +973,12 @@ class Neo4jService:
                 # Build node query
                 node_query = """
                 MATCH (n)
-                WHERE (n:Chat OR n:Cluster OR n:Tag)
+                WHERE (n:Chat OR n:Message OR n:Chunk OR n:Topic OR n:Tag)
                 """
                 
                 if node_types:
-                    node_query += f" AND labels(n)[0] IN {node_types}\n"
+                    node_types_str = "', '".join(node_types)
+                    node_query += f" AND labels(n)[0] IN ['{node_types_str}']\n"
                 
                 if filter_domain:
                     node_query += f" AND n.domain = '{filter_domain}'\n"
@@ -959,18 +994,18 @@ class Neo4jService:
                 for record in result:
                     node = record["n"]
                     node_data = {
-                        "id": node["chat_id"] if "chat_id" in node else str(node.identity),
+                        "id": node.get("chat_id") if node.get("chat_id") else str(node.element_id),
                         "type": list(node.labels)[0],
-                        "properties": dict(node)
+                        "properties": convert_neo4j_to_json(dict(node))
                     }
                     
                     # Add positioning if available
-                    if "position_x" in node and "position_y" in node:
+                    if node.get("position_x") and node.get("position_y"):
                         node_data["position"] = {
                             "x": node["position_x"],
                             "y": node["position_y"]
                         }
-                    elif "umap_x" in node and "umap_y" in node:
+                    elif node.get("umap_x") and node.get("umap_y"):
                         node_data["position"] = {
                             "x": node["umap_x"],
                             "y": node["umap_y"]

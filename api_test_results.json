@@ -1,0 +1,857 @@
+{
+  "test_run": {
+    "timestamp": 1754131846.378528,
+    "base_url": "http://localhost:8000",
+    "total_tests": 54
+  },
+  "results": [
+    {
+      "name": "Health Check",
+      "method": "GET",
+      "url": "http://localhost:8000/health",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 85,
+      "error": null,
+      "description": "Check API health and connectivity",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Dashboard Statistics",
+      "method": "GET",
+      "url": "http://localhost:8000/api/stats/dashboard",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 252,
+      "error": null,
+      "description": "Get real-time dashboard statistics",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Graph Data (Default)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/graph",
+      "status": "FAILED",
+      "status_code": 500,
+      "expected_status": 200,
+      "response_size": 21,
+      "error": "Expected status 200, got 500",
+      "description": "Get default graph data",
+      "data_keys": [
+        "raw_response"
+      ]
+    },
+    {
+      "name": "Graph Data (Limited)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/graph",
+      "status": "FAILED",
+      "status_code": 500,
+      "expected_status": 200,
+      "response_size": 21,
+      "error": "Expected status 200, got 500",
+      "description": "Get limited graph data",
+      "data_keys": [
+        "raw_response"
+      ]
+    },
+    {
+      "name": "Graph Data (Topics Only)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/graph",
+      "status": "FAILED",
+      "status_code": 500,
+      "expected_status": 200,
+      "response_size": 21,
+      "error": "Expected status 200, got 500",
+      "description": "Get only topic nodes",
+      "data_keys": [
+        "raw_response"
+      ]
+    },
+    {
+      "name": "Graph Data (With Positioning)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/graph",
+      "status": "FAILED",
+      "status_code": 500,
+      "expected_status": 200,
+      "response_size": 21,
+      "error": "Expected status 200, got 500",
+      "description": "Get graph data with UMAP positioning",
+      "data_keys": [
+        "raw_response"
+      ]
+    },
+    {
+      "name": "Topics",
+      "method": "GET",
+      "url": "http://localhost:8000/api/topics",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 60,
+      "error": null,
+      "description": "Get all semantic topics/clusters",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Chats (Default)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/chats",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 8465,
+      "error": null,
+      "description": "Get default chat list",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Chats (Limited)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/chats",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 891,
+      "error": null,
+      "description": "Get limited chat list",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Chat Messages",
+      "method": "GET",
+      "url": "http://localhost:8000/api/chats/d5bffa6d680deac36fc2021478aa7ff80a6a47f82deb03c7e45d571bdf3b1f9a/messages",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 3342,
+      "error": null,
+      "description": "Get messages for chat d5bffa6d680deac36fc2021478aa7ff80a6a47f82deb03c7e45d571bdf3b1f9a",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Search (Python)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/search",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 8182,
+      "error": null,
+      "description": "Search for Python-related content",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Search (AI)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/search",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 4104,
+      "error": null,
+      "description": "Search for AI-related content",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Search (Empty Query)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/search",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 2154,
+      "error": null,
+      "description": "Test search with empty query",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Cost Statistics (Default)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/costs/statistics",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 143,
+      "error": null,
+      "description": "Get all cost statistics",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Cost Statistics (Date Range)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/costs/statistics",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 143,
+      "error": null,
+      "description": "Get cost statistics for specific date range",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Cost Statistics (Operation Filter)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/costs/statistics",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 143,
+      "error": null,
+      "description": "Get cost statistics for tagging operation",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Tags",
+      "method": "GET",
+      "url": "http://localhost:8000/api/tags",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 910508,
+      "error": null,
+      "description": "Get all tags with counts and categories",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Single Message",
+      "method": "GET",
+      "url": "http://localhost:8000/api/messages/d554337b-d4b3-4e50-bb53-5def727bfae7",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 2685,
+      "error": null,
+      "description": "Get message d554337b-d4b3-4e50-bb53-5def727bfae7 (found via 'health' search)",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Node Expansion",
+      "method": "GET",
+      "url": "http://localhost:8000/api/graph/expand/d5bffa6d680deac36fc2021478aa7ff80a6a47f82deb03c7e45d571bdf3b1f9a",
+      "status": "FAILED",
+      "status_code": 500,
+      "expected_status": 200,
+      "response_size": 21,
+      "error": "Expected status 200, got 500",
+      "description": "Expand node d5bffa6d680deac36fc2021478aa7ff80a6a47f82deb03c7e45d571bdf3b1f9a",
+      "data_keys": [
+        "raw_response"
+      ]
+    },
+    {
+      "name": "Advanced Search (Basic)",
+      "method": "POST",
+      "url": "http://localhost:8000/api/search/advanced",
+      "status": "FAILED",
+      "status_code": 500,
+      "expected_status": 200,
+      "response_size": 21,
+      "error": "Expected status 200, got 500",
+      "description": "Basic advanced search with query only",
+      "data_keys": [
+        "raw_response"
+      ]
+    },
+    {
+      "name": "Advanced Search (With Filters)",
+      "method": "POST",
+      "url": "http://localhost:8000/api/search/advanced",
+      "status": "FAILED",
+      "status_code": 500,
+      "expected_status": 200,
+      "response_size": 21,
+      "error": "Expected status 200, got 500",
+      "description": "Advanced search with date filters",
+      "data_keys": [
+        "raw_response"
+      ]
+    },
+    {
+      "name": "Custom Query (Tags)",
+      "method": "POST",
+      "url": "http://localhost:8000/api/query/neo4j",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 262,
+      "error": null,
+      "description": "Query to get top tags",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Custom Query (Topics)",
+      "method": "POST",
+      "url": "http://localhost:8000/api/query/neo4j",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 89,
+      "error": null,
+      "description": "Query to get top topics",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Chat Summary",
+      "method": "POST",
+      "url": "http://localhost:8000/api/chats/d5bffa6d680deac36fc2021478aa7ff80a6a47f82deb03c7e45d571bdf3b1f9a/summary",
+      "description": "Generate summary for chat d5bffa6d680deac36fc2021478aa7ff80a6a47f82deb03c7e45d571bdf3b1f9a",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 311,
+      "error": null,
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Discover Topics (Default)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/discover/topics",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 72,
+      "error": null,
+      "description": "Get most discussed topics with default parameters",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Discover Topics (Limited)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/discover/topics",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 72,
+      "error": null,
+      "description": "Get limited number of topics",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Discover Topics (With Min Count)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/discover/topics",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 72,
+      "error": null,
+      "description": "Get topics with minimum count filter",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Discover Domains",
+      "method": "GET",
+      "url": "http://localhost:8000/api/discover/domains",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 67,
+      "error": null,
+      "description": "Get domain distribution and insights",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Discover Clusters (Default)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/discover/clusters",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 11105,
+      "error": null,
+      "description": "Get semantic clusters with positioning",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Discover Clusters (Limited)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/discover/clusters",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 1127,
+      "error": null,
+      "description": "Get limited number of clusters",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Discover Clusters (With Min Size)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/discover/clusters",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 74,
+      "error": null,
+      "description": "Get clusters with minimum size filter",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Discover Clusters (No Positioning)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/discover/clusters",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 8142,
+      "error": null,
+      "description": "Get clusters without positioning data",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Search Content (Python)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/search/content",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 66,
+      "error": null,
+      "description": "Full-text search for Python content",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Search Content (AI)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/search/content",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 66,
+      "error": null,
+      "description": "Full-text search for AI content",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Search Content (User Role)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/search/content",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 66,
+      "error": null,
+      "description": "Search content from user messages only",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Search Tags (Single Tag)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/search/tags",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 62,
+      "error": null,
+      "description": "Search by single tag",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Search Tags (Multiple Tags)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/search/tags",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 62,
+      "error": null,
+      "description": "Search by multiple tags",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Search Tags (Exact Match)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/search/tags",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 62,
+      "error": null,
+      "description": "Search by tags with exact matching",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Semantic Search (Default)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/search/semantic",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 106,
+      "error": null,
+      "description": "Semantic search for machine learning",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Semantic Search (High Similarity)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/search/semantic",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 113,
+      "error": null,
+      "description": "Semantic search with high similarity threshold",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Graph Visualization (Default)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/graph/visualization",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 94,
+      "error": null,
+      "description": "Get default visualization data",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Graph Visualization (Limited)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/graph/visualization",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 94,
+      "error": null,
+      "description": "Get limited visualization data",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Graph Visualization (Chats Only)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/graph/visualization",
+      "status": "FAILED",
+      "status_code": 500,
+      "expected_status": 200,
+      "response_size": 21,
+      "error": "Expected status 200, got 500",
+      "description": "Get only chat nodes for visualization",
+      "data_keys": [
+        "raw_response"
+      ]
+    },
+    {
+      "name": "Graph Visualization (No Edges)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/graph/visualization",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 94,
+      "error": null,
+      "description": "Get visualization data without edges",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Graph Connections (Default)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/graph/connections",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 148,
+      "error": null,
+      "description": "Find connections from test chat",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Graph Connections (Limited Hops)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/graph/connections",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 148,
+      "error": null,
+      "description": "Find connections with limited hops",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Graph Neighbors (Default)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/graph/neighbors",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 232,
+      "error": null,
+      "description": "Get neighbors of test chat",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Graph Neighbors (High Similarity)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/graph/neighbors",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 232,
+      "error": null,
+      "description": "Get neighbors with high similarity threshold",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Analytics Patterns (Default)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/analytics/patterns",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 405,
+      "error": null,
+      "description": "Get conversation pattern analysis",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Analytics Patterns (Monthly)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/analytics/patterns",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 405,
+      "error": null,
+      "description": "Get monthly pattern analysis",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Analytics Patterns (With Sentiment)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/analytics/patterns",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 405,
+      "error": null,
+      "description": "Get pattern analysis with sentiment",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Analytics Sentiment (Default)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/analytics/sentiment",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 322,
+      "error": null,
+      "description": "Get sentiment analysis",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Analytics Sentiment (Date Range)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/analytics/sentiment",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 322,
+      "error": null,
+      "description": "Get sentiment analysis for date range",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    },
+    {
+      "name": "Analytics Sentiment (Grouped by Domain)",
+      "method": "GET",
+      "url": "http://localhost:8000/api/analytics/sentiment",
+      "status": "PASSED",
+      "status_code": 200,
+      "expected_status": 200,
+      "response_size": 322,
+      "error": null,
+      "description": "Get sentiment analysis grouped by domain",
+      "data_keys": [
+        "data",
+        "message",
+        "error"
+      ]
+    }
+  ]
+}

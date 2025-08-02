@@ -716,6 +716,261 @@ class ChatMindAPITester:
                 "description": "Skipped due to preparation error"
             }
     
+    def test_discovery_endpoints(self):
+        """Test discovery endpoints."""
+        tests = [
+            {
+                "name": "Discover Topics (Default)",
+                "endpoint": "/api/discover/topics",
+                "params": {},
+                "description": "Get most discussed topics with default parameters"
+            },
+            {
+                "name": "Discover Topics (Limited)",
+                "endpoint": "/api/discover/topics",
+                "params": {"limit": 5},
+                "description": "Get limited number of topics"
+            },
+            {
+                "name": "Discover Topics (With Min Count)",
+                "endpoint": "/api/discover/topics",
+                "params": {"limit": 10, "min_count": 1},
+                "description": "Get topics with minimum count filter"
+            },
+            {
+                "name": "Discover Domains",
+                "endpoint": "/api/discover/domains",
+                "params": {},
+                "description": "Get domain distribution and insights"
+            },
+            {
+                "name": "Discover Clusters (Default)",
+                "endpoint": "/api/discover/clusters",
+                "params": {},
+                "description": "Get semantic clusters with positioning"
+            },
+            {
+                "name": "Discover Clusters (Limited)",
+                "endpoint": "/api/discover/clusters",
+                "params": {"limit": 5},
+                "description": "Get limited number of clusters"
+            },
+            {
+                "name": "Discover Clusters (With Min Size)",
+                "endpoint": "/api/discover/clusters",
+                "params": {"limit": 10, "min_size": 1},
+                "description": "Get clusters with minimum size filter"
+            },
+            {
+                "name": "Discover Clusters (No Positioning)",
+                "endpoint": "/api/discover/clusters",
+                "params": {"include_positioning": "false"},
+                "description": "Get clusters without positioning data"
+            }
+        ]
+        
+        results = []
+        for test in tests:
+            result = self.test_endpoint(
+                name=test["name"],
+                method="GET",
+                endpoint=test["endpoint"],
+                params=test["params"],
+                description=test["description"]
+            )
+            results.append(result)
+        
+        return results
+    
+    def test_enhanced_search_endpoints(self):
+        """Test enhanced search endpoints."""
+        tests = [
+            {
+                "name": "Search Content (Python)",
+                "endpoint": "/api/search/content",
+                "params": {"query": "python", "limit": 5},
+                "description": "Full-text search for Python content"
+            },
+            {
+                "name": "Search Content (AI)",
+                "endpoint": "/api/search/content",
+                "params": {"query": "AI", "limit": 3},
+                "description": "Full-text search for AI content"
+            },
+            {
+                "name": "Search Content (User Role)",
+                "endpoint": "/api/search/content",
+                "params": {"query": "help", "role": "user", "limit": 3},
+                "description": "Search content from user messages only"
+            },
+            {
+                "name": "Search Tags (Single Tag)",
+                "endpoint": "/api/search/tags",
+                "params": {"tags": "python", "limit": 5},
+                "description": "Search by single tag"
+            },
+            {
+                "name": "Search Tags (Multiple Tags)",
+                "endpoint": "/api/search/tags",
+                "params": {"tags": "python,api", "limit": 5},
+                "description": "Search by multiple tags"
+            },
+            {
+                "name": "Search Tags (Exact Match)",
+                "endpoint": "/api/search/tags",
+                "params": {"tags": "python", "exact_match": "true", "limit": 3},
+                "description": "Search by tags with exact matching"
+            },
+            {
+                "name": "Semantic Search (Default)",
+                "endpoint": "/api/search/semantic",
+                "params": {"query": "machine learning", "limit": 5},
+                "description": "Semantic search for machine learning"
+            },
+            {
+                "name": "Semantic Search (High Similarity)",
+                "endpoint": "/api/search/semantic",
+                "params": {"query": "artificial intelligence", "min_similarity": 0.8, "limit": 3},
+                "description": "Semantic search with high similarity threshold"
+            }
+        ]
+        
+        results = []
+        for test in tests:
+            result = self.test_endpoint(
+                name=test["name"],
+                method="GET",
+                endpoint=test["endpoint"],
+                params=test["params"],
+                description=test["description"]
+            )
+            results.append(result)
+        
+        return results
+    
+    def test_graph_exploration_endpoints(self):
+        """Test graph exploration endpoints."""
+        tests = [
+            {
+                "name": "Graph Visualization (Default)",
+                "endpoint": "/api/graph/visualization",
+                "params": {},
+                "description": "Get default visualization data"
+            },
+            {
+                "name": "Graph Visualization (Limited)",
+                "endpoint": "/api/graph/visualization",
+                "params": {"limit": 10},
+                "description": "Get limited visualization data"
+            },
+            {
+                "name": "Graph Visualization (Chats Only)",
+                "endpoint": "/api/graph/visualization",
+                "params": {"node_types": "Chat", "limit": 5},
+                "description": "Get only chat nodes for visualization"
+            },
+            {
+                "name": "Graph Visualization (No Edges)",
+                "endpoint": "/api/graph/visualization",
+                "params": {"include_edges": "false", "limit": 5},
+                "description": "Get visualization data without edges"
+            },
+            {
+                "name": "Graph Connections (Default)",
+                "endpoint": "/api/graph/connections",
+                "params": {"source_id": "test_chat", "max_hops": 2},
+                "description": "Find connections from test chat"
+            },
+            {
+                "name": "Graph Connections (Limited Hops)",
+                "endpoint": "/api/graph/connections",
+                "params": {"source_id": "test_chat", "max_hops": 1},
+                "description": "Find connections with limited hops"
+            },
+            {
+                "name": "Graph Neighbors (Default)",
+                "endpoint": "/api/graph/neighbors",
+                "params": {"node_id": "test_chat", "limit": 5},
+                "description": "Get neighbors of test chat"
+            },
+            {
+                "name": "Graph Neighbors (High Similarity)",
+                "endpoint": "/api/graph/neighbors",
+                "params": {"node_id": "test_chat", "min_similarity": 0.8, "limit": 3},
+                "description": "Get neighbors with high similarity threshold"
+            }
+        ]
+        
+        results = []
+        for test in tests:
+            result = self.test_endpoint(
+                name=test["name"],
+                method="GET",
+                endpoint=test["endpoint"],
+                params=test["params"],
+                description=test["description"]
+            )
+            results.append(result)
+        
+        return results
+    
+    def test_analytics_endpoints(self):
+        """Test analytics endpoints."""
+        tests = [
+            {
+                "name": "Analytics Patterns (Default)",
+                "endpoint": "/api/analytics/patterns",
+                "params": {},
+                "description": "Get conversation pattern analysis"
+            },
+            {
+                "name": "Analytics Patterns (Monthly)",
+                "endpoint": "/api/analytics/patterns",
+                "params": {"timeframe": "monthly"},
+                "description": "Get monthly pattern analysis"
+            },
+            {
+                "name": "Analytics Patterns (With Sentiment)",
+                "endpoint": "/api/analytics/patterns",
+                "params": {"include_sentiment": "true"},
+                "description": "Get pattern analysis with sentiment"
+            },
+            {
+                "name": "Analytics Sentiment (Default)",
+                "endpoint": "/api/analytics/sentiment",
+                "params": {},
+                "description": "Get sentiment analysis"
+            },
+            {
+                "name": "Analytics Sentiment (Date Range)",
+                "endpoint": "/api/analytics/sentiment",
+                "params": {
+                    "start_date": "2025-01-01",
+                    "end_date": "2025-01-31"
+                },
+                "description": "Get sentiment analysis for date range"
+            },
+            {
+                "name": "Analytics Sentiment (Grouped by Domain)",
+                "endpoint": "/api/analytics/sentiment",
+                "params": {"group_by": "domain"},
+                "description": "Get sentiment analysis grouped by domain"
+            }
+        ]
+        
+        results = []
+        for test in tests:
+            result = self.test_endpoint(
+                name=test["name"],
+                method="GET",
+                endpoint=test["endpoint"],
+                params=test["params"],
+                description=test["description"]
+            )
+            results.append(result)
+        
+        return results
+    
     def run_all_tests(self):
         """Run all API endpoint tests."""
         logger.info("🚀 Starting ChatMind API Endpoint Tests...")
@@ -775,6 +1030,22 @@ class ChatMindAPITester:
         
         logger.info("\n📋 Testing Chat Summary Endpoint...")
         self.test_chat_summary()
+        
+        # Test new discovery endpoints
+        logger.info("\n🔍 Testing Discovery Endpoints...")
+        self.test_discovery_endpoints()
+        
+        # Test new search endpoints
+        logger.info("\n🔍 Testing Enhanced Search Endpoints...")
+        self.test_enhanced_search_endpoints()
+        
+        # Test new graph exploration endpoints
+        logger.info("\n🌐 Testing Graph Exploration Endpoints...")
+        self.test_graph_exploration_endpoints()
+        
+        # Test new analytics endpoints
+        logger.info("\n📊 Testing Analytics Endpoints...")
+        self.test_analytics_endpoints()
         
         # Generate summary
         self.print_summary()
