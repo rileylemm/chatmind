@@ -492,6 +492,165 @@ async def expand_node(
         raise HTTPException(status_code=500, detail=f"Failed to expand node: {e}")
 
 # ============================================================================
+# Discovery APIs
+# ============================================================================
+
+@app.get("/api/discover/topics", response_model=ApiResponse)
+async def discover_topics(
+    limit: int = 20,
+    min_count: Optional[int] = None,
+    domain: Optional[str] = None,
+    neo4j_service: Neo4jService = Depends(get_neo4j_service)
+):
+    """Get most discussed topics with frequency and trends"""
+    try:
+        topics = neo4j_service.discover_topics(limit, min_count, domain)
+        return ApiResponse(data=topics, message="Topics discovered successfully")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to discover topics: {e}")
+
+@app.get("/api/discover/domains", response_model=ApiResponse)
+async def discover_domains(
+    neo4j_service: Neo4jService = Depends(get_neo4j_service)
+):
+    """Get domain distribution and insights"""
+    try:
+        domains = neo4j_service.discover_domains()
+        return ApiResponse(data=domains, message="Domain insights retrieved")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to discover domains: {e}")
+
+@app.get("/api/discover/clusters", response_model=ApiResponse)
+async def discover_clusters(
+    limit: int = 50,
+    min_size: Optional[int] = None,
+    include_positioning: bool = True,
+    neo4j_service: Neo4jService = Depends(get_neo4j_service)
+):
+    """Get semantic clusters with positioning and summaries"""
+    try:
+        clusters = neo4j_service.discover_clusters(limit, min_size, include_positioning)
+        return ApiResponse(data=clusters, message="Clusters discovered successfully")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to discover clusters: {e}")
+
+# ============================================================================
+# Enhanced Search APIs
+# ============================================================================
+
+@app.get("/api/search/content", response_model=ApiResponse)
+async def search_content(
+    query: str,
+    limit: int = 50,
+    role: Optional[str] = None,
+    neo4j_service: Neo4jService = Depends(get_neo4j_service)
+):
+    """Full-text search across messages"""
+    try:
+        results = neo4j_service.search_content(query, limit, role)
+        return ApiResponse(data=results, message="Content search completed")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to search content: {e}")
+
+@app.get("/api/search/tags", response_model=ApiResponse)
+async def search_by_tags(
+    tags: str,
+    limit: int = 50,
+    exact_match: bool = False,
+    neo4j_service: Neo4jService = Depends(get_neo4j_service)
+):
+    """Search by specific tags or tag combinations"""
+    try:
+        tag_list = [tag.strip() for tag in tags.split(",")]
+        results = neo4j_service.search_by_tags(tag_list, limit, exact_match)
+        return ApiResponse(data=results, message="Tag search completed")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to search by tags: {e}")
+
+# ============================================================================
+# Graph Exploration APIs
+# ============================================================================
+
+@app.get("/api/graph/visualization", response_model=ApiResponse)
+async def get_visualization_data(
+    node_types: Optional[str] = None,
+    limit: int = 100,
+    include_edges: bool = True,
+    filter_domain: Optional[str] = None,
+    neo4j_service: Neo4jService = Depends(get_neo4j_service)
+):
+    """Get data for 2D/3D graph visualization"""
+    try:
+        node_type_list = [nt.strip() for nt in node_types.split(",")] if node_types else None
+        data = neo4j_service.get_visualization_data(node_type_list, limit, include_edges, filter_domain)
+        return ApiResponse(data=data, message="Visualization data retrieved")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get visualization data: {e}")
+
+@app.get("/api/graph/connections", response_model=ApiResponse)
+async def find_connections(
+    source_id: str,
+    target_id: Optional[str] = None,
+    max_hops: int = 3,
+    relationship_types: Optional[str] = None,
+    neo4j_service: Neo4jService = Depends(get_neo4j_service)
+):
+    """Find connections between different conversations or topics"""
+    try:
+        rel_types = [rt.strip() for rt in relationship_types.split(",")] if relationship_types else None
+        connections = neo4j_service.find_connections(source_id, target_id, max_hops, rel_types)
+        return ApiResponse(data=connections, message="Connections found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to find connections: {e}")
+
+@app.get("/api/graph/neighbors", response_model=ApiResponse)
+async def get_neighbors(
+    node_id: str,
+    limit: int = 10,
+    min_similarity: float = 0.7,
+    relationship_type: Optional[str] = None,
+    neo4j_service: Neo4jService = Depends(get_neo4j_service)
+):
+    """Get semantic neighbors of a conversation or cluster"""
+    try:
+        neighbors = neo4j_service.get_neighbors(node_id, limit, min_similarity, relationship_type)
+        return ApiResponse(data=neighbors, message="Neighbors retrieved")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get neighbors: {e}")
+
+# ============================================================================
+# Analytics APIs
+# ============================================================================
+
+@app.get("/api/analytics/patterns", response_model=ApiResponse)
+async def analyze_patterns(
+    timeframe: Optional[str] = None,
+    domain: Optional[str] = None,
+    include_sentiment: bool = True,
+    neo4j_service: Neo4jService = Depends(get_neo4j_service)
+):
+    """Analyze conversation patterns and trends"""
+    try:
+        patterns = neo4j_service.analyze_patterns(timeframe, domain, include_sentiment)
+        return ApiResponse(data=patterns, message="Pattern analysis completed")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to analyze patterns: {e}")
+
+@app.get("/api/analytics/sentiment", response_model=ApiResponse)
+async def analyze_sentiment(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    group_by: Optional[str] = None,
+    neo4j_service: Neo4jService = Depends(get_neo4j_service)
+):
+    """Sentiment analysis over time"""
+    try:
+        sentiment = neo4j_service.analyze_sentiment(start_date, end_date, group_by)
+        return ApiResponse(data=sentiment, message="Sentiment analysis completed")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to analyze sentiment: {e}")
+
+# ============================================================================
 # Custom Query Endpoints
 # ============================================================================
 

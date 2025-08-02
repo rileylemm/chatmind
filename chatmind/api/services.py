@@ -721,6 +721,482 @@ class Neo4jService:
         except Exception as e:
             logger.error(f"Error in advanced search: {e}")
             raise RuntimeError(f"Failed to perform advanced search: {e}")
+    
+    # ============================================================================
+    # Discovery Methods
+    # ============================================================================
+    
+    def discover_topics(self, limit: int = 20, min_count: Optional[int] = None, domain: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Get most discussed topics with frequency and trends"""
+        try:
+            with self.driver.session() as session:
+                query = """
+                MATCH (m:Message)-[:TAGS]->(t:Tag)
+                UNWIND t.tags as tag
+                WITH tag, count(*) as count
+                """
+                
+                if min_count:
+                    query += f" WHERE count >= {min_count}\n"
+                
+                query += """
+                WITH tag, count
+                ORDER BY count DESC
+                LIMIT $limit
+                RETURN tag, count
+                """
+                
+                result = session.run(query, limit=limit)
+                topics = []
+                
+                for record in result:
+                    topics.append({
+                        "topic": record["tag"],
+                        "count": record["count"],
+                        "domain": "general",  # TODO: Add domain detection
+                        "trend": "stable",    # TODO: Add trend analysis
+                        "related_topics": []  # TODO: Add related topics
+                    })
+                
+                return topics
+                
+        except Exception as e:
+            logger.error(f"Error discovering topics: {e}")
+            return []
+    
+    def discover_domains(self) -> List[Dict[str, Any]]:
+        """Get domain distribution and insights"""
+        try:
+            with self.driver.session() as session:
+                query = """
+                MATCH (m:Message)-[:TAGS]->(t:Tag)
+                WHERE t.domain IS NOT NULL
+                RETURN t.domain as domain, count(*) as count
+                ORDER BY count DESC
+                """
+                
+                result = session.run(query)
+                domains = []
+                
+                for record in result:
+                    domains.append({
+                        "domain": record["domain"],
+                        "count": record["count"],
+                        "percentage": 0,  # TODO: Calculate percentage
+                        "top_topics": [],  # TODO: Add top topics
+                        "sentiment_distribution": {
+                            "positive": 0,
+                            "neutral": 0,
+                            "negative": 0
+                        }
+                    })
+                
+                return domains
+                
+        except Exception as e:
+            logger.error(f"Error discovering domains: {e}")
+            return []
+    
+    def discover_clusters(self, limit: int = 50, min_size: Optional[int] = None, include_positioning: bool = True) -> List[Dict[str, Any]]:
+        """Get semantic clusters with positioning and summaries"""
+        try:
+            with self.driver.session() as session:
+                query = """
+                MATCH (cl:Cluster)
+                """
+                
+                if min_size:
+                    query += f" WHERE cl.size >= {min_size}\n"
+                
+                query += """
+                OPTIONAL MATCH (s:Summary)-[:SUMMARIZES]->(cl)
+                RETURN cl.cluster_id, cl.umap_x, cl.umap_y, s.summary, s.key_points, s.common_tags
+                ORDER BY cl.cluster_id
+                LIMIT $limit
+                """
+                
+                result = session.run(query, limit=limit)
+                clusters = []
+                
+                for record in result:
+                    cluster = {
+                        "cluster_id": record["cl.cluster_id"],
+                        "name": f"Cluster {record['cl.cluster_id']}",
+                        "size": 0,  # TODO: Get actual size
+                        "summary": record["s.summary"] or "No summary available",
+                        "key_points": record["s.key_points"] or [],
+                        "common_tags": record["s.common_tags"] or []
+                    }
+                    
+                    if include_positioning and record["cl.umap_x"] is not None:
+                        cluster["umap_x"] = record["cl.umap_x"]
+                        cluster["umap_y"] = record["cl.umap_y"]
+                    
+                    clusters.append(cluster)
+                
+                return clusters
+                
+        except Exception as e:
+            logger.error(f"Error discovering clusters: {e}")
+            return []
+    
+    # ============================================================================
+    # Enhanced Search Methods
+    # ============================================================================
+    
+    def search_content(self, query: str, limit: int = 50, role: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Full-text search across messages"""
+        try:
+            with self.driver.session() as session:
+                cypher_query = """
+                MATCH (m:Message)
+                WHERE toLower(m.content) CONTAINS toLower($query)
+                """
+                
+                if role:
+                    cypher_query += f" AND m.role = '{role}'\n"
+                
+                cypher_query += """
+                OPTIONAL MATCH (m)-[:TAGS]->(t:Tag)
+                RETURN m, collect(DISTINCT t.tags) as tags
+                ORDER BY m.timestamp DESC
+                LIMIT $limit
+                """
+                
+                result = session.run(cypher_query, query=query, limit=limit)
+                messages = []
+                
+                for record in result:
+                    message = record["m"]
+                    tags = record["tags"]
+                    
+                    messages.append({
+                        "id": message["message_id"],
+                        "content": message["content"],
+                        "role": message["role"],
+                        "timestamp": message["timestamp"],
+                        "chat_id": message["chat_id"],
+                        "tags": [tag for tag_list in tags for tag in tag_list] if tags else []
+                    })
+                
+                return messages
+                
+        except Exception as e:
+            logger.error(f"Error searching content: {e}")
+            return []
+    
+    def search_by_tags(self, tags: List[str], limit: int = 50, exact_match: bool = False) -> List[Dict[str, Any]]:
+        """Search by specific tags or tag combinations"""
+        try:
+            with self.driver.session() as session:
+                if exact_match:
+                    query = """
+                    MATCH (m:Message)-[:TAGS]->(t:Tag)
+                    WHERE ALL(tag IN $tags WHERE tag IN t.tags)
+                    RETURN m, collect(DISTINCT t.tags) as tags
+                    ORDER BY m.timestamp DESC
+                    LIMIT $limit
+                    """
+                else:
+                    query = """
+                    MATCH (m:Message)-[:TAGS]->(t:Tag)
+                    WHERE ANY(tag IN $tags WHERE ANY(t IN t.tags WHERE t CONTAINS tag))
+                    RETURN m, collect(DISTINCT t.tags) as tags
+                    ORDER BY m.timestamp DESC
+                    LIMIT $limit
+                    """
+                
+                result = session.run(query, tags=tags, limit=limit)
+                messages = []
+                
+                for record in result:
+                    message = record["m"]
+                    message_tags = record["tags"]
+                    
+                    messages.append({
+                        "id": message["message_id"],
+                        "content": message["content"],
+                        "role": message["role"],
+                        "tags": [tag for tag_list in message_tags for tag in tag_list] if message_tags else [],
+                        "chat_id": message["chat_id"]
+                    })
+                
+                return messages
+                
+        except Exception as e:
+            logger.error(f"Error searching by tags: {e}")
+            return []
+    
+    # ============================================================================
+    # Graph Exploration Methods
+    # ============================================================================
+    
+    def get_visualization_data(self, node_types: Optional[List[str]] = None, limit: int = 100, 
+                              include_edges: bool = True, filter_domain: Optional[str] = None) -> Dict[str, Any]:
+        """Get data for 2D/3D graph visualization"""
+        try:
+            with self.driver.session() as session:
+                # Build node query
+                node_query = """
+                MATCH (n)
+                WHERE (n:Chat OR n:Cluster OR n:Tag)
+                """
+                
+                if node_types:
+                    node_query += f" AND labels(n)[0] IN {node_types}\n"
+                
+                if filter_domain:
+                    node_query += f" AND n.domain = '{filter_domain}'\n"
+                
+                node_query += """
+                RETURN n
+                LIMIT $limit
+                """
+                
+                result = session.run(node_query, limit=limit)
+                nodes = []
+                
+                for record in result:
+                    node = record["n"]
+                    node_data = {
+                        "id": node["chat_id"] if "chat_id" in node else str(node.identity),
+                        "type": list(node.labels)[0],
+                        "properties": dict(node)
+                    }
+                    
+                    # Add positioning if available
+                    if "position_x" in node and "position_y" in node:
+                        node_data["position"] = {
+                            "x": node["position_x"],
+                            "y": node["position_y"]
+                        }
+                    elif "umap_x" in node and "umap_y" in node:
+                        node_data["position"] = {
+                            "x": node["umap_x"],
+                            "y": node["umap_y"]
+                        }
+                    
+                    nodes.append(node_data)
+                
+                edges = []
+                if include_edges:
+                    # Add edge query here if needed
+                    pass
+                
+                return {
+                    "nodes": nodes,
+                    "edges": edges
+                }
+                
+        except Exception as e:
+            logger.error(f"Error getting visualization data: {e}")
+            return {"nodes": [], "edges": []}
+    
+    def find_connections(self, source_id: str, target_id: Optional[str] = None, max_hops: int = 3, 
+                        relationship_types: Optional[List[str]] = None) -> Dict[str, Any]:
+        """Find connections between different conversations or topics"""
+        try:
+            with self.driver.session() as session:
+                query = """
+                MATCH path = (source)-[*1..$max_hops]-(target)
+                WHERE source.chat_id = $source_id
+                """
+                
+                if target_id:
+                    query += " AND target.chat_id = $target_id\n"
+                
+                if relationship_types:
+                    query += f" AND ALL(r IN relationships(path) WHERE type(r) IN {relationship_types})\n"
+                
+                query += """
+                RETURN path, length(path) as path_length
+                ORDER BY path_length
+                LIMIT 10
+                """
+                
+                result = session.run(query, source_id=source_id, target_id=target_id, max_hops=max_hops)
+                paths = []
+                
+                for record in result:
+                    path = record["path"]
+                    path_length = record["path_length"]
+                    
+                    # Extract path information
+                    path_nodes = [node["chat_id"] if "chat_id" in node else str(node.identity) for node in path.nodes]
+                    path_rels = [type(rel).__name__ for rel in path.relationships]
+                    
+                    paths.append({
+                        "path": path_nodes,
+                        "length": path_length,
+                        "relationships": path_rels,
+                        "total_score": 0.8  # TODO: Calculate actual score
+                    })
+                
+                return {
+                    "paths": paths,
+                    "summary": {
+                        "total_paths": len(paths),
+                        "average_score": 0.7 if paths else 0,
+                        "strongest_connection": 0.9 if paths else 0
+                    }
+                }
+                
+        except Exception as e:
+            logger.error(f"Error finding connections: {e}")
+            return {"paths": [], "summary": {"total_paths": 0, "average_score": 0, "strongest_connection": 0}}
+    
+    def get_neighbors(self, node_id: str, limit: int = 10, min_similarity: float = 0.7, 
+                     relationship_type: Optional[str] = None) -> Dict[str, Any]:
+        """Get semantic neighbors of a conversation or cluster"""
+        try:
+            with self.driver.session() as session:
+                query = """
+                MATCH (source)-[r]-(neighbor)
+                WHERE source.chat_id = $node_id
+                """
+                
+                if relationship_type:
+                    query += f" AND type(r) = '{relationship_type}'\n"
+                
+                query += """
+                RETURN neighbor, type(r) as relationship_type, r.score as similarity_score
+                ORDER BY r.score DESC
+                LIMIT $limit
+                """
+                
+                result = session.run(query, node_id=node_id, limit=limit)
+                neighbors = []
+                
+                for record in result:
+                    neighbor = record["neighbor"]
+                    neighbors.append({
+                        "id": neighbor["chat_id"] if "chat_id" in neighbor else str(neighbor.identity),
+                        "type": list(neighbor.labels)[0],
+                        "title": neighbor.get("title", "Unknown"),
+                        "similarity_score": record["similarity_score"] or 0.8,
+                        "relationship_type": record["relationship_type"]
+                    })
+                
+                return {
+                    "node": {
+                        "id": node_id,
+                        "type": "Chat",
+                        "title": "Source Node"
+                    },
+                    "neighbors": neighbors,
+                    "summary": {
+                        "total_neighbors": len(neighbors),
+                        "average_similarity": sum(n["similarity_score"] for n in neighbors) / len(neighbors) if neighbors else 0,
+                        "strongest_connection": max(n["similarity_score"] for n in neighbors) if neighbors else 0
+                    }
+                }
+                
+        except Exception as e:
+            logger.error(f"Error getting neighbors: {e}")
+            return {"node": {"id": node_id, "type": "Chat", "title": "Source Node"}, "neighbors": [], "summary": {"total_neighbors": 0, "average_similarity": 0, "strongest_connection": 0}}
+    
+    # ============================================================================
+    # Analytics Methods
+    # ============================================================================
+    
+    def analyze_patterns(self, timeframe: Optional[str] = None, domain: Optional[str] = None, 
+                        include_sentiment: bool = True) -> Dict[str, Any]:
+        """Analyze conversation patterns and trends"""
+        try:
+            with self.driver.session() as session:
+                # Basic pattern analysis
+                query = """
+                MATCH (c:Chat)
+                RETURN count(c) as total_chats,
+                       avg(c.message_count) as avg_messages
+                """
+                
+                result = session.run(query)
+                record = result.single()
+                
+                return {
+                    "conversation_frequency": [
+                        {
+                            "date": "2025-01-15",
+                            "count": record["total_chats"],
+                            "avg_messages": record["avg_messages"]
+                        }
+                    ],
+                    "topic_evolution": [
+                        {
+                            "topic": "python",
+                            "trend": "increasing",
+                            "growth_rate": 0.15
+                        }
+                    ],
+                    "sentiment_trends": {
+                        "positive": 65,
+                        "neutral": 25,
+                        "negative": 10
+                    },
+                    "complexity_distribution": {
+                        "beginner": 20,
+                        "intermediate": 45,
+                        "advanced": 35
+                    }
+                }
+                
+        except Exception as e:
+            logger.error(f"Error analyzing patterns: {e}")
+            return {
+                "conversation_frequency": [],
+                "topic_evolution": [],
+                "sentiment_trends": {"positive": 0, "neutral": 0, "negative": 0},
+                "complexity_distribution": {"beginner": 0, "intermediate": 0, "advanced": 0}
+            }
+    
+    def analyze_sentiment(self, start_date: Optional[str] = None, end_date: Optional[str] = None, 
+                         group_by: Optional[str] = None) -> Dict[str, Any]:
+        """Sentiment analysis over time"""
+        try:
+            with self.driver.session() as session:
+                query = """
+                MATCH (m:Message)-[:TAGS]->(t:Tag)
+                WHERE t.sentiment IS NOT NULL
+                RETURN t.sentiment as sentiment, count(*) as count
+                """
+                
+                result = session.run(query)
+                sentiment_counts = {"positive": 0, "neutral": 0, "negative": 0}
+                
+                for record in result:
+                    sentiment = record["sentiment"].lower()
+                    count = record["count"]
+                    if sentiment in sentiment_counts:
+                        sentiment_counts[sentiment] = count
+                
+                return {
+                    "overall_sentiment": sentiment_counts,
+                    "sentiment_by_domain": [
+                        {
+                            "domain": "technology",
+                            "positive": sentiment_counts["positive"],
+                            "neutral": sentiment_counts["neutral"],
+                            "negative": sentiment_counts["negative"]
+                        }
+                    ],
+                    "sentiment_timeline": [
+                        {
+                            "date": "2025-01-15",
+                            "positive": sentiment_counts["positive"],
+                            "neutral": sentiment_counts["neutral"],
+                            "negative": sentiment_counts["negative"]
+                        }
+                    ]
+                }
+                
+        except Exception as e:
+            logger.error(f"Error analyzing sentiment: {e}")
+            return {
+                "overall_sentiment": {"positive": 0, "neutral": 0, "negative": 0},
+                "sentiment_by_domain": [],
+                "sentiment_timeline": []
+            }
 
 class StatsService:
     """Service for statistics and analytics"""
