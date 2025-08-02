@@ -208,10 +208,12 @@ Focus on the most relevant tags and topics. Keep tags specific and actionable.""
         """Call Ollama API to generate tags."""
         for attempt in range(max_retries):
             try:
-                # Prepare the request
+                # Prepare the request for modern Ollama API
                 request_data = {
                     "model": self.model,
-                    "prompt": prompt,
+                    "messages": [
+                        {"role": "user", "content": prompt}
+                    ],
                     "stream": False,
                     "options": {
                         "temperature": 0.3,
@@ -220,22 +222,21 @@ Focus on the most relevant tags and topics. Keep tags specific and actionable.""
                     }
                 }
                 
-                # Call Ollama
-                result = subprocess.run(
-                    ["ollama", "generate", "--json"],
-                    input=json.dumps(request_data),
-                    capture_output=True,
-                    text=True,
+                # Call Ollama using requests instead of subprocess
+                import requests
+                response = requests.post(
+                    "http://localhost:11434/api/chat",
+                    json=request_data,
                     timeout=60
                 )
                 
-                if result.returncode == 0:
-                    response = json.loads(result.stdout)
-                    return response.get('response', '').strip()
+                if response.status_code == 200:
+                    result = response.json()
+                    return result.get('message', {}).get('content', '').strip()
                 else:
-                    logger.warning(f"Ollama call failed (attempt {attempt + 1}): {result.stderr}")
+                    logger.warning(f"Ollama API call failed (attempt {attempt + 1}): {response.status_code} - {response.text}")
                     
-            except subprocess.TimeoutExpired:
+            except requests.exceptions.Timeout:
                 logger.warning(f"Ollama call timed out (attempt {attempt + 1})")
             except Exception as e:
                 logger.warning(f"Ollama call error (attempt {attempt + 1}): {e}")
@@ -299,13 +300,31 @@ Focus on the most relevant tags and topics. Keep tags specific and actionable.""
             return None
     
     def _save_tagged_messages(self, tagged_messages: List[Dict]) -> None:
-        """Save tagged messages to file."""
+        """Save tagged messages to JSONL file."""
         tagged_messages_file = self.tagging_dir / "tags.jsonl"
-        with jsonlines.open(tagged_messages_file, mode='w') as writer:
-            for tag_entry in tagged_messages:
-                writer.write(tag_entry)
+        
+        with jsonlines.open(tagged_messages_file, 'w') as writer:
+            for entry in tagged_messages:
+                writer.write(entry)
         
         logger.info(f"Saved {len(tagged_messages)} tag entries to {tagged_messages_file}")
+    
+    def _save_metadata(self, stats: Dict) -> None:
+        """Save processing metadata."""
+        metadata = {
+            'timestamp': datetime.now().isoformat(),
+            'step': 'tagging',
+            'method': 'local_enhanced',
+            'stats': stats,
+            'version': '1.0'
+        }
+        metadata_file = self.tagging_dir / "metadata.json"
+        try:
+            with open(metadata_file, 'w') as f:
+                json.dump(metadata, f, indent=2)
+            logger.info(f"Saved metadata to {metadata_file}")
+        except Exception as e:
+            logger.error(f"Failed to save metadata: {e}")
     
     def process_messages_to_tags(self, chats_file: Path, force_reprocess: bool = False) -> Dict:
         """Process messages into tag entries."""

@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import List
 
 @click.command()
+@click.option('--local', is_flag=True, help='Use local models for all steps (shorthand for --embedding-method local --tagging-method local --summarization-method local)')
 @click.option('--embedding-method', 
               type=click.Choice(['local', 'cloud']),
               default='local',
@@ -29,11 +30,11 @@ from typing import List
 @click.option('--steps', 
               multiple=True,
               type=click.Choice(['ingestion', 'chunking', 'embedding', 'clustering', 
-                               'tagging', 'tag_propagation', 'cluster_summarization', 'chat_summarization',
+                               'tagging', 'tag_post_processing', 'tag_propagation', 'cluster_summarization', 'chat_summarization',
                                'positioning', 'similarity', 'loading']),
               help='Specific steps to run (can specify multiple)')
 @click.option('--check-only', is_flag=True, help='Only check setup, don\'t run pipeline')
-def main(embedding_method: str, tagging_method: str, summarization_method: str, 
+def main(local: bool, embedding_method: str, tagging_method: str, summarization_method: str, 
          force: bool, steps: List[str], check_only: bool):
     """
     Run the ChatMind pipeline.
@@ -68,6 +69,12 @@ def main(embedding_method: str, tagging_method: str, summarization_method: str,
     
     # Build command arguments
     cmd = [sys.executable, str(pipeline_script)]
+    
+    # If --local flag is used, override all methods to local
+    if local:
+        embedding_method = 'local'
+        tagging_method = 'local'
+        summarization_method = 'local'
     
     if embedding_method != 'local':
         cmd.extend(['--embedding-method', embedding_method])

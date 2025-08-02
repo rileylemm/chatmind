@@ -20,6 +20,7 @@ import subprocess
 import sys
 import re
 import unicodedata
+import requests
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -139,13 +140,21 @@ class LocalChatSummarizer:
         
         conversation_text = "\n\n".join(conversation_lines)
         
-        prompt = f"""Summarize this conversation in JSON format:
+        prompt = f"""You are a conversation summarizer. Analyze this conversation and provide a JSON summary.
 
+CONVERSATION:
 {conversation_text}
 
-Respond with JSON only:
+INSTRUCTIONS:
+- Provide a comprehensive summary in JSON format
+- Use simple, clear language
+- Avoid trailing commas in arrays
+- Ensure all JSON syntax is correct
+- Be specific about topics and outcomes
+
+JSON FORMAT (use exactly these field names):
 {{
-    "summary": "Brief comprehensive summary",
+    "summary": "Brief comprehensive summary of the conversation",
     "key_topics": ["topic1", "topic2", "topic3"],
     "participants": ["user", "assistant"],
     "conversation_type": "technical_discussion|casual_chat|problem_solving|tutorial|brainstorming|other",
@@ -154,7 +163,10 @@ Respond with JSON only:
     "complexity": "beginner|intermediate|advanced",
     "domain": "technical|personal|business|academic|creative|other",
     "confidence": 0.85
-}}"""
+}}
+
+IMPORTANT: Use exactly the field names shown above. Do not change them.
+RESPOND WITH JSON ONLY:"""
 
         return prompt
     
@@ -205,76 +217,378 @@ Respond with JSON only:
         return text
     
     def _get_summary_from_llm(self, prompt: str) -> Optional[Dict]:
-        """Get summary from local LLM using Ollama."""
-        try:
-            # Use Ollama with Gemma-2B model
-            cmd = [
-                "ollama", "run", "gemma:2b",
-                prompt
-            ]
-            
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=180  # 3 minute timeout for longer conversations
-            )
-            
-            if result.returncode == 0:
-                response = result.stdout.strip()
+        """Get summary from local LLM using Ollama HTTP API with retry logic."""
+        import requests
+        
+        # Try different prompt variations if the first attempt fails
+        prompt_variations = [
+            prompt,  # Original prompt
+            self._create_simplified_prompt(prompt),  # Simplified version
+            self._create_structured_prompt(prompt)   # More structured version
+        ]
+        
+        for attempt, current_prompt in enumerate(prompt_variations, 1):
+            try:
+                logger.debug(f"🔄 Attempt {attempt}/{len(prompt_variations)} with prompt variation")
                 
-                # Try to extract JSON from response
-                try:
-                    # Find JSON in the response
-                    start_idx = response.find('{')
-                    end_idx = response.rfind('}') + 1
+                # Use Ollama HTTP API with Gemma-2B model
+                url = "http://localhost:11434/api/chat"
+                
+                # Adjust temperature based on attempt
+                temperature = 0.3 if attempt == 1 else 0.1  # Lower temperature for retries
+                
+                # Prepare request for modern Ollama API
+                request_data = {
+                    "model": "gemma:2b",
+                    "messages": [
+                        {"role": "user", "content": current_prompt}
+                    ],
+                    "stream": False,
+                    "options": {
+                        "temperature": temperature,
+                        "top_p": 0.9,
+                        "num_predict": 500,
+                        "stop": ["```", "```json", "```\n"]  # Stop at code blocks
+                    }
+                }
+                
+                response = requests.post(url, json=request_data, timeout=180)
+                response.raise_for_status()
+                
+                response_json = response.json()
+                
+                # Extract content from the response
+                if 'message' in response_json and 'content' in response_json['message']:
+                    response_text = response_json['message']['content'].strip()
+                else:
+                    logger.error(f"Unexpected response format: {response_json}")
+                    continue
+                
+                # Try to extract and parse JSON from response
+                summary = self._extract_and_parse_json(response_text)
+                
+                if summary:
+                    logger.debug(f"✅ Successfully generated summary on attempt {attempt}")
+                    return summary
+                else:
+                    logger.warning(f"❌ Failed to extract valid JSON on attempt {attempt}")
+                    continue
                     
-                    if start_idx != -1 and end_idx > start_idx:
-                        json_str = response[start_idx:end_idx]
-                        summary = json.loads(json_str)
-                        
-                        # Validate required fields
-                        required_fields = ['summary', 'key_topics', 'participants', 'conversation_type', 
-                                        'key_decisions', 'outcomes', 'complexity', 'domain', 'confidence']
-                        if all(field in summary for field in required_fields):
-                            return summary
-                        else:
-                            logger.warning(f"Missing required fields in summary: {summary}")
-                            # Try to create a fallback summary
-                            return self._create_fallback_summary(summary)
-                    else:
-                        logger.warning(f"No JSON found in response: {response}")
-                        return self._create_fallback_summary({})
-                        
-                except json.JSONDecodeError as e:
-                    logger.warning(f"Failed to parse JSON from response: {e}")
-                    logger.warning(f"Response: {response}")
-                    return self._create_fallback_summary({})
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Ollama API request failed on attempt {attempt}: {e}")
+            except Exception as e:
+                logger.error(f"Error calling Ollama API on attempt {attempt}: {e}")
+        
+        # All attempts failed
+        logger.warning("All prompt variations failed, creating fallback summary")
+        return self._create_fallback_summary({})
+    
+    def _create_simplified_prompt(self, original_prompt: str) -> str:
+        """Create a simplified prompt for retry attempts."""
+        # Extract conversation text from original prompt
+        conversation_start = original_prompt.find("CONVERSATION:")
+        conversation_end = original_prompt.find("INSTRUCTIONS:")
+        
+        if conversation_start != -1 and conversation_end != -1:
+            conversation_text = original_prompt[conversation_start:conversation_end].strip()
             
-            else:
-                logger.error(f"Ollama command failed: {result.stderr}")
-                
-        except subprocess.TimeoutExpired:
-            logger.error("Ollama command timed out")
-        except Exception as e:
-            logger.error(f"Error calling Ollama: {e}")
+            simplified_prompt = f"""Analyze this conversation and create a JSON summary.
+
+{conversation_text}
+
+Create a JSON object with these fields:
+- summary: brief description of the conversation
+- key_topics: list of main topics discussed
+- participants: list of people in the conversation
+- conversation_type: type of conversation
+- key_decisions: list of decisions made
+- outcomes: what was accomplished
+- complexity: difficulty level
+- domain: subject area
+- confidence: how confident you are (0-1)
+
+JSON:"""
+            return simplified_prompt
+        
+        return original_prompt
+    
+    def _create_structured_prompt(self, original_prompt: str) -> str:
+        """Create a more structured prompt for final retry attempt."""
+        # Extract conversation text from original prompt
+        conversation_start = original_prompt.find("CONVERSATION:")
+        conversation_end = original_prompt.find("INSTRUCTIONS:")
+        
+        if conversation_start != -1 and conversation_end != -1:
+            conversation_text = original_prompt[conversation_start:conversation_end].strip()
+            
+            structured_prompt = f"""Summarize this conversation in JSON format.
+
+{conversation_text}
+
+Provide a JSON object with these fields:
+summary: brief description of the conversation
+key_topics: list of main topics
+participants: list of people involved
+conversation_type: type of conversation
+key_decisions: list of decisions
+outcomes: what was accomplished
+complexity: difficulty level
+domain: subject area
+confidence: confidence level (0-1)
+
+JSON:"""
+            return structured_prompt
+        
+        return original_prompt
+    
+    def _extract_and_parse_json(self, response_text: str) -> Optional[Dict]:
+        """Extract and parse JSON from response with multiple fallback methods."""
+        # Method 1: Standard JSON extraction
+        json_str = self._extract_json_brackets(response_text)
+        if json_str:
+            result = self._parse_json_string(json_str)
+            if result:
+                return result
+        
+        # Method 2: Try to find JSON-like structure without brackets
+        json_str = self._extract_json_like_structure(response_text)
+        if json_str:
+            result = self._parse_json_string(json_str)
+            if result:
+                return result
+        
+        # Method 3: Try to construct JSON from key-value pairs
+        json_str = self._construct_json_from_pairs(response_text)
+        if json_str:
+            result = self._parse_json_string(json_str)
+            if result:
+                return result
+        
+        logger.warning("All JSON extraction methods failed")
+        return None
+    
+    def _extract_json_brackets(self, response_text: str) -> Optional[str]:
+        """Extract JSON between curly brackets."""
+        start_idx = response_text.find('{')
+        end_idx = response_text.rfind('}') + 1
+        
+        if start_idx == -1 or end_idx <= start_idx:
+            return None
+        
+        json_str = response_text[start_idx:end_idx]
+        return self._clean_json_string(json_str)
+    
+    def _extract_json_like_structure(self, response_text: str) -> Optional[str]:
+        """Extract JSON-like structure that might be missing brackets."""
+        # Look for patterns like "key: value" or "key": "value"
+        lines = response_text.split('\n')
+        json_parts = []
+        
+        for line in lines:
+            line = line.strip()
+            if ':' in line and not line.startswith('#'):
+                # Try to extract key-value pairs
+                if '"' in line:
+                    # Already has quotes, might be JSON
+                    json_parts.append(line)
+                else:
+                    # Try to add quotes
+                    parts = line.split(':', 1)
+                    if len(parts) == 2:
+                        key = parts[0].strip()
+                        value = parts[1].strip()
+                        if not key.startswith('"'):
+                            key = f'"{key}"'
+                        if not value.startswith('"') and not value.isdigit() and value not in ['true', 'false', 'null']:
+                            value = f'"{value}"'
+                        json_parts.append(f'{key}: {value}')
+        
+        if json_parts:
+            json_str = '{\n' + ',\n'.join(json_parts) + '\n}'
+            return self._clean_json_string(json_str)
         
         return None
     
+    def _construct_json_from_pairs(self, response_text: str) -> Optional[str]:
+        """Try to construct JSON from detected key-value patterns."""
+        # Look for common summary patterns
+        patterns = {
+            'summary': r'summary[:\s]+(.+?)(?=\n|$)',
+            'key_topics': r'topics?[:\s]+(.+?)(?=\n|$)',
+            'participants': r'participants?[:\s]+(.+?)(?=\n|$)',
+            'conversation_type': r'type[:\s]+(.+?)(?=\n|$)',
+            'key_decisions': r'decisions?[:\s]+(.+?)(?=\n|$)',
+            'outcomes': r'outcomes?[:\s]+(.+?)(?=\n|$)',
+            'complexity': r'complexity[:\s]+(.+?)(?=\n|$)',
+            'domain': r'domain[:\s]+(.+?)(?=\n|$)',
+            'confidence': r'confidence[:\s]+(.+?)(?=\n|$)'
+        }
+        
+        extracted = {}
+        for field, pattern in patterns.items():
+            match = re.search(pattern, response_text, re.IGNORECASE)
+            if match:
+                value = match.group(1).strip()
+                if field == 'key_topics':
+                    # Try to extract as array
+                    topics = re.findall(r'["\']([^"\']+)["\']', value)
+                    if topics:
+                        extracted[field] = topics
+                    else:
+                        extracted[field] = [value]
+                elif field == 'participants':
+                    # Try to extract as array
+                    participants = re.findall(r'["\']([^"\']+)["\']', value)
+                    if participants:
+                        extracted[field] = participants
+                    else:
+                        extracted[field] = [value]
+                elif field == 'confidence':
+                    # Try to extract as number
+                    try:
+                        extracted[field] = float(value)
+                    except:
+                        extracted[field] = 0.5
+                else:
+                    extracted[field] = value
+        
+        if len(extracted) >= 3:  # At least summary, key_topics, participants
+            return json.dumps(extracted)
+        
+        return None
+    
+    def _parse_json_string(self, json_str: str) -> Optional[Dict]:
+        """Parse JSON string with error handling."""
+        try:
+            summary = json.loads(json_str)
+            normalized_summary = self._normalize_summary_fields(summary)
+            
+            if normalized_summary:
+                return normalized_summary
+            else:
+                logger.warning(f"Failed to normalize summary fields: {summary}")
+                return self._create_fallback_summary(summary)
+                
+        except json.JSONDecodeError as e:
+            logger.debug(f"Failed to parse JSON: {e}")
+            logger.debug(f"JSON string: {json_str}")
+            return None
+    
+    def _clean_json_string(self, json_str: str) -> str:
+        """Clean up common JSON formatting issues."""
+        # Remove trailing commas in arrays and objects
+        json_str = re.sub(r',(\s*[}\]])', r'\1', json_str)
+        
+        # Fix common quote issues - unquoted field names
+        json_str = re.sub(r'([{,])\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:', r'\1 "\2":', json_str)
+        
+        # Fix single quotes to double quotes
+        json_str = re.sub(r"'([^']*)'", r'"\1"', json_str)
+        
+        # Fix missing quotes around string values
+        json_str = re.sub(r':\s*([a-zA-Z][a-zA-Z0-9_]*)\s*([,}])', r': "\1"\2', json_str)
+        
+        # Fix boolean values
+        json_str = re.sub(r':\s*(true|false)\s*([,}])', r': \1\2', json_str)
+        
+        # Fix numeric values
+        json_str = re.sub(r':\s*(\d+\.?\d*)\s*([,}])', r': \1\2', json_str)
+        
+        # Remove any non-printable characters except newlines and tabs
+        json_str = ''.join(char for char in json_str if char.isprintable() or char in '\n\t')
+        
+        # Remove excessive whitespace
+        json_str = re.sub(r'\s+', ' ', json_str)
+        
+        return json_str
+    
+    def _normalize_summary_fields(self, summary: Dict) -> Optional[Dict]:
+        """Normalize summary fields to handle variations in field names."""
+        normalized = {}
+        
+        # Field name mappings (expected -> possible variations)
+        field_mappings = {
+            'summary': ['summary', 'conversation_summary', 'brief_summary'],
+            'key_topics': ['key_topics', 'topics', 'main_topics', 'key_points'],
+            'participants': ['participants', 'users', 'people'],
+            'conversation_type': ['conversation_type', 'type', 'conversation_phase', 'chat_type'],
+            'key_decisions': ['key_decisions', 'decisions', 'important_decisions', 'key_points'],
+            'outcomes': ['outcomes', 'results', 'accomplishments', 'learnings'],
+            'complexity': ['complexity', 'difficulty', 'level'],
+            'domain': ['domain', 'category', 'field'],
+            'confidence': ['confidence', 'certainty', 'score']
+        }
+        
+        # Try to map each expected field
+        for expected_field, possible_variations in field_mappings.items():
+            value = None
+            
+            # First try the exact expected field name
+            if expected_field in summary:
+                value = summary[expected_field]
+            else:
+                # Try variations
+                for variation in possible_variations:
+                    if variation in summary:
+                        value = summary[variation]
+                        logger.debug(f"Mapped field '{variation}' to '{expected_field}'")
+                        break
+            
+            if value is not None:
+                normalized[expected_field] = value
+            else:
+                # Provide default value for missing field
+                default_value = self._get_default_value(expected_field)
+                normalized[expected_field] = default_value
+                logger.debug(f"Using default value for missing field '{expected_field}': {default_value}")
+        
+        # Ensure we have at least the essential fields
+        essential_fields = ['summary', 'key_topics', 'participants']
+        if all(field in normalized for field in essential_fields):
+            return normalized
+        else:
+            logger.warning(f"Missing essential fields after normalization: {normalized}")
+            return None
+    
+    def _get_default_value(self, field_name: str):
+        """Get default value for a field."""
+        defaults = {
+            'summary': 'Conversation summary unavailable',
+            'key_topics': ['general'],
+            'participants': ['user', 'assistant'],
+            'conversation_type': 'other',
+            'key_decisions': [],
+            'outcomes': 'No specific outcomes identified',
+            'complexity': 'unknown',
+            'domain': 'other',
+            'confidence': 0.5
+        }
+        return defaults.get(field_name, 'unknown')
+    
     def _create_fallback_summary(self, partial_summary: Dict) -> Dict:
         """Create a fallback summary when LLM response is incomplete."""
-        fallback = {
-            'summary': partial_summary.get('summary', 'Conversation summary unavailable'),
-            'key_topics': partial_summary.get('key_topics', ['general']),
-            'participants': partial_summary.get('participants', ['user', 'assistant']),
-            'conversation_type': partial_summary.get('conversation_type', 'other'),
-            'key_decisions': partial_summary.get('key_decisions', []),
-            'outcomes': partial_summary.get('outcomes', 'No specific outcomes identified'),
-            'complexity': partial_summary.get('complexity', 'unknown'),
-            'domain': partial_summary.get('domain', 'other'),
-            'confidence': partial_summary.get('confidence', 0.5)
-        }
-        return fallback
+        # Use the normalization method to ensure consistent structure
+        normalized = self._normalize_summary_fields(partial_summary)
+        
+        if normalized:
+            # Mark as fallback and lower confidence
+            normalized['confidence'] = min(normalized.get('confidence', 0.5) * 0.8, 0.5)
+            normalized['summary'] = f"[FALLBACK] {normalized.get('summary', 'Conversation summary unavailable')}"
+            return normalized
+        else:
+            # Complete fallback if normalization failed
+            fallback = {
+                'summary': '[FALLBACK] Conversation summary unavailable',
+                'key_topics': ['general'],
+                'participants': ['user', 'assistant'],
+                'conversation_type': 'other',
+                'key_decisions': [],
+                'outcomes': 'No specific outcomes identified',
+                'complexity': 'unknown',
+                'domain': 'other',
+                'confidence': 0.3
+            }
+            return fallback
     
     def _should_chunk_conversation(self, messages: List[Dict]) -> bool:
         """Determine if conversation should be chunked based on size."""
@@ -466,7 +780,8 @@ Respond with JSON only:
     
     def _summarize_chat(self, chat: Dict) -> Optional[Dict]:
         """Summarize a single chat conversation."""
-        chat_id = chat.get('chat_id', 'unknown')
+        # Use content_hash as chat_id, fallback to 'unknown' if not available
+        chat_id = chat.get('content_hash', chat.get('chat_id', 'unknown'))
         messages = chat.get('messages', [])
         
         logger.info(f"Summarizing chat {chat_id} with {len(messages)} messages")
@@ -481,7 +796,8 @@ Respond with JSON only:
     
     def _summarize_chat_single_pass(self, chat: Dict) -> Optional[Dict]:
         """Summarize chat using single pass (original method)."""
-        chat_id = chat.get('chat_id', 'unknown')
+        # Use content_hash as chat_id, fallback to 'unknown' if not available
+        chat_id = chat.get('content_hash', chat.get('chat_id', 'unknown'))
         messages = chat.get('messages', [])
         
         # Create prompt
@@ -507,7 +823,6 @@ Respond with JSON only:
                 last_msg = messages[-1]
                 if 'timestamp' in first_msg and 'timestamp' in last_msg:
                     try:
-                        from datetime import datetime
                         start_time = datetime.fromisoformat(first_msg['timestamp'].replace('Z', '+00:00'))
                         end_time = datetime.fromisoformat(last_msg['timestamp'].replace('Z', '+00:00'))
                         duration_minutes = (end_time - start_time).total_seconds() / 60
@@ -525,7 +840,8 @@ Respond with JSON only:
     
     def _summarize_chat_chunked(self, chat: Dict) -> Optional[Dict]:
         """Summarize chat using chunked approach for large conversations."""
-        chat_id = chat.get('chat_id', 'unknown')
+        # Use content_hash as chat_id, fallback to 'unknown' if not available
+        chat_id = chat.get('content_hash', chat.get('chat_id', 'unknown'))
         messages = chat.get('messages', [])
         
         # Create chunks
@@ -575,7 +891,6 @@ Respond with JSON only:
                 last_msg = messages[-1]
                 if 'timestamp' in first_msg and 'timestamp' in last_msg:
                     try:
-                        from datetime import datetime
                         start_time = datetime.fromisoformat(first_msg['timestamp'].replace('Z', '+00:00'))
                         end_time = datetime.fromisoformat(last_msg['timestamp'].replace('Z', '+00:00'))
                         duration_minutes = (end_time - start_time).total_seconds() / 60
@@ -616,8 +931,15 @@ Respond with JSON only:
         new_summaries = {}
         processed_chat_hashes = set()
         
-        for chat in chats:
-            chat_id = chat.get('chat_id', 'unknown')
+        # Track statistics
+        total_chats = len(chats)
+        successful_summaries = 0
+        failed_summaries = 0
+        skipped_chats = 0
+        
+        for i, chat in enumerate(chats, 1):
+            # Use content_hash as chat_id, fallback to 'unknown' if not available
+            chat_id = chat.get('content_hash', chat.get('chat_id', 'unknown'))
             messages = chat.get('messages', [])
             
             # Generate chat hash
@@ -625,12 +947,29 @@ Respond with JSON only:
             
             # Check if already processed
             if chat_hash not in processed_hashes or force_reprocess:
+                logger.info(f"Processing chat {i}/{total_chats}: {chat_id} with {len(messages)} messages")
                 summary = self._summarize_chat(chat)
                 if summary:
                     new_summaries[chat_id] = summary
-                    processed_chat_hashes.add(chat_hash)
+                    processed_chat_hashes.add(chat_hash)  # Only save hash if summary was successful
+                    successful_summaries += 1
+                    logger.info(f"✅ Successfully summarized chat {chat_id}")
+                else:
+                    failed_summaries += 1
+                    logger.warning(f"❌ Failed to summarize chat {chat_id}, will retry on next run")
             else:
-                logger.info(f"Chat {chat_id} already processed, skipping")
+                skipped_chats += 1
+                logger.debug(f"⏭️ Chat {chat_id} already processed, skipping")
+        
+        # Log summary statistics
+        logger.info(f"📊 Processing Summary:")
+        logger.info(f"  Total chats: {total_chats}")
+        logger.info(f"  Successful: {successful_summaries}")
+        logger.info(f"  Failed: {failed_summaries}")
+        logger.info(f"  Skipped: {skipped_chats}")
+        if total_chats > 0:
+            success_rate = (successful_summaries / total_chats) * 100
+            logger.info(f"  Success rate: {success_rate:.1f}%")
         
         if not new_summaries and not force_reprocess:
             logger.info("No new chats to process")

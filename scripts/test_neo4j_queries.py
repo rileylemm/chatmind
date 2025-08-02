@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Test script for Neo4j queries from the ChatMind query guide - Dual Layer Graph Strategy.
-This script tests all queries to ensure they work correctly with the dual layer database schema.
+Test script for Neo4j queries from the ChatMind query guide - Current Implementation.
+This script tests all queries to ensure they work correctly with the current database schema.
 Enhanced with edge case handling, schema validation, and performance safeguards.
 """
 
@@ -25,12 +25,12 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
 class Neo4jQueryTester:
-    """Test all queries from the Neo4j query guide - Updated for Dual Layer Graph Strategy with enhanced validation."""
+    """Test all queries from the Neo4j query guide - Updated for Current Implementation with enhanced validation."""
     
     def __init__(self):
         self.uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
         self.user = os.getenv("NEO4J_USER", "neo4j")
-        self.password = os.getenv("NEO4J_PASSWORD", "password")
+        self.password = os.getenv("NEO4J_PASSWORD", "chatmind123")
         self.driver = None
         self.test_results = []
         self.performance_metrics = {}
@@ -149,8 +149,8 @@ class Neo4jQueryTester:
         self.test_query(
             "Chunk properties validation",
             """
-            MATCH (chunk:Chunk)
-            WHERE chunk.chunk_id IS NULL OR chunk.text IS NULL
+            MATCH (ch:Chunk)
+            WHERE ch.chunk_id IS NULL OR ch.content IS NULL
             RETURN count(*) AS bad_chunks
             """
         )
@@ -185,8 +185,8 @@ class Neo4jQueryTester:
         self.test_query(
             "Duplicate chunk IDs",
             """
-            MATCH (chunk:Chunk)
-            WITH chunk.chunk_id AS cid, count(*) AS c
+            MATCH (ch:Chunk)
+            WITH ch.chunk_id AS cid, count(*) AS c
             WHERE c > 1
             RETURN cid, c
             ORDER BY c DESC
@@ -219,9 +219,9 @@ class Neo4jQueryTester:
         self.test_query(
             "Orphaned chunks",
             """
-            MATCH (chunk:Chunk)
-            WHERE NOT (chunk)<-[:HAS_CHUNK]-(:Message)
-            RETURN count(chunk) AS orphan_chunks
+            MATCH (ch:Chunk)
+            WHERE NOT (ch)<-[:HAS_CHUNK]-(:Message)
+            RETURN count(ch) AS orphan_chunks
             """
         )
     
@@ -244,30 +244,41 @@ class Neo4jQueryTester:
         self.test_query(
             "Message-Chunk connectivity",
             """
-            MATCH (m:Message)-[:HAS_CHUNK]->(chunk:Chunk)
-            RETURN m.message_id, count(chunk) as chunk_count
+            MATCH (m:Message)-[:HAS_CHUNK]->(ch:Chunk)
+            RETURN m.message_id, count(ch) as chunk_count
             ORDER BY chunk_count DESC
             LIMIT 5
             """
         )
         
-        # Test chunk-tag connectivity
+        # Test chunk-embedding connectivity
         self.test_query(
-            "Chunk-Tag connectivity",
+            "Chunk-Embedding connectivity",
             """
-            MATCH (chunk:Chunk)-[:TAGGED_WITH]->(tag:Tag)
-            RETURN chunk.chunk_id, count(tag) as tag_count
+            MATCH (ch:Chunk)-[:HAS_EMBEDDING]->(e:Embedding)
+            RETURN ch.chunk_id, count(e) as embedding_count
+            ORDER BY embedding_count DESC
+            LIMIT 5
+            """
+        )
+        
+        # Test message-tag connectivity
+        self.test_query(
+            "Message-Tag connectivity",
+            """
+            MATCH (m:Message)-[:TAGS]->(t:Tag)
+            RETURN m.message_id, count(t) as tag_count
             ORDER BY tag_count DESC
             LIMIT 5
             """
         )
         
-        # Test topic-chunk connectivity
+        # Test cluster-chunk connectivity
         self.test_query(
-            "Topic-Chunk connectivity",
+            "Cluster-Chunk connectivity",
             """
-            MATCH (topic:Topic)-[:SUMMARIZES]->(chunk:Chunk)
-            RETURN topic.name, count(chunk) as chunk_count
+            MATCH (cl:Cluster)-[:CONTAINS_CHUNK]->(ch:Chunk)
+            RETURN cl.cluster_id, count(ch) as chunk_count
             ORDER BY chunk_count DESC
             LIMIT 5
             """
@@ -275,10 +286,10 @@ class Neo4jQueryTester:
         
         # Test full path connectivity
         self.test_query(
-            "Full path connectivity (Chat -> Message -> Chunk -> Tag)",
+            "Full path connectivity (Chat -> Message -> Chunk -> Embedding)",
             """
-            MATCH (c:Chat)-[:CONTAINS]->(m:Message)-[:HAS_CHUNK]->(chunk:Chunk)-[:TAGGED_WITH]->(tag:Tag)
-            RETURN c.chat_id, m.message_id, chunk.chunk_id, tag.name
+            MATCH (c:Chat)-[:CONTAINS]->(m:Message)-[:HAS_CHUNK]->(ch:Chunk)-[:HAS_EMBEDDING]->(e:Embedding)
+            RETURN c.chat_id, m.message_id, ch.chunk_id, e.embedding_hash
             LIMIT 5
             """
         )
@@ -298,9 +309,9 @@ class Neo4jQueryTester:
         self.test_query(
             "Complex aggregation performance",
             """
-            MATCH (c:Chat)-[:CONTAINS]->(m:Message)-[:HAS_CHUNK]->(chunk:Chunk)-[:TAGGED_WITH]->(tag:Tag)
-            WITH c, count(DISTINCT tag) as tag_count
-            RETURN avg(tag_count) as avg_tags_per_chat
+            MATCH (c:Chat)-[:CONTAINS]->(m:Message)-[:HAS_CHUNK]->(ch:Chunk)-[:HAS_EMBEDDING]->(e:Embedding)
+            WITH c, count(DISTINCT e) as embedding_count
+            RETURN avg(embedding_count) as avg_embeddings_per_chat
             """,
             timeout=10
         )
@@ -309,54 +320,31 @@ class Neo4jQueryTester:
         self.test_query(
             "Large result set handling",
             """
-            MATCH (chunk:Chunk)
-            RETURN chunk.chunk_id, chunk.text
+            MATCH (ch:Chunk)
+            RETURN ch.chunk_id, ch.content
             LIMIT 1000
             """,
             timeout=15
         )
     
-    def test_dual_layer_basic_queries(self):
-        """Test basic dual layer node queries."""
-        logger.info("\n🔍 Testing Dual Layer Basic Node Queries...")
+    def test_basic_data_exploration_queries(self):
+        """Test basic data exploration queries."""
+        logger.info("\n🔍 Testing Basic Data Exploration Queries...")
         
-        # Get all chats (Raw Layer)
+        # Get all chats with message counts
         self.test_query(
-            "Get all chats (Raw Layer)",
-            "MATCH (c:Chat) RETURN c.title, c.create_time, c.chat_id ORDER BY c.create_time DESC LIMIT 5"
+            "Get all chats with message counts",
+            """
+            MATCH (c:Chat)-[:CONTAINS]->(m:Message)
+            RETURN c.title, c.create_time, c.chat_id, count(m) as message_count
+            ORDER BY c.create_time DESC
+            LIMIT 5
+            """
         )
         
-        # Get all messages (Raw Layer)
+        # Get messages in a chat
         self.test_query(
-            "Get all messages (Raw Layer)",
-            "MATCH (m:Message) RETURN m.content, m.role, m.timestamp ORDER BY m.timestamp DESC LIMIT 5"
-        )
-        
-        # Get all chunks (Chunk Layer)
-        self.test_query(
-            "Get all chunks (Chunk Layer)",
-            "MATCH (chunk:Chunk) RETURN chunk.text, chunk.source_message_id, chunk.cluster_id ORDER BY chunk.source_message_id LIMIT 5"
-        )
-        
-        # Get all topics (Semantic Layer)
-        self.test_query(
-            "Get all topics (Semantic Layer)",
-            "MATCH (t:Topic) RETURN t.name, t.size, t.top_words ORDER BY t.size DESC LIMIT 5"
-        )
-        
-        # Get all tags (Semantic Layer)
-        self.test_query(
-            "Get all tags (Semantic Layer)",
-            "MATCH (tag:Tag) RETURN tag.name, tag.count ORDER BY tag.count DESC LIMIT 5"
-        )
-    
-    def test_dual_layer_relationship_queries(self):
-        """Test dual layer relationship traversal queries."""
-        logger.info("\n🔗 Testing Dual Layer Relationship Queries...")
-        
-        # Get messages in a chat (Raw Layer)
-        self.test_query(
-            "Get messages in a chat (Raw Layer)",
+            "Get messages in a chat",
             """
             MATCH (c:Chat)-[:CONTAINS]->(m:Message)
             RETURN c.title, m.content, m.role, m.timestamp
@@ -365,112 +353,108 @@ class Neo4jQueryTester:
             """
         )
         
-        # Get chunks for messages (Cross-Layer)
+        # Get chunks for a message
         self.test_query(
-            "Get chunks for messages (Cross-Layer)",
+            "Get chunks for a message",
             """
-            MATCH (m:Message)-[:HAS_CHUNK]->(chunk:Chunk)
-            RETURN m.message_id, chunk.text, chunk.cluster_id
+            MATCH (m:Message)-[:HAS_CHUNK]->(ch:Chunk)
+            RETURN m.message_id, ch.content, ch.chunk_id, ch.token_count
             LIMIT 5
             """
         )
         
-        # Get tags for chunks (Chunk Layer to Semantic Layer)
+        # Get embeddings for chunks
         self.test_query(
-            "Get tags for chunks (Chunk to Semantic)",
+            "Get embeddings for chunks",
             """
-            MATCH (chunk:Chunk)-[:TAGGED_WITH]->(tag:Tag)
-            RETURN chunk.text, tag.name
-            LIMIT 5
-            """
-        )
-        
-        # Get topics for chunks (Chunk Layer to Semantic Layer)
-        self.test_query(
-            "Get topics for chunks (Chunk to Semantic)",
-            """
-            MATCH (t:Topic)-[:SUMMARIZES]->(chunk:Chunk)
-            RETURN t.name, t.top_words, chunk.text
-            LIMIT 5
-            """
-        )
-        
-        # Full dual layer traversal: Message -> Chunk -> Tag
-        self.test_query(
-            "Full dual layer traversal: Message -> Chunk -> Tag",
-            """
-            MATCH (m:Message)-[:HAS_CHUNK]->(chunk:Chunk)-[:TAGGED_WITH]->(tag:Tag)
-            RETURN m.message_id, chunk.text, tag.name
+            MATCH (ch:Chunk)-[:HAS_EMBEDDING]->(e:Embedding)
+            RETURN ch.chunk_id, e.dimension, e.method
             LIMIT 5
             """
         )
     
-    def test_dual_layer_aggregation_queries(self):
-        """Test dual layer aggregation queries."""
-        logger.info("\n📊 Testing Dual Layer Aggregation Queries...")
+    def test_semantic_analysis_queries(self):
+        """Test semantic analysis queries."""
+        logger.info("\n🧠 Testing Semantic Analysis Queries...")
         
-        # Count messages per chat (Raw Layer)
+        # Get messages with tags
         self.test_query(
-            "Count messages per chat (Raw Layer)",
+            "Get messages with tags",
             """
-            MATCH (c:Chat)-[:CONTAINS]->(m:Message)
-            RETURN c.title, count(m) as message_count
-            ORDER BY message_count DESC
+            MATCH (m:Message)-[:TAGS]->(t:Tag)
+            RETURN m.content, m.role, t.tags, t.domain, t.sentiment
+            ORDER BY m.timestamp DESC
             LIMIT 5
             """
         )
         
-        # Count chunks per message (Cross-Layer)
+        # Find messages by domain
         self.test_query(
-            "Count chunks per message (Cross-Layer)",
+            "Find messages by domain",
             """
-            MATCH (m:Message)-[:HAS_CHUNK]->(chunk:Chunk)
-            RETURN m.message_id, count(chunk) as chunk_count
-            ORDER BY chunk_count DESC
+            MATCH (m:Message)-[:TAGS]->(t:Tag)
+            WHERE t.domain = "technology"
+            RETURN m.content, m.role, t.tags
+            ORDER BY m.timestamp DESC
             LIMIT 5
             """
         )
         
-        # Count tags per chunk (Chunk Layer)
+        # Get cluster summaries
         self.test_query(
-            "Count tags per chunk (Chunk Layer)",
+            "Get cluster summaries",
             """
-            MATCH (chunk:Chunk)-[:TAGGED_WITH]->(tag:Tag)
-            RETURN chunk.chunk_id, count(tag) as tag_count
-            ORDER BY tag_count DESC
+            MATCH (s:Summary)-[:SUMMARIZES]->(cl:Cluster)
+            RETURN cl.cluster_id, s.summary, s.key_points, s.common_tags
+            ORDER BY cl.cluster_id
             LIMIT 5
             """
         )
         
-        # Most popular tags (Semantic Layer)
+        # Get chat summaries
         self.test_query(
-            "Most popular tags (Semantic Layer)",
+            "Get chat summaries",
             """
-            MATCH (tag:Tag)
-            RETURN tag.name, tag.count
-            ORDER BY tag.count DESC
-            LIMIT 10
-            """
-        )
-        
-        # Topic distribution (Semantic Layer)
-        self.test_query(
-            "Topic distribution (Semantic Layer)",
-            """
-            MATCH (t:Topic)
-            RETURN t.name, t.size
-            ORDER BY t.size DESC
+            MATCH (cs:ChatSummary)-[:SUMMARIZES_CHAT]->(c:Chat)
+            RETURN c.title, cs.summary, cs.key_points, cs.topics
+            ORDER BY c.create_time DESC
             LIMIT 5
             """
         )
     
-    def test_dual_layer_search_queries(self):
-        """Test dual layer search queries."""
-        logger.info("\n🔍 Testing Dual Layer Search Queries...")
+    def test_similarity_queries(self):
+        """Test similarity queries."""
+        logger.info("\n🔗 Testing Similarity Queries...")
         
-        # Search messages by content (Raw Layer)
+        # Find similar chats
         self.test_query(
-            "Search messages by content (Raw Layer)",
+            "Find similar chats",
+            """
+            MATCH (c1:Chat)-[:SIMILAR_TO_CHAT_HIGH]->(c2:Chat)
+            RETURN c1.title, c2.title, c2.chat_id
+            ORDER BY c2.create_time DESC
+            LIMIT 5
+            """
+        )
+        
+        # Find similar clusters
+        self.test_query(
+            "Find similar clusters",
+            """
+            MATCH (cl1:Cluster)-[:SIMILAR_TO_CLUSTER_HIGH]->(cl2:Cluster)
+            WHERE cl1.cluster_id <> cl2.cluster_id
+            RETURN cl1.cluster_id, cl2.cluster_id, cl2.umap_x, cl2.umap_y
+            LIMIT 5
+            """
+        )
+    
+    def test_content_discovery_queries(self):
+        """Test content discovery queries."""
+        logger.info("\n🔍 Testing Content Discovery Queries...")
+        
+        # Search messages by content
+        self.test_query(
+            "Search messages by content",
             """
             MATCH (m:Message)
             WHERE toLower(m.content) CONTAINS toLower("python")
@@ -480,175 +464,90 @@ class Neo4jQueryTester:
             """
         )
         
-        # Search chunks by content (Chunk Layer)
+        # Find messages by tags
         self.test_query(
-            "Search chunks by content (Chunk Layer)",
+            "Find messages by tags",
             """
-            MATCH (chunk:Chunk)
-            WHERE toLower(chunk.text) CONTAINS toLower("python")
-            RETURN chunk.text, chunk.source_message_id
+            MATCH (m:Message)-[:TAGS]->(t:Tag)
+            WHERE ANY(tag IN t.tags WHERE tag CONTAINS "programming")
+            RETURN m.content, m.role, t.tags
+            ORDER BY m.timestamp DESC
             LIMIT 5
             """
         )
         
-        # Search by tag (Semantic Layer)
+        # Get messages by sentiment
         self.test_query(
-            "Search by tag (Semantic Layer)",
+            "Get messages by sentiment",
             """
-            MATCH (chunk:Chunk)-[:TAGGED_WITH]->(tag:Tag)
-            WHERE tag.name = "python"
-            RETURN chunk.text, tag.name
-            LIMIT 5
-            """
-        )
-        
-        # Search by topic (Semantic Layer)
-        self.test_query(
-            "Search by topic (Semantic Layer)",
-            """
-            MATCH (t:Topic)-[:SUMMARIZES]->(chunk:Chunk)
-            WHERE t.name CONTAINS "code" OR t.name CONTAINS "help" OR t.name CONTAINS "question"
-            RETURN t.name, chunk.text
-            LIMIT 5
-            """
-        )
-        
-        # Cross-layer search: Find messages with specific tags
-        self.test_query(
-            "Cross-layer search: Find messages with specific tags",
-            """
-            MATCH (m:Message)-[:HAS_CHUNK]->(chunk:Chunk)-[:TAGGED_WITH]->(tag:Tag)
-            WHERE tag.name = "python"
-            RETURN m.content, chunk.text, tag.name
+            MATCH (m:Message)-[:TAGS]->(t:Tag)
+            WHERE t.sentiment = "positive"
+            RETURN m.content, m.role, t.sentiment
+            ORDER BY m.timestamp DESC
             LIMIT 5
             """
         )
     
-    def test_dual_layer_graph_exploration_queries(self):
-        """Test dual layer graph exploration queries."""
-        logger.info("\n🌐 Testing Dual Layer Graph Exploration Queries...")
+    def test_advanced_analysis_queries(self):
+        """Test advanced analysis queries."""
+        logger.info("\n📈 Testing Advanced Analysis Queries...")
         
-        # Get chat with all related data (Full dual layer)
+        # Get complete message context
         self.test_query(
-            "Get chat with all related data (Full dual layer)",
-            """
-            MATCH (c:Chat)
-            OPTIONAL MATCH (c)-[:CONTAINS]->(m:Message)
-            OPTIONAL MATCH (m)-[:HAS_CHUNK]->(chunk:Chunk)
-            OPTIONAL MATCH (chunk)-[:TAGGED_WITH]->(tag:Tag)
-            OPTIONAL MATCH (topic:Topic)-[:SUMMARIZES]->(chunk)
-            RETURN c.title, 
-                   collect(DISTINCT m.content) as messages,
-                   collect(DISTINCT chunk.text) as chunks,
-                   collect(DISTINCT tag.name) as tags,
-                   collect(DISTINCT topic.name) as topics
-            LIMIT 3
-            """
-        )
-        
-        # Find similar chats (Semantic Layer)
-        self.test_query(
-            "Find similar chats (Semantic Layer)",
-            """
-            MATCH (c1:Chat)-[:SIMILAR_TO]-(c2:Chat)
-            RETURN c1.title, c2.title
-            LIMIT 5
-            """
-        )
-        
-        # Get message with all its chunks and semantic data
-        self.test_query(
-            "Get message with all its chunks and semantic data",
+            "Get complete message context",
             """
             MATCH (m:Message)
-            OPTIONAL MATCH (m)-[:HAS_CHUNK]->(chunk:Chunk)
-            OPTIONAL MATCH (chunk)-[:TAGGED_WITH]->(tag:Tag)
-            OPTIONAL MATCH (topic:Topic)-[:SUMMARIZES]->(chunk)
-            RETURN m.content, 
-                   collect(DISTINCT chunk.text) as chunks,
-                   collect(DISTINCT tag.name) as tags,
-                   collect(DISTINCT topic.name) as topics
+            OPTIONAL MATCH (m)-[:HAS_CHUNK]->(ch:Chunk)
+            OPTIONAL MATCH (m)-[:TAGS]->(t:Tag)
+            OPTIONAL MATCH (c:Chat)-[:CONTAINS]->(m)
+            RETURN m.content as message_content,
+                   m.role as message_role,
+                   c.title as chat_title,
+                   collect(DISTINCT ch.content) as chunks,
+                   collect(DISTINCT t.tags) as tags
+            LIMIT 3
+            """
+        )
+        
+        # Get chat with full analysis
+        self.test_query(
+            "Get chat with full analysis",
+            """
+            MATCH (c:Chat)-[:CONTAINS]->(m:Message)
+            OPTIONAL MATCH (m)-[:HAS_CHUNK]->(ch:Chunk)
+            OPTIONAL MATCH (m)-[:TAGS]->(t:Tag)
+            OPTIONAL MATCH (cs:ChatSummary)-[:SUMMARIZES_CHAT]->(c)
+            RETURN c.title,
+                   count(DISTINCT m) as message_count,
+                   count(DISTINCT ch) as chunk_count,
+                   collect(DISTINCT t.domain) as domains,
+                   cs.summary as chat_summary
+            LIMIT 3
+            """
+        )
+        
+        # Get cluster analysis
+        self.test_query(
+            "Get cluster analysis",
+            """
+            MATCH (cl:Cluster)
+            OPTIONAL MATCH (cl)-[:CONTAINS_CHUNK]->(ch:Chunk)
+            OPTIONAL MATCH (s:Summary)-[:SUMMARIZES]->(cl)
+            RETURN cl.cluster_id,
+                   count(ch) as chunk_count,
+                   s.summary as cluster_summary,
+                   s.key_points as key_points
             LIMIT 3
             """
         )
     
-    def test_dual_layer_advanced_analytics_queries(self):
-        """Test dual layer advanced analytics queries."""
-        logger.info("\n📈 Testing Dual Layer Advanced Analytics Queries...")
+    def test_statistics_and_analytics_queries(self):
+        """Test statistics and analytics queries."""
+        logger.info("\n📊 Testing Statistics and Analytics Queries...")
         
-        # Topic distribution with percentage (Semantic Layer)
+        # Node counts
         self.test_query(
-            "Topic distribution with percentage (Semantic Layer)",
-            """
-            MATCH (t:Topic)
-            WITH t, sum(t.size) as total_size
-            RETURN t.name, t.size,
-                   round(t.size * 100.0 / total_size, 2) as percentage
-            ORDER BY t.size DESC
-            LIMIT 5
-            """
-        )
-        
-        # Tag co-occurrence on chunks (Chunk Layer)
-        self.test_query(
-            "Tag co-occurrence on chunks (Chunk Layer)",
-            """
-            MATCH (chunk:Chunk)-[:TAGGED_WITH]->(tag1:Tag)
-            MATCH (chunk)-[:TAGGED_WITH]->(tag2:Tag)
-            WHERE tag1.name < tag2.name
-            RETURN tag1.name, tag2.name, count(chunk) as co_occurrence
-            ORDER BY co_occurrence DESC
-            LIMIT 5
-            """
-        )
-        
-        # Conversation flow analysis (Raw Layer)
-        self.test_query(
-            "Conversation flow analysis (Raw Layer)",
-            """
-            MATCH (c:Chat)-[:CONTAINS]->(m:Message)
-            WITH c, m ORDER BY m.timestamp
-            WITH c, collect(m.role) as roles
-            RETURN c.title, 
-                   size([r IN roles WHERE r = "user"]) as user_messages,
-                   size([r IN roles WHERE r = "assistant"]) as assistant_messages,
-                   size(roles) as total_messages
-            ORDER BY total_messages DESC
-            LIMIT 5
-            """
-        )
-        
-        # Chunk analysis per message (Cross-Layer)
-        self.test_query(
-            "Chunk analysis per message (Cross-Layer)",
-            """
-            MATCH (m:Message)-[:HAS_CHUNK]->(chunk:Chunk)
-            WITH m, count(chunk) as chunk_count
-            RETURN m.content, chunk_count
-            ORDER BY chunk_count DESC
-            LIMIT 5
-            """
-        )
-        
-        # Semantic density analysis (Cross-Layer)
-        self.test_query(
-            "Semantic density analysis (Cross-Layer)",
-            """
-            MATCH (m:Message)-[:HAS_CHUNK]->(chunk:Chunk)-[:TAGGED_WITH]->(tag:Tag)
-            WITH m, count(DISTINCT tag) as tag_count
-            RETURN m.content, tag_count
-            ORDER BY tag_count DESC
-            LIMIT 5
-            """
-        )
-    
-    def test_dual_layer_statistics_queries(self):
-        """Test dual layer statistics queries."""
-        logger.info("\n📊 Testing Dual Layer Statistics Queries...")
-        
-        # Node counts by type
-        self.test_query(
-            "Node counts by type",
+            "Node counts",
             """
             MATCH (n)
             RETURN labels(n)[0] as node_type, count(n) as count
@@ -656,9 +555,9 @@ class Neo4jQueryTester:
             """
         )
         
-        # Relationship counts by type
+        # Relationship counts
         self.test_query(
-            "Relationship counts by type",
+            "Relationship counts",
             """
             MATCH ()-[r]->()
             RETURN type(r) as relationship_type, count(r) as count
@@ -666,9 +565,273 @@ class Neo4jQueryTester:
             """
         )
         
-        # Average messages per chat (Raw Layer)
+        # Average chunks per message
         self.test_query(
-            "Average messages per chat (Raw Layer)",
+            "Average chunks per message",
+            """
+            MATCH (m:Message)
+            OPTIONAL MATCH (m)-[:HAS_CHUNK]->(ch:Chunk)
+            WITH count(m) as message_count, count(ch) as chunk_count
+            RETURN round(chunk_count * 100.0 / message_count, 2) as avg_chunks_per_message
+            """
+        )
+        
+        # Tag distribution
+        self.test_query(
+            "Tag distribution",
+            """
+            MATCH (m:Message)-[:TAGS]->(t:Tag)
+            UNWIND t.tags as tag
+            RETURN tag, count(*) as usage_count
+            ORDER BY usage_count DESC
+            LIMIT 10
+            """
+        )
+        
+        # Domain distribution
+        self.test_query(
+            "Domain distribution",
+            """
+            MATCH (m:Message)-[:TAGS]->(t:Tag)
+            RETURN t.domain, count(*) as message_count
+            ORDER BY message_count DESC
+            """
+        )
+    
+    def test_visualization_queries(self):
+        """Test visualization queries."""
+        logger.info("\n🎨 Testing Visualization Queries...")
+        
+        # Chats with positions
+        self.test_query(
+            "Chats with positions",
+            """
+            MATCH (c:Chat)
+            WHERE c.position_x IS NOT NULL AND c.position_y IS NOT NULL
+            RETURN c.chat_id, c.title, c.position_x, c.position_y
+            ORDER BY c.create_time DESC
+            LIMIT 5
+            """
+        )
+        
+        # Clusters with positions
+        self.test_query(
+            "Clusters with positions",
+            """
+            MATCH (cl:Cluster)
+            WHERE cl.umap_x IS NOT NULL AND cl.umap_y IS NOT NULL
+            RETURN cl.cluster_id, cl.umap_x, cl.umap_y
+            ORDER BY cl.cluster_id
+            LIMIT 5
+            """
+        )
+        
+        # Embeddings for visualization
+        self.test_query(
+            "Embeddings for visualization",
+            """
+            MATCH (e:Embedding)
+            RETURN e.chunk_id, e.vector, e.dimension
+            LIMIT 5
+            """
+        )
+    
+    def test_practical_use_cases(self):
+        """Test practical use case queries."""
+        logger.info("\n🎯 Testing Practical Use Cases...")
+        
+        # Find all messages about Python programming
+        self.test_query(
+            "Find all messages about Python programming",
+            """
+            MATCH (m:Message)-[:TAGS]->(t:Tag)
+            WHERE ANY(tag IN t.tags WHERE tag CONTAINS "python")
+            RETURN m.content, m.role, t.tags
+            ORDER BY m.timestamp DESC
+            LIMIT 5
+            """
+        )
+        
+        # Find messages with specific sentiment
+        self.test_query(
+            "Find messages with specific sentiment",
+            """
+            MATCH (m:Message)-[:TAGS]->(t:Tag)
+            WHERE t.sentiment = "positive"
+            RETURN m.content, m.role, t.sentiment
+            ORDER BY m.timestamp DESC
+            LIMIT 5
+            """
+        )
+        
+        # Get semantic breakdown of a conversation
+        self.test_query(
+            "Get semantic breakdown of a conversation",
+            """
+            MATCH (c:Chat)-[:CONTAINS]->(m:Message)
+            OPTIONAL MATCH (m)-[:HAS_CHUNK]->(ch:Chunk)
+            OPTIONAL MATCH (m)-[:TAGS]->(t:Tag)
+            OPTIONAL MATCH (cs:ChatSummary)-[:SUMMARIZES_CHAT]->(c)
+            RETURN c.title,
+                   count(DISTINCT m) as messages,
+                   count(DISTINCT ch) as chunks,
+                   collect(DISTINCT t.domain) as domains,
+                   cs.summary as chat_summary
+            LIMIT 3
+            """
+        )
+        
+        # Find semantically similar conversations
+        self.test_query(
+            "Find semantically similar conversations",
+            """
+            MATCH (c1:Chat)-[:SIMILAR_TO_CHAT_HIGH]->(c2:Chat)
+            RETURN c1.title, c2.title, c2.chat_id
+            ORDER BY c2.create_time DESC
+            LIMIT 5
+            """
+        )
+    
+    def test_quality_analysis_queries(self):
+        """Test quality analysis queries."""
+        logger.info("\n🔍 Testing Quality Analysis Queries...")
+        
+        # Find conversations with rich semantic content
+        self.test_query(
+            "Find conversations with rich semantic content",
+            """
+            MATCH (c:Chat)-[:CONTAINS]->(m:Message)
+            OPTIONAL MATCH (m)-[:HAS_CHUNK]->(ch:Chunk)
+            OPTIONAL MATCH (m)-[:TAGS]->(t:Tag)
+            WITH c, count(DISTINCT m) as message_count, count(DISTINCT ch) as chunk_count, count(DISTINCT t) as tag_count
+            WHERE chunk_count > 10 AND tag_count > 5
+            RETURN c.title, message_count, chunk_count, tag_count
+            ORDER BY tag_count DESC
+            LIMIT 5
+            """
+        )
+        
+        # Find clusters with the most diverse content
+        self.test_query(
+            "Find clusters with the most diverse content",
+            """
+            MATCH (cl:Cluster)-[:CONTAINS_CHUNK]->(ch:Chunk)
+            OPTIONAL MATCH (ch)<-[:HAS_CHUNK]-(m:Message)-[:TAGS]->(t:Tag)
+            WITH cl, count(DISTINCT ch) as chunk_count, count(DISTINCT t) as tag_count
+            RETURN cl.cluster_id, chunk_count, tag_count, round(tag_count * 100.0 / chunk_count, 2) as tag_diversity
+            ORDER BY tag_diversity DESC
+            LIMIT 5
+            """
+        )
+    
+    def test_search_patterns(self):
+        """Test search pattern queries."""
+        logger.info("\n🔍 Testing Search Pattern Queries...")
+        
+        # Search messages by content
+        self.test_query(
+            "Search messages by content",
+            """
+            MATCH (m:Message)
+            WHERE toLower(m.content) CONTAINS toLower("python")
+            RETURN m.content, m.role
+            ORDER BY m.timestamp DESC
+            LIMIT 5
+            """
+        )
+        
+        # Search by tag
+        self.test_query(
+            "Search by tag",
+            """
+            MATCH (m:Message)-[:TAGS]->(t:Tag)
+            WHERE ANY(tag IN t.tags WHERE tag CONTAINS "python")
+            RETURN m.content, m.role
+            ORDER BY m.timestamp DESC
+            LIMIT 5
+            """
+        )
+        
+        # Search by domain
+        self.test_query(
+            "Search by domain",
+            """
+            MATCH (m:Message)-[:TAGS]->(t:Tag)
+            WHERE t.domain = "technology"
+            RETURN m.content, m.role
+            ORDER BY m.timestamp DESC
+            LIMIT 5
+            """
+        )
+    
+    def test_graph_exploration_queries(self):
+        """Test graph exploration queries."""
+        logger.info("\n🌐 Testing Graph Exploration Queries...")
+        
+        # Get chat with all related data
+        self.test_query(
+            "Get chat with all related data",
+            """
+            MATCH (c:Chat)
+            OPTIONAL MATCH (c)-[:CONTAINS]->(m:Message)
+            OPTIONAL MATCH (m)-[:TAGS]->(t:Tag)
+            OPTIONAL MATCH (m)-[:HAS_CHUNK]->(ch:Chunk)
+            OPTIONAL MATCH (cs:ChatSummary)-[:SUMMARIZES_CHAT]->(c)
+            RETURN c, collect(DISTINCT m) as messages, collect(DISTINCT t) as tags, collect(DISTINCT ch) as chunks, cs
+            LIMIT 3
+            """
+        )
+        
+        # Find similar chats
+        self.test_query(
+            "Find similar chats",
+            """
+            MATCH (c1:Chat)-[:SIMILAR_TO_CHAT_HIGH]-(c2:Chat)
+            RETURN c1.title, c2.title, c2.chat_id
+            LIMIT 5
+            """
+        )
+        
+        # Chat-message-tag full context
+        self.test_query(
+            "Chat-message-tag full context",
+            """
+            MATCH (c:Chat)-[:CONTAINS]->(m:Message)
+            OPTIONAL MATCH (m)-[:TAGS]->(t:Tag)
+            OPTIONAL MATCH (m)-[:HAS_CHUNK]->(ch:Chunk)
+            OPTIONAL MATCH (cs:ChatSummary)-[:SUMMARIZES_CHAT]->(c)
+            RETURN c, m, collect(DISTINCT t) as tags, collect(DISTINCT ch) as chunks, cs
+            LIMIT 3
+            """
+        )
+    
+    def test_additional_statistics_queries(self):
+        """Test additional statistics queries."""
+        logger.info("\n📊 Testing Additional Statistics Queries...")
+        
+        # Node counts
+        self.test_query(
+            "Node counts",
+            """
+            MATCH (n)
+            RETURN labels(n)[0] as type, count(n) as count
+            ORDER BY count DESC
+            """
+        )
+        
+        # Relationship counts
+        self.test_query(
+            "Relationship counts",
+            """
+            MATCH ()-[r]->()
+            RETURN type(r) as type, count(r) as count
+            ORDER BY count DESC
+            """
+        )
+        
+        # Average messages per chat
+        self.test_query(
+            "Average messages per chat",
             """
             MATCH (c:Chat)-[:CONTAINS]->(m:Message)
             WITH c, count(m) as message_count
@@ -676,29 +839,341 @@ class Neo4jQueryTester:
             """
         )
         
-        # Average chunks per message (Cross-Layer)
+        # Tag distribution with percentage
         self.test_query(
-            "Average chunks per message (Cross-Layer)",
+            "Tag distribution with percentage",
             """
-            MATCH (m:Message)-[:HAS_CHUNK]->(chunk:Chunk)
-            WITH m, count(chunk) as chunk_count
-            RETURN avg(chunk_count) as avg_chunks_per_message
-            """
-        )
-        
-        # Average tags per chunk (Chunk Layer)
-        self.test_query(
-            "Average tags per chunk (Chunk Layer)",
-            """
-            MATCH (chunk:Chunk)-[:TAGGED_WITH]->(tag:Tag)
-            WITH chunk, count(tag) as tag_count
-            RETURN avg(tag_count) as avg_tags_per_chunk
+            MATCH (m:Message)-[:TAGS]->(t:Tag)
+            UNWIND t.tags as tag
+            WITH tag, count(*) as usage_count
+            RETURN tag, usage_count
+            ORDER BY usage_count DESC
+            LIMIT 10
             """
         )
     
-    def test_dual_layer_debugging_queries(self):
-        """Test dual layer debugging queries."""
-        logger.info("\n🔧 Testing Dual Layer Debugging Queries...")
+    def test_advanced_analysis_queries(self):
+        """Test advanced analysis queries from the enhanced guide."""
+        logger.info("\n🔬 Testing Advanced Analysis Queries...")
+        
+        # Semantic layer analysis
+        self.test_query(
+            "Messages with semantic data",
+            """
+            MATCH (m:Message)-[:TAGS]->(t:Tag)
+            MATCH (ch:Chunk)-[:HAS_EMBEDDING]->(e:Embedding)
+            RETURN count(DISTINCT m) as messages_with_semantic_data,
+                   count(DISTINCT ch) as chunks_with_embeddings
+            """
+        )
+        
+        # Chunk-embedding connectivity
+        self.test_query(
+            "Chunk-embedding connectivity",
+            """
+            MATCH (ch:Chunk)-[:HAS_EMBEDDING]->(e:Embedding)
+            RETURN ch.chunk_id, count(e) as embedding_count
+            ORDER BY embedding_count DESC
+            LIMIT 5
+            """
+        )
+        
+        # Quality and completeness analysis
+        self.test_query(
+            "Orphaned messages",
+            """
+            MATCH (m:Message)
+            WHERE NOT (m)<-[:CONTAINS]-(:Chat)
+            RETURN count(m) as orphan_messages
+            """
+        )
+        
+        self.test_query(
+            "Orphaned chunks",
+            """
+            MATCH (ch:Chunk)
+            WHERE NOT (ch)<-[:HAS_CHUNK]-(:Message)
+            RETURN count(ch) as orphan_chunks
+            """
+        )
+        
+        # Full path connectivity
+        self.test_query(
+            "Complete semantic path",
+            """
+            MATCH (c:Chat)-[:CONTAINS]->(m:Message)-[:HAS_CHUNK]->(ch:Chunk)-[:HAS_EMBEDDING]->(e:Embedding)
+            RETURN c.chat_id, m.message_id, ch.chunk_id, e.embedding_hash
+            LIMIT 5
+            """
+        )
+        
+        # Chat with full semantic analysis
+        self.test_query(
+            "Chat with full semantic analysis",
+            """
+            MATCH (c:Chat)-[:CONTAINS]->(m:Message)
+            OPTIONAL MATCH (m)-[:HAS_CHUNK]->(ch:Chunk)
+            OPTIONAL MATCH (m)-[:TAGS]->(t:Tag)
+            OPTIONAL MATCH (cs:ChatSummary)-[:SUMMARIZES_CHAT]->(c)
+            RETURN c.title,
+                   count(DISTINCT m) as message_count,
+                   count(DISTINCT ch) as chunk_count,
+                   collect(DISTINCT t.domain) as domains,
+                   cs.summary as chat_summary
+            LIMIT 3
+            """
+        )
+    
+    def test_quality_and_completeness_analysis(self):
+        """Test quality and completeness analysis queries."""
+        logger.info("\n🔍 Testing Quality and Completeness Analysis...")
+        
+        # Schema validation
+        self.test_query(
+            "Node type properties validation",
+            """
+            MATCH (n)
+            RETURN labels(n)[0] as node_type, 
+                   keys(n) as properties,
+                   count(n) as count
+            ORDER BY node_type
+            """
+        )
+        
+        # Critical properties validation
+        self.test_query(
+            "Critical properties validation",
+            """
+            MATCH (m:Message)
+            WHERE m.message_id IS NULL OR m.content IS NULL
+            RETURN count(*) AS bad_messages
+            """
+        )
+        
+        # Chunk properties validation
+        self.test_query(
+            "Chunk properties validation",
+            """
+            MATCH (ch:Chunk)
+            WHERE ch.chunk_id IS NULL OR ch.content IS NULL
+            RETURN count(*) AS bad_chunks
+            """
+        )
+        
+        # Chat properties validation
+        self.test_query(
+            "Chat properties validation",
+            """
+            MATCH (c:Chat)
+            WHERE c.chat_id IS NULL OR c.title IS NULL
+            RETURN count(*) AS bad_chats
+            """
+        )
+        
+        # Edge case handling
+        self.test_query(
+            "Null property handling",
+            """
+            MATCH (m:Message) WHERE m.content IS NULL RETURN count(m) AS null_content_messages
+            """
+        )
+        
+        self.test_query(
+            "Empty collections",
+            """
+            MATCH (m:Message) WHERE NOT (m)-[:HAS_CHUNK]->() RETURN count(m) AS messages_without_chunks
+            """
+        )
+    
+    def test_performance_and_optimization_queries(self):
+        """Test performance and optimization queries."""
+        logger.info("\n⚡ Testing Performance and Optimization Queries...")
+        
+        # Performance safeguards
+        self.test_query(
+            "Fast node count query",
+            "MATCH (n) RETURN count(n) as total_nodes",
+            timeout=5
+        )
+        
+        # Complex aggregation performance
+        self.test_query(
+            "Complex aggregation performance",
+            """
+            MATCH (c:Chat)-[:CONTAINS]->(m:Message)-[:HAS_CHUNK]->(ch:Chunk)-[:HAS_EMBEDDING]->(e:Embedding)
+            WITH c, count(DISTINCT e) as embedding_count
+            RETURN avg(embedding_count) as avg_embeddings_per_chat
+            """,
+            timeout=10
+        )
+        
+        # Large result set handling
+        self.test_query(
+            "Large result set handling",
+            """
+            MATCH (ch:Chunk)
+            RETURN ch.chunk_id, ch.content
+            LIMIT 1000
+            """,
+            timeout=15
+        )
+        
+        # Data quality metrics
+        self.test_query(
+            "Average messages per chat",
+            """
+            MATCH (c:Chat)-[:CONTAINS]->(m:Message)
+            WITH c, count(m) as message_count
+            RETURN avg(message_count) as avg_messages_per_chat
+            """
+        )
+    
+    def test_visualization_and_positioning_queries(self):
+        """Test visualization and positioning queries."""
+        logger.info("\n🎨 Testing Visualization and Positioning Queries...")
+        
+        # Chat positioning
+        self.test_query(
+            "Chats with positions",
+            """
+            MATCH (c:Chat)
+            WHERE c.position_x IS NOT NULL AND c.position_y IS NOT NULL
+            RETURN c.chat_id, c.title, c.position_x, c.position_y
+            ORDER BY c.create_time DESC
+            LIMIT 5
+            """
+        )
+        
+        # Cluster positioning
+        self.test_query(
+            "Clusters with positions",
+            """
+            MATCH (cl:Cluster)
+            WHERE cl.umap_x IS NOT NULL AND cl.umap_y IS NOT NULL
+            RETURN cl.cluster_id, cl.umap_x, cl.umap_y
+            ORDER BY cl.cluster_id
+            LIMIT 5
+            """
+        )
+        
+        # Embedding visualization
+        self.test_query(
+            "Embeddings for visualization",
+            """
+            MATCH (e:Embedding)
+            RETURN e.chunk_id, e.vector, e.dimension
+            LIMIT 5
+            """
+        )
+    
+    def test_search_and_discovery_patterns(self):
+        """Test search and discovery pattern queries."""
+        logger.info("\n🔍 Testing Search and Discovery Patterns...")
+        
+        # Content-based search
+        self.test_query(
+            "Search messages by content",
+            """
+            MATCH (m:Message)
+            WHERE toLower(m.content) CONTAINS toLower("python")
+            RETURN m.content, m.role
+            ORDER BY m.timestamp DESC
+            LIMIT 5
+            """
+        )
+        
+        # Search by tag
+        self.test_query(
+            "Search by tag",
+            """
+            MATCH (m:Message)-[:TAGS]->(t:Tag)
+            WHERE ANY(tag IN t.tags WHERE tag CONTAINS "python")
+            RETURN m.content, m.role
+            ORDER BY m.timestamp DESC
+            LIMIT 5
+            """
+        )
+        
+        # Search by domain
+        self.test_query(
+            "Search by domain",
+            """
+            MATCH (m:Message)-[:TAGS]->(t:Tag)
+            WHERE t.domain = "technology"
+            RETURN m.content, m.role
+            ORDER BY m.timestamp DESC
+            LIMIT 5
+            """
+        )
+        
+        # Semantic discovery
+        self.test_query(
+            "Find all messages about Python programming",
+            """
+            MATCH (m:Message)-[:TAGS]->(t:Tag)
+            WHERE ANY(tag IN t.tags WHERE tag CONTAINS "python")
+            RETURN m.content, m.role, t.tags
+            ORDER BY m.timestamp DESC
+            LIMIT 5
+            """
+        )
+        
+        # Find messages with specific sentiment
+        self.test_query(
+            "Find messages with specific sentiment",
+            """
+            MATCH (m:Message)-[:TAGS]->(t:Tag)
+            WHERE t.sentiment = "positive"
+            RETURN m.content, m.role, t.sentiment
+            ORDER BY m.timestamp DESC
+            LIMIT 5
+            """
+        )
+    
+    def test_graph_exploration_queries(self):
+        """Test graph exploration queries."""
+        logger.info("\n🌐 Testing Graph Exploration Queries...")
+        
+        # Get chat with all related data
+        self.test_query(
+            "Get chat with all related data",
+            """
+            MATCH (c:Chat)
+            OPTIONAL MATCH (c)-[:CONTAINS]->(m:Message)
+            OPTIONAL MATCH (m)-[:TAGS]->(t:Tag)
+            OPTIONAL MATCH (m)-[:HAS_CHUNK]->(ch:Chunk)
+            OPTIONAL MATCH (cs:ChatSummary)-[:SUMMARIZES_CHAT]->(c)
+            RETURN c, collect(DISTINCT m) as messages, collect(DISTINCT t) as tags, collect(DISTINCT ch) as chunks, cs
+            LIMIT 3
+            """
+        )
+        
+        # Find similar chats
+        self.test_query(
+            "Find similar chats",
+            """
+            MATCH (c1:Chat)-[:SIMILAR_TO_CHAT_HIGH]-(c2:Chat)
+            RETURN c1.title, c2.title, c2.chat_id
+            LIMIT 5
+            """
+        )
+        
+        # Chat-message-tag full context
+        self.test_query(
+            "Chat-message-tag full context",
+            """
+            MATCH (c:Chat)-[:CONTAINS]->(m:Message)
+            OPTIONAL MATCH (m)-[:TAGS]->(t:Tag)
+            OPTIONAL MATCH (m)-[:HAS_CHUNK]->(ch:Chunk)
+            OPTIONAL MATCH (cs:ChatSummary)-[:SUMMARIZES_CHAT]->(c)
+            RETURN c, m, collect(DISTINCT t) as tags, collect(DISTINCT ch) as chunks, cs
+            LIMIT 3
+            """
+        )
+    
+    def test_debugging_queries(self):
+        """Test debugging queries."""
+        logger.info("\n🔧 Testing Debugging Queries...")
         
         # Test connection
         self.test_query(
@@ -724,13 +1199,13 @@ class Neo4jQueryTester:
             """
         )
         
-        # Verify dual layer integrity
+        # Verify message-chunk links
         self.test_query(
-            "Verify dual layer integrity",
+            "Verify message-chunk links",
             """
-            MATCH (m:Message)-[:HAS_CHUNK]->(chunk:Chunk)
+            MATCH (m:Message)-[:HAS_CHUNK]->(ch:Chunk)
             RETURN count(m) as messages_with_chunks,
-                   count(chunk) as total_chunks
+                   count(ch) as total_chunks
             """
         )
         
@@ -738,213 +1213,16 @@ class Neo4jQueryTester:
         self.test_query(
             "Check semantic layer connections",
             """
-            MATCH (chunk:Chunk)-[:TAGGED_WITH]->(tag:Tag)
-            MATCH (topic:Topic)-[:SUMMARIZES]->(chunk)
-            RETURN count(DISTINCT chunk) as chunks_with_semantic_data
-            """
-        )
-    
-    def test_dual_layer_common_use_cases(self):
-        """Test dual layer common use case queries."""
-        logger.info("\n🎯 Testing Dual Layer Common Use Cases...")
-        
-        # Find chunks about Python (Semantic Layer)
-        self.test_query(
-            "Find chunks about Python (Semantic Layer)",
-            """
-            MATCH (chunk:Chunk)-[:TAGGED_WITH]->(tag:Tag {name: "python"})
-            RETURN chunk.text, tag.name
-            ORDER BY chunk.source_message_id DESC
-            LIMIT 5
-            """
-        )
-        
-        # Find messages with Python chunks (Cross-Layer)
-        self.test_query(
-            "Find messages with Python chunks (Cross-Layer)",
-            """
-            MATCH (m:Message)-[:HAS_CHUNK]->(chunk:Chunk)-[:TAGGED_WITH]->(tag:Tag {name: "python"})
-            RETURN m.content, chunk.text, tag.name
-            LIMIT 5
-            """
-        )
-        
-        # Find chats with similar topics (Semantic Layer)
-        self.test_query(
-            "Find chats with similar topics (Semantic Layer)",
-            """
-            MATCH (c1:Chat)-[:HAS_TOPIC]->(t:Topic)<-[:HAS_TOPIC]-(c2:Chat)
-            WHERE c1.chat_id <> c2.chat_id
-            RETURN c1.title, c2.title, t.name
-            LIMIT 5
-            """
-        )
-        
-        # Most active topics (Semantic Layer)
-        self.test_query(
-            "Most active topics (Semantic Layer)",
-            """
-            MATCH (t:Topic)
-            RETURN t.name, t.size, t.sample_titles
-            ORDER BY t.size DESC
-            LIMIT 5
-            """
-        )
-        
-        # Long conversations (Raw Layer)
-        self.test_query(
-            "Long conversations (>20 messages)",
-            """
-            MATCH (c:Chat)-[:CONTAINS]->(m:Message)
-            WITH c, count(m) as message_count
-            WHERE message_count > 20
-            RETURN c.title, message_count
-            ORDER BY message_count DESC
-            LIMIT 5
-            """
-        )
-        
-        # Messages with most semantic tags (Cross-Layer)
-        self.test_query(
-            "Messages with most semantic tags (Cross-Layer)",
-            """
-            MATCH (m:Message)-[:HAS_CHUNK]->(chunk:Chunk)-[:TAGGED_WITH]->(tag:Tag)
-            WITH m, count(DISTINCT tag) as tag_count
-            RETURN m.content, tag_count
-            ORDER BY tag_count DESC
-            LIMIT 5
-            """
-        )
-        
-        # Messages with specific tags (array-based search)
-        self.test_query(
-            "Messages with specific tags (array-based search)",
-            """
-            MATCH (m:Message)-[:HAS_CHUNK]->(chunk:Chunk)-[:TAGGED_WITH]->(tag:Tag)
-            WHERE tag.name IN ["python", "javascript", "react"]
-            RETURN m.content, tag.name
-            ORDER BY m.timestamp DESC
-            LIMIT 5
-            """
-        )
-        
-        # Conversations with many tags (unique tag counting)
-        self.test_query(
-            "Conversations with many tags (unique tag counting)",
-            """
-            MATCH (c:Chat)-[:CONTAINS]->(m:Message)-[:HAS_CHUNK]->(chunk:Chunk)-[:TAGGED_WITH]->(tag:Tag)
-            WITH c, count(DISTINCT tag) as unique_tags
-            WHERE unique_tags > 5
-            RETURN c.title, unique_tags
-            ORDER BY unique_tags DESC
-            LIMIT 5
-            """
-        )
-        
-        # Get message embeddings (for debugging/similarity)
-        self.test_query(
-            "Get message embeddings (for debugging/similarity)",
-            """
-            MATCH (m:Message)
-            WHERE m.embedding IS NOT NULL
-            RETURN m.message_id, m.content, m.embedding
-            LIMIT 5
-            """
-        )
-    
-    def test_dual_layer_visualization_queries(self):
-        """Test dual layer visualization and UMAP queries."""
-        logger.info("\n🎨 Testing Dual Layer Visualization & UMAP Queries...")
-        
-        # Chats with UMAP positions (Raw Layer)
-        self.test_query(
-            "Chats with UMAP positions (Raw Layer)",
-            """
-            MATCH (c:Chat)
-            WHERE c.x IS NOT NULL AND c.y IS NOT NULL
-            RETURN c.chat_id, c.title, c.x, c.y
-            ORDER BY c.create_time DESC
-            LIMIT 5
-            """
-        )
-        
-        # Topics with UMAP positions (Semantic Layer)
-        self.test_query(
-            "Topics with UMAP positions (Semantic Layer)",
-            """
-            MATCH (t:Topic)
-            WHERE t.x IS NOT NULL AND t.y IS NOT NULL
-            RETURN t.topic_id, t.name, t.size, t.x, t.y
-            ORDER BY t.size DESC
-            LIMIT 5
-            """
-        )
-        
-        # Get chunk embeddings (Chunk Layer)
-        self.test_query(
-            "Get chunk embeddings (Chunk Layer)",
-            """
-            MATCH (chunk:Chunk)
-            WHERE chunk.embedding IS NOT NULL
-            RETURN chunk.chunk_id, chunk.text
-            LIMIT 3
-            """
-        )
-        
-        # Chat-chunk-topic full context (Full dual layer)
-        self.test_query(
-            "Chat-chunk-topic full context (Full dual layer)",
-            """
-            MATCH (c:Chat)-[:CONTAINS]->(m:Message)-[:HAS_CHUNK]->(chunk:Chunk)
-            OPTIONAL MATCH (chunk)-[:TAGGED_WITH]->(tag:Tag)
-            OPTIONAL MATCH (topic:Topic)-[:SUMMARIZES]->(chunk)
-            RETURN c.chat_id, m.message_id, chunk.chunk_id, 
-                   collect(DISTINCT tag.name) as tags, 
-                   collect(DISTINCT topic.name) as topics
-            LIMIT 3
-            """
-        )
-        
-        # Graph UMAP overview (topic-based)
-        self.test_query(
-            "Graph UMAP overview (topic-based)",
-            """
-            MATCH (t:Topic)
-            WHERE t.x IS NOT NULL AND t.y IS NOT NULL
-            RETURN t.name, t.topic_id, t.size, t.x, t.y
-            ORDER BY t.size DESC
-            LIMIT 5
-            """
-        )
-        
-        # All nodes with coordinates
-        self.test_query(
-            "All nodes with coordinates",
-            """
-            MATCH (n)
-            WHERE n.x IS NOT NULL AND n.y IS NOT NULL
-            RETURN labels(n)[0] as node_type, n.x, n.y
-            ORDER BY node_type, n.x
-            LIMIT 10
-            """
-        )
-        
-        # Dual layer graph for visualization
-        self.test_query(
-            "Dual layer graph for visualization",
-            """
-            MATCH (c:Chat)-[:CONTAINS]->(m:Message)-[:HAS_CHUNK]->(chunk:Chunk)
-            OPTIONAL MATCH (chunk)-[:TAGGED_WITH]->(tag:Tag)
-            OPTIONAL MATCH (topic:Topic)-[:SUMMARIZES]->(chunk)
-            RETURN c.chat_id, m.message_id, chunk.chunk_id,
-                   tag.name as tag_name, topic.name as topic_name
-            LIMIT 10
+            MATCH (m:Message)-[:TAGS]->(t:Tag)
+            MATCH (ch:Chunk)-[:HAS_EMBEDDING]->(e:Embedding)
+            RETURN count(DISTINCT m) as messages_with_semantic_data,
+                   count(DISTINCT ch) as chunks_with_embeddings
             """
         )
     
     def run_all_tests(self, parallel=False):
-        """Run all dual layer query tests with optional parallel execution."""
-        logger.info("🚀 Starting Enhanced Dual Layer Neo4j Query Tests...")
+        """Run all query tests with optional parallel execution."""
+        logger.info("🚀 Starting Enhanced Neo4j Query Tests...")
         
         if not self.connect():
             return False
@@ -956,16 +1234,23 @@ class Neo4jQueryTester:
                 self.test_duplicate_and_conflict_detection,
                 self.test_graph_connectivity,
                 self.test_performance_safeguards,
-                self.test_dual_layer_basic_queries,
-                self.test_dual_layer_relationship_queries,
-                self.test_dual_layer_aggregation_queries,
-                self.test_dual_layer_search_queries,
-                self.test_dual_layer_graph_exploration_queries,
-                self.test_dual_layer_advanced_analytics_queries,
-                self.test_dual_layer_statistics_queries,
-                self.test_dual_layer_debugging_queries,
-                self.test_dual_layer_common_use_cases,
-                self.test_dual_layer_visualization_queries
+                self.test_basic_data_exploration_queries,
+                self.test_semantic_analysis_queries,
+                self.test_similarity_queries,
+                self.test_content_discovery_queries,
+                self.test_advanced_analysis_queries,
+                self.test_statistics_and_analytics_queries,
+                self.test_visualization_queries,
+                self.test_practical_use_cases,
+                self.test_quality_analysis_queries,
+                self.test_search_patterns,
+                self.test_additional_statistics_queries,
+                self.test_debugging_queries,
+                # New test functions from enhanced guide
+                self.test_quality_and_completeness_analysis,
+                self.test_performance_and_optimization_queries,
+                self.test_visualization_and_positioning_queries,
+                self.test_search_and_discovery_patterns
             ]
             
             if parallel:
@@ -990,7 +1275,7 @@ class Neo4jQueryTester:
     
     def print_summary(self):
         """Print comprehensive test summary with performance metrics."""
-        logger.info("\n📋 Enhanced Dual Layer Test Summary:")
+        logger.info("\n📋 Enhanced Test Summary:")
         
         total_tests = len(self.test_results)
         passed_tests = len([r for r in self.test_results if r["status"] == "PASS"])
@@ -1018,11 +1303,11 @@ class Neo4jQueryTester:
             logger.info(f"  Slowest query: {max_time:.3f}s")
         
         if success_rate >= 95:
-            logger.info("🎉 Excellent! Enhanced dual layer queries are working correctly.")
+            logger.info("🎉 Excellent! Neo4j queries are working correctly.")
         elif success_rate >= 80:
-            logger.info("⚠️  Good, but some enhanced dual layer queries need attention.")
+            logger.info("⚠️  Good, but some queries need attention.")
         else:
-            logger.error("❌ Many enhanced dual layer queries are failing. Check database setup.")
+            logger.error("❌ Many queries are failing. Check database setup.")
     
     def export_results(self, output_file="test_results.json"):
         """Export test results to JSON for CI/CD integration."""
@@ -1046,7 +1331,7 @@ class Neo4jQueryTester:
 if __name__ == "__main__":
     import argparse
     
-    parser = argparse.ArgumentParser(description="Enhanced Neo4j Dual Layer Query Tester")
+    parser = argparse.ArgumentParser(description="Enhanced Neo4j Query Tester")
     parser.add_argument("--parallel", action="store_true", help="Run tests in parallel")
     parser.add_argument("--export", type=str, help="Export results to JSON file")
     

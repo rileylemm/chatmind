@@ -471,7 +471,8 @@ Respond with JSON only:
     
     def _summarize_chat(self, chat: Dict) -> Optional[Dict]:
         """Summarize a single chat conversation."""
-        chat_id = chat.get('chat_id', 'unknown')
+        # Use content_hash as chat_id, fallback to 'unknown' if not available
+        chat_id = chat.get('content_hash', chat.get('chat_id', 'unknown'))
         messages = chat.get('messages', [])
         
         logger.info(f"Summarizing chat {chat_id} with {len(messages)} messages")
@@ -486,7 +487,8 @@ Respond with JSON only:
     
     def _summarize_chat_single_pass(self, chat: Dict) -> Optional[Dict]:
         """Summarize chat using single pass (original method)."""
-        chat_id = chat.get('chat_id', 'unknown')
+        # Use content_hash as chat_id, fallback to 'unknown' if not available
+        chat_id = chat.get('content_hash', chat.get('chat_id', 'unknown'))
         messages = chat.get('messages', [])
         
         # Create prompt
@@ -530,7 +532,8 @@ Respond with JSON only:
     
     def _summarize_chat_chunked(self, chat: Dict) -> Optional[Dict]:
         """Summarize chat using chunked approach for large conversations."""
-        chat_id = chat.get('chat_id', 'unknown')
+        # Use content_hash as chat_id, fallback to 'unknown' if not available
+        chat_id = chat.get('content_hash', chat.get('chat_id', 'unknown'))
         messages = chat.get('messages', [])
         
         # Create chunks
@@ -614,7 +617,8 @@ Respond with JSON only:
         processed_chat_hashes = set()
         
         for chat in chats:
-            chat_id = chat.get('chat_id', 'unknown')
+            # Use content_hash as chat_id, fallback to 'unknown' if not available
+            chat_id = chat.get('content_hash', chat.get('chat_id', 'unknown'))
             messages = chat.get('messages', [])
             
             # Generate chat hash

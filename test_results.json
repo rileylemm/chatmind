@@ -1,517 +1,477 @@
 {
-  "timestamp": 1753508762.8000882,
+  "timestamp": 1754127514.691207,
   "summary": {
-    "total_tests": 72,
-    "passed": 72,
-    "failed": 0,
-    "success_rate": 100.0
+    "total_tests": 67,
+    "passed": 66,
+    "failed": 1,
+    "success_rate": 98.50746268656717
   },
   "performance_metrics": {
-    "Query non-existent nodes": 0.056652069091796875,
-    "Query with no matches": 0.22921204566955566,
-    "Query with null properties": 0.03475189208984375,
-    "Query with empty collections": 0.10235023498535156,
-    "Node type properties validation": 0.12558293342590332,
-    "Critical properties validation": 0.04550814628601074,
-    "Chunk properties validation": 0.02154397964477539,
-    "Chat properties validation": 0.010659217834472656,
-    "Duplicate message IDs": 0.05579376220703125,
-    "Duplicate chunk IDs": 0.07957291603088379,
-    "Duplicate chat IDs": 0.029278278350830078,
-    "Orphaned messages": 0.07429695129394531,
-    "Orphaned chunks": 0.03681492805480957,
-    "Chat-Message connectivity": 0.02443218231201172,
-    "Message-Chunk connectivity": 0.028686046600341797,
-    "Chunk-Tag connectivity": 0.04590892791748047,
-    "Topic-Chunk connectivity": 0.015798091888427734,
-    "Full path connectivity (Chat -> Message -> Chunk -> Tag)": 0.034406185150146484,
-    "Fast node count query": 0.010172128677368164,
-    "Complex aggregation performance": 0.0760812759399414,
-    "Large result set handling": 0.024638891220092773,
-    "Get all chats (Raw Layer)": 0.002349853515625,
-    "Get all messages (Raw Layer)": 0.015530109405517578,
-    "Get all chunks (Chunk Layer)": 0.010125160217285156,
-    "Get all topics (Semantic Layer)": 0.0015530586242675781,
-    "Get all tags (Semantic Layer)": 0.0010559558868408203,
-    "Get messages in a chat (Raw Layer)": 0.022258996963500977,
-    "Get chunks for messages (Cross-Layer)": 0.0013289451599121094,
-    "Get tags for chunks (Chunk to Semantic)": 0.0009870529174804688,
-    "Get topics for chunks (Chunk to Semantic)": 0.0009903907775878906,
-    "Full dual layer traversal: Message -> Chunk -> Tag": 0.0010869503021240234,
-    "Count messages per chat (Raw Layer)": 0.01442408561706543,
-    "Count chunks per message (Cross-Layer)": 0.04280805587768555,
-    "Count tags per chunk (Chunk Layer)": 0.05966806411743164,
-    "Most popular tags (Semantic Layer)": 0.0015108585357666016,
-    "Topic distribution (Semantic Layer)": 0.0011370182037353516,
-    "Search messages by content (Raw Layer)": 0.4454329013824463,
-    "Search chunks by content (Chunk Layer)": 0.0020678043365478516,
-    "Search by tag (Semantic Layer)": 0.0014319419860839844,
-    "Search by topic (Semantic Layer)": 0.002457141876220703,
-    "Cross-layer search: Find messages with specific tags": 0.0013859272003173828,
-    "Get chat with all related data (Full dual layer)": 0.39290595054626465,
-    "Find similar chats (Semantic Layer)": 0.002062082290649414,
-    "Get message with all its chunks and semantic data": 0.5449337959289551,
-    "Topic distribution with percentage (Semantic Layer)": 0.00548100471496582,
-    "Tag co-occurrence on chunks (Chunk Layer)": 0.17987418174743652,
-    "Conversation flow analysis (Raw Layer)": 0.05682206153869629,
-    "Chunk analysis per message (Cross-Layer)": 0.017593860626220703,
-    "Semantic density analysis (Cross-Layer)": 0.04247283935546875,
-    "Node counts by type": 0.06335115432739258,
-    "Relationship counts by type": 0.07745003700256348,
-    "Average messages per chat (Raw Layer)": 0.010715007781982422,
-    "Average chunks per message (Cross-Layer)": 0.015908002853393555,
-    "Average tags per chunk (Chunk Layer)": 0.02027106285095215,
-    "Test connection": 0.0008120536804199219,
-    "Check data exists": 0.015502691268920898,
-    "Check relationships": 0.034607648849487305,
-    "Verify dual layer integrity": 0.015024900436401367,
-    "Check semantic layer connections": 0.012420892715454102,
-    "Find chunks about Python (Semantic Layer)": 0.0022399425506591797,
-    "Find messages with Python chunks (Cross-Layer)": 0.0010378360748291016,
-    "Find chats with similar topics (Semantic Layer)": 0.0014331340789794922,
-    "Most active topics (Semantic Layer)": 0.0016131401062011719,
-    "Long conversations (>20 messages)": 0.010474920272827148,
-    "Messages with most semantic tags (Cross-Layer)": 0.04071211814880371,
-    "Chats with UMAP positions (Raw Layer)": 0.0029850006103515625,
-    "Topics with UMAP positions (Semantic Layer)": 0.0017580986022949219,
-    "Get chunk embeddings (Chunk Layer)": 0.0011489391326904297,
-    "Chat-chunk-topic full context (Full dual layer)": 0.13575983047485352,
-    "Graph UMAP overview (topic-based)": 0.0019598007202148438,
-    "All nodes with coordinates": 0.009958028793334961,
-    "Dual layer graph for visualization": 0.0020279884338378906
+    "Query non-existent nodes": 0.003666400909423828,
+    "Query with no matches": 0.15455007553100586,
+    "Query with null properties": 0.012236833572387695,
+    "Query with empty collections": 0.011087894439697266,
+    "Node type properties validation": 0.2933809757232666,
+    "Critical properties validation": 0.014552116394042969,
+    "Chunk properties validation": 0.024638891220092773,
+    "Chat properties validation": 0.0021419525146484375,
+    "Duplicate message IDs": 0.04484987258911133,
+    "Duplicate chunk IDs": 0.12163376808166504,
+    "Duplicate chat IDs": 0.002428770065307617,
+    "Orphaned messages": 0.022124052047729492,
+    "Orphaned chunks": 0.023190021514892578,
+    "Chat-Message connectivity": 0.008526802062988281,
+    "Message-Chunk connectivity": 0.04188704490661621,
+    "Chunk-Embedding connectivity": 0.06748008728027344,
+    "Message-Tag connectivity": 0.005760908126831055,
+    "Cluster-Chunk connectivity": 0.008249998092651367,
+    "Full path connectivity (Chat -> Message -> Chunk -> Embedding)": 0.001341104507446289,
+    "Fast node count query": 0.0010762214660644531,
+    "Complex aggregation performance": 0.040193796157836914,
+    "Large result set handling": 0.022223949432373047,
+    "Get all chats with message counts": 0.005642890930175781,
+    "Get messages in a chat": 0.012912273406982422,
+    "Get chunks for a message": 0.0012459754943847656,
+    "Get embeddings for chunks": 0.001168966293334961,
+    "Get messages with tags": 0.005483865737915039,
+    "Find messages by domain": 0.00834512710571289,
+    "Get cluster summaries": 0.0021810531616210938,
+    "Get chat summaries": 0.0014138221740722656,
+    "Find similar chats": 0.0017428398132324219,
+    "Find similar clusters": 0.0010387897491455078,
+    "Search messages by content": 0.1920640468597412,
+    "Find messages by tags": 0.010052919387817383,
+    "Get messages by sentiment": 0.009505033493041992,
+    "Get complete message context": 0.7676880359649658,
+    "Get chat with full analysis": 0.06796622276306152,
+    "Get cluster analysis": 0.015600919723510742,
+    "Node counts": 0.025661945343017578,
+    "Relationship counts": 0.03931283950805664,
+    "Average chunks per message": 0.015573978424072266,
+    "Tag distribution": 0.006175041198730469,
+    "Domain distribution": 0.005527019500732422,
+    "Chats with positions": 0.0027310848236083984,
+    "Clusters with positions": 0.0022132396697998047,
+    "Embeddings for visualization": 0.0022110939025878906,
+    "Find all messages about Python programming": 0.008516788482666016,
+    "Find messages with specific sentiment": 0.00832509994506836,
+    "Get semantic breakdown of a conversation": 0.06695199012756348,
+    "Find semantically similar conversations": 0.0019190311431884766,
+    "Find conversations with rich semantic content": 0.03853607177734375,
+    "Find clusters with the most diverse content": 0.053624868392944336,
+    "Search by tag": 0.008412837982177734,
+    "Search by domain": 0.008477926254272461,
+    "Get chat with all related data": 0.012259960174560547,
+    "Chat-message-tag full context": 0.0023910999298095703,
+    "Average messages per chat": 0.005999088287353516,
+    "Test connection": 0.0010449886322021484,
+    "Check data exists": 0.024483919143676758,
+    "Check relationships": 0.039563894271850586,
+    "Verify message-chunk links": 0.01685476303100586,
+    "Check semantic layer connections": 0.006248950958251953
   },
   "detailed_results": [
     {
       "name": "Query non-existent nodes",
       "status": "PASS",
       "result_count": 1,
-      "execution_time": 0.056652069091796875
+      "execution_time": 0.003666400909423828
     },
     {
       "name": "Query with no matches",
       "status": "PASS",
       "result_count": 0,
-      "execution_time": 0.22921204566955566
+      "execution_time": 0.15455007553100586
     },
     {
       "name": "Query with null properties",
       "status": "PASS",
       "result_count": 1,
-      "execution_time": 0.03475189208984375
+      "execution_time": 0.012236833572387695
     },
     {
       "name": "Query with empty collections",
       "status": "PASS",
       "result_count": 1,
-      "execution_time": 0.10235023498535156
+      "execution_time": 0.011087894439697266
     },
     {
       "name": "Node type properties validation",
       "status": "PASS",
-      "result_count": 29,
-      "execution_time": 0.12558293342590332
+      "result_count": 61,
+      "execution_time": 0.2933809757232666
     },
     {
       "name": "Critical properties validation",
       "status": "PASS",
       "result_count": 1,
-      "execution_time": 0.04550814628601074
+      "execution_time": 0.014552116394042969
     },
     {
       "name": "Chunk properties validation",
       "status": "PASS",
       "result_count": 1,
-      "execution_time": 0.02154397964477539
+      "execution_time": 0.024638891220092773
     },
     {
       "name": "Chat properties validation",
       "status": "PASS",
       "result_count": 1,
-      "execution_time": 0.010659217834472656
+      "execution_time": 0.0021419525146484375
     },
     {
       "name": "Duplicate message IDs",
       "status": "PASS",
       "result_count": 0,
-      "execution_time": 0.05579376220703125
+      "execution_time": 0.04484987258911133
     },
     {
       "name": "Duplicate chunk IDs",
       "status": "PASS",
       "result_count": 0,
-      "execution_time": 0.07957291603088379
+      "execution_time": 0.12163376808166504
     },
     {
       "name": "Duplicate chat IDs",
       "status": "PASS",
       "result_count": 0,
-      "execution_time": 0.029278278350830078
+      "execution_time": 0.002428770065307617
     },
     {
       "name": "Orphaned messages",
       "status": "PASS",
       "result_count": 1,
-      "execution_time": 0.07429695129394531
+      "execution_time": 0.022124052047729492
     },
     {
       "name": "Orphaned chunks",
       "status": "PASS",
       "result_count": 1,
-      "execution_time": 0.03681492805480957
+      "execution_time": 0.023190021514892578
     },
     {
       "name": "Chat-Message connectivity",
       "status": "PASS",
       "result_count": 5,
-      "execution_time": 0.02443218231201172
+      "execution_time": 0.008526802062988281
     },
     {
       "name": "Message-Chunk connectivity",
       "status": "PASS",
       "result_count": 5,
-      "execution_time": 0.028686046600341797
+      "execution_time": 0.04188704490661621
     },
     {
-      "name": "Chunk-Tag connectivity",
+      "name": "Chunk-Embedding connectivity",
       "status": "PASS",
       "result_count": 5,
-      "execution_time": 0.04590892791748047
+      "execution_time": 0.06748008728027344
     },
     {
-      "name": "Topic-Chunk connectivity",
+      "name": "Message-Tag connectivity",
       "status": "PASS",
-      "result_count": 5,
-      "execution_time": 0.015798091888427734
+      "result_count": 0,
+      "execution_time": 0.005760908126831055
     },
     {
-      "name": "Full path connectivity (Chat -> Message -> Chunk -> Tag)",
+      "name": "Cluster-Chunk connectivity",
       "status": "PASS",
       "result_count": 5,
-      "execution_time": 0.034406185150146484
+      "execution_time": 0.008249998092651367
+    },
+    {
+      "name": "Full path connectivity (Chat -> Message -> Chunk -> Embedding)",
+      "status": "PASS",
+      "result_count": 5,
+      "execution_time": 0.001341104507446289
     },
     {
       "name": "Fast node count query",
       "status": "PASS",
       "result_count": 1,
-      "execution_time": 0.010172128677368164
+      "execution_time": 0.0010762214660644531
     },
     {
       "name": "Complex aggregation performance",
       "status": "PASS",
       "result_count": 1,
-      "execution_time": 0.0760812759399414
+      "execution_time": 0.040193796157836914
     },
     {
       "name": "Large result set handling",
       "status": "PASS",
       "result_count": 1000,
-      "execution_time": 0.024638891220092773
+      "execution_time": 0.022223949432373047
     },
     {
-      "name": "Get all chats (Raw Layer)",
+      "name": "Get all chats with message counts",
       "status": "PASS",
       "result_count": 5,
-      "execution_time": 0.002349853515625
+      "execution_time": 0.005642890930175781
     },
     {
-      "name": "Get all messages (Raw Layer)",
+      "name": "Get messages in a chat",
       "status": "PASS",
       "result_count": 5,
-      "execution_time": 0.015530109405517578
+      "execution_time": 0.012912273406982422
     },
     {
-      "name": "Get all chunks (Chunk Layer)",
+      "name": "Get chunks for a message",
       "status": "PASS",
       "result_count": 5,
-      "execution_time": 0.010125160217285156
+      "execution_time": 0.0012459754943847656
     },
     {
-      "name": "Get all topics (Semantic Layer)",
+      "name": "Get embeddings for chunks",
       "status": "PASS",
       "result_count": 5,
-      "execution_time": 0.0015530586242675781
+      "execution_time": 0.001168966293334961
     },
     {
-      "name": "Get all tags (Semantic Layer)",
-      "status": "PASS",
-      "result_count": 5,
-      "execution_time": 0.0010559558868408203
-    },
-    {
-      "name": "Get messages in a chat (Raw Layer)",
-      "status": "PASS",
-      "result_count": 5,
-      "execution_time": 0.022258996963500977
-    },
-    {
-      "name": "Get chunks for messages (Cross-Layer)",
-      "status": "PASS",
-      "result_count": 5,
-      "execution_time": 0.0013289451599121094
-    },
-    {
-      "name": "Get tags for chunks (Chunk to Semantic)",
-      "status": "PASS",
-      "result_count": 5,
-      "execution_time": 0.0009870529174804688
-    },
-    {
-      "name": "Get topics for chunks (Chunk to Semantic)",
-      "status": "PASS",
-      "result_count": 5,
-      "execution_time": 0.0009903907775878906
-    },
-    {
-      "name": "Full dual layer traversal: Message -> Chunk -> Tag",
-      "status": "PASS",
-      "result_count": 5,
-      "execution_time": 0.0010869503021240234
-    },
-    {
-      "name": "Count messages per chat (Raw Layer)",
-      "status": "PASS",
-      "result_count": 5,
-      "execution_time": 0.01442408561706543
-    },
-    {
-      "name": "Count chunks per message (Cross-Layer)",
-      "status": "PASS",
-      "result_count": 5,
-      "execution_time": 0.04280805587768555
-    },
-    {
-      "name": "Count tags per chunk (Chunk Layer)",
-      "status": "PASS",
-      "result_count": 5,
-      "execution_time": 0.05966806411743164
-    },
-    {
-      "name": "Most popular tags (Semantic Layer)",
-      "status": "PASS",
-      "result_count": 10,
-      "execution_time": 0.0015108585357666016
-    },
-    {
-      "name": "Topic distribution (Semantic Layer)",
-      "status": "PASS",
-      "result_count": 5,
-      "execution_time": 0.0011370182037353516
-    },
-    {
-      "name": "Search messages by content (Raw Layer)",
-      "status": "PASS",
-      "result_count": 5,
-      "execution_time": 0.4454329013824463
-    },
-    {
-      "name": "Search chunks by content (Chunk Layer)",
-      "status": "PASS",
-      "result_count": 5,
-      "execution_time": 0.0020678043365478516
-    },
-    {
-      "name": "Search by tag (Semantic Layer)",
-      "status": "PASS",
-      "result_count": 5,
-      "execution_time": 0.0014319419860839844
-    },
-    {
-      "name": "Search by topic (Semantic Layer)",
+      "name": "Get messages with tags",
       "status": "PASS",
       "result_count": 0,
-      "execution_time": 0.002457141876220703
+      "execution_time": 0.005483865737915039
     },
     {
-      "name": "Cross-layer search: Find messages with specific tags",
-      "status": "PASS",
-      "result_count": 5,
-      "execution_time": 0.0013859272003173828
-    },
-    {
-      "name": "Get chat with all related data (Full dual layer)",
-      "status": "PASS",
-      "result_count": 3,
-      "execution_time": 0.39290595054626465
-    },
-    {
-      "name": "Find similar chats (Semantic Layer)",
+      "name": "Find messages by domain",
       "status": "PASS",
       "result_count": 0,
-      "execution_time": 0.002062082290649414
+      "execution_time": 0.00834512710571289
     },
     {
-      "name": "Get message with all its chunks and semantic data",
+      "name": "Get cluster summaries",
+      "status": "PASS",
+      "result_count": 5,
+      "execution_time": 0.0021810531616210938
+    },
+    {
+      "name": "Get chat summaries",
+      "status": "PASS",
+      "result_count": 5,
+      "execution_time": 0.0014138221740722656
+    },
+    {
+      "name": "Find similar chats",
+      "status": "PASS",
+      "result_count": 5,
+      "execution_time": 0.001338958740234375
+    },
+    {
+      "name": "Find similar clusters",
+      "status": "PASS",
+      "result_count": 0,
+      "execution_time": 0.0010387897491455078
+    },
+    {
+      "name": "Search messages by content",
+      "status": "PASS",
+      "result_count": 5,
+      "execution_time": 0.20663118362426758
+    },
+    {
+      "name": "Find messages by tags",
+      "status": "PASS",
+      "result_count": 0,
+      "execution_time": 0.010052919387817383
+    },
+    {
+      "name": "Get messages by sentiment",
+      "status": "PASS",
+      "result_count": 0,
+      "execution_time": 0.009505033493041992
+    },
+    {
+      "name": "Get complete message context",
       "status": "PASS",
       "result_count": 3,
-      "execution_time": 0.5449337959289551
+      "execution_time": 0.7676880359649658
     },
     {
-      "name": "Topic distribution with percentage (Semantic Layer)",
+      "name": "Get chat with full analysis",
       "status": "PASS",
-      "result_count": 5,
-      "execution_time": 0.00548100471496582
+      "result_count": 3,
+      "execution_time": 0.06796622276306152
     },
     {
-      "name": "Tag co-occurrence on chunks (Chunk Layer)",
+      "name": "Get cluster analysis",
       "status": "PASS",
-      "result_count": 5,
-      "execution_time": 0.17987418174743652
+      "result_count": 3,
+      "execution_time": 0.015600919723510742
     },
     {
-      "name": "Conversation flow analysis (Raw Layer)",
+      "name": "Node counts",
       "status": "PASS",
-      "result_count": 5,
-      "execution_time": 0.05682206153869629
+      "result_count": 8,
+      "execution_time": 0.025802135467529297
     },
     {
-      "name": "Chunk analysis per message (Cross-Layer)",
+      "name": "Relationship counts",
       "status": "PASS",
-      "result_count": 5,
-      "execution_time": 0.017593860626220703
+      "result_count": 8,
+      "execution_time": 0.043695926666259766
     },
     {
-      "name": "Semantic density analysis (Cross-Layer)",
-      "status": "PASS",
-      "result_count": 5,
-      "execution_time": 0.04247283935546875
-    },
-    {
-      "name": "Node counts by type",
-      "status": "PASS",
-      "result_count": 5,
-      "execution_time": 0.06335115432739258
-    },
-    {
-      "name": "Relationship counts by type",
-      "status": "PASS",
-      "result_count": 5,
-      "execution_time": 0.07745003700256348
-    },
-    {
-      "name": "Average messages per chat (Raw Layer)",
+      "name": "Average chunks per message",
       "status": "PASS",
       "result_count": 1,
-      "execution_time": 0.010715007781982422
+      "execution_time": 0.015573978424072266
     },
     {
-      "name": "Average chunks per message (Cross-Layer)",
+      "name": "Tag distribution",
       "status": "PASS",
-      "result_count": 1,
-      "execution_time": 0.015908002853393555
+      "result_count": 0,
+      "execution_time": 0.006175041198730469
     },
     {
-      "name": "Average tags per chunk (Chunk Layer)",
+      "name": "Domain distribution",
+      "status": "PASS",
+      "result_count": 0,
+      "execution_time": 0.005527019500732422
+    },
+    {
+      "name": "Chats with positions",
+      "status": "PASS",
+      "result_count": 5,
+      "execution_time": 0.0027310848236083984
+    },
+    {
+      "name": "Clusters with positions",
+      "status": "PASS",
+      "result_count": 5,
+      "execution_time": 0.0022132396697998047
+    },
+    {
+      "name": "Embeddings for visualization",
+      "status": "PASS",
+      "result_count": 5,
+      "execution_time": 0.0022110939025878906
+    },
+    {
+      "name": "Find all messages about Python programming",
+      "status": "PASS",
+      "result_count": 0,
+      "execution_time": 0.008516788482666016
+    },
+    {
+      "name": "Find messages with specific sentiment",
+      "status": "PASS",
+      "result_count": 0,
+      "execution_time": 0.00832509994506836
+    },
+    {
+      "name": "Get semantic breakdown of a conversation",
+      "status": "PASS",
+      "result_count": 3,
+      "execution_time": 0.06695199012756348
+    },
+    {
+      "name": "Find semantically similar conversations",
+      "status": "PASS",
+      "result_count": 5,
+      "execution_time": 0.0019190311431884766
+    },
+    {
+      "name": "Find conversations with rich semantic content",
+      "status": "PASS",
+      "result_count": 0,
+      "execution_time": 0.03853607177734375
+    },
+    {
+      "name": "Find clusters with the most diverse content",
+      "status": "PASS",
+      "result_count": 5,
+      "execution_time": 0.053624868392944336
+    },
+    {
+      "name": "Search messages by content",
+      "status": "PASS",
+      "result_count": 5,
+      "execution_time": 0.1920640468597412
+    },
+    {
+      "name": "Search by tag",
+      "status": "PASS",
+      "result_count": 0,
+      "execution_time": 0.008412837982177734
+    },
+    {
+      "name": "Search by domain",
+      "status": "PASS",
+      "result_count": 0,
+      "execution_time": 0.008477926254272461
+    },
+    {
+      "name": "Get chat with all related data",
+      "status": "PASS",
+      "result_count": 3,
+      "execution_time": 0.012259960174560547
+    },
+    {
+      "name": "Find similar chats",
+      "status": "PASS",
+      "result_count": 5,
+      "execution_time": 0.0017428398132324219
+    },
+    {
+      "name": "Chat-message-tag full context",
+      "status": "PASS",
+      "result_count": 3,
+      "execution_time": 0.0023910999298095703
+    },
+    {
+      "name": "Node counts",
+      "status": "PASS",
+      "result_count": 8,
+      "execution_time": 0.025661945343017578
+    },
+    {
+      "name": "Relationship counts",
+      "status": "PASS",
+      "result_count": 8,
+      "execution_time": 0.03931283950805664
+    },
+    {
+      "name": "Average messages per chat",
       "status": "PASS",
       "result_count": 1,
-      "execution_time": 0.02027106285095215
+      "execution_time": 0.005999088287353516
+    },
+    {
+      "name": "Tag distribution with percentage",
+      "status": "FAIL",
+      "error": "{code: Neo.ClientError.Statement.SyntaxError} {message: Invalid input 'OVER': expected an expression, ',', 'AS', 'ORDER BY', 'CALL', 'CREATE', 'LOAD CSV', 'DELETE', 'DETACH', 'FINISH', 'FOREACH', 'INSERT', 'LIMIT', 'MATCH', 'MERGE', 'NODETACH', 'OFFSET', 'OPTIONAL', 'REMOVE', 'RETURN', 'SET', 'SKIP', 'UNION', 'UNWIND', 'USE', 'WHERE', 'WITH' or <EOF> (line 5, column 53 (offset: 179))\n\"            WITH tag, usage_count, sum(usage_count) OVER () as total_usage\"\n                                                     ^}",
+      "execution_time": 0.023590803146362305
     },
     {
       "name": "Test connection",
       "status": "PASS",
       "result_count": 1,
-      "execution_time": 0.0008120536804199219
+      "execution_time": 0.0010449886322021484
     },
     {
       "name": "Check data exists",
       "status": "PASS",
-      "result_count": 5,
-      "execution_time": 0.015502691268920898
+      "result_count": 8,
+      "execution_time": 0.024483919143676758
     },
     {
       "name": "Check relationships",
       "status": "PASS",
-      "result_count": 5,
-      "execution_time": 0.034607648849487305
+      "result_count": 8,
+      "execution_time": 0.039563894271850586
     },
     {
-      "name": "Verify dual layer integrity",
+      "name": "Verify message-chunk links",
       "status": "PASS",
       "result_count": 1,
-      "execution_time": 0.015024900436401367
+      "execution_time": 0.01685476303100586
     },
     {
       "name": "Check semantic layer connections",
       "status": "PASS",
       "result_count": 1,
-      "execution_time": 0.012420892715454102
-    },
-    {
-      "name": "Find chunks about Python (Semantic Layer)",
-      "status": "PASS",
-      "result_count": 5,
-      "execution_time": 0.0022399425506591797
-    },
-    {
-      "name": "Find messages with Python chunks (Cross-Layer)",
-      "status": "PASS",
-      "result_count": 5,
-      "execution_time": 0.0010378360748291016
-    },
-    {
-      "name": "Find chats with similar topics (Semantic Layer)",
-      "status": "PASS",
-      "result_count": 5,
-      "execution_time": 0.0014331340789794922
-    },
-    {
-      "name": "Most active topics (Semantic Layer)",
-      "status": "PASS",
-      "result_count": 5,
-      "execution_time": 0.0016131401062011719
-    },
-    {
-      "name": "Long conversations (>20 messages)",
-      "status": "PASS",
-      "result_count": 5,
-      "execution_time": 0.010474920272827148
-    },
-    {
-      "name": "Messages with most semantic tags (Cross-Layer)",
-      "status": "PASS",
-      "result_count": 5,
-      "execution_time": 0.04071211814880371
-    },
-    {
-      "name": "Chats with UMAP positions (Raw Layer)",
-      "status": "PASS",
-      "result_count": 0,
-      "execution_time": 0.0029850006103515625
-    },
-    {
-      "name": "Topics with UMAP positions (Semantic Layer)",
-      "status": "PASS",
-      "result_count": 0,
-      "execution_time": 0.0017580986022949219
-    },
-    {
-      "name": "Get chunk embeddings (Chunk Layer)",
-      "status": "PASS",
-      "result_count": 3,
-      "execution_time": 0.0011489391326904297
-    },
-    {
-      "name": "Chat-chunk-topic full context (Full dual layer)",
-      "status": "PASS",
-      "result_count": 3,
-      "execution_time": 0.13575983047485352
-    },
-    {
-      "name": "Graph UMAP overview (topic-based)",
-      "status": "PASS",
-      "result_count": 0,
-      "execution_time": 0.0019598007202148438
-    },
-    {
-      "name": "All nodes with coordinates",
-      "status": "PASS",
-      "result_count": 0,
-      "execution_time": 0.009958028793334961
-    },
-    {
-      "name": "Dual layer graph for visualization",
-      "status": "PASS",
-      "result_count": 10,
-      "execution_time": 0.0020279884338378906
+      "execution_time": 0.006248950958251953
     }
   ]
 }

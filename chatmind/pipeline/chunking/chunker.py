@@ -35,14 +35,19 @@ class ChatChunker:
         
     def _generate_chunk_hash(self, chunk: Dict) -> str:
         """Generate a hash for a chunk to track if it's been processed."""
-        # Create a normalized version for hashing
-        normalized_chunk = {
-            'content': chunk.get('content', ''),
-            'chat_id': chunk.get('chat_id', ''),
-            'message_ids': chunk.get('message_ids', []),
-            'role': chunk.get('role', '')
+        content_str = json.dumps(chunk, sort_keys=True)
+        return hashlib.sha256(content_str.encode()).hexdigest()
+    
+    def _generate_message_hash(self, message: Dict) -> str:
+        """Generate a hash for a message that matches the tagging step's hash generation."""
+        # Create a normalized version for hashing that matches the tagging step
+        normalized_message = {
+            'content': message.get('content', ''),
+            'chat_id': message.get('chat_id', ''),
+            'message_id': message.get('id', ''),
+            'role': message.get('role', '')
         }
-        content = json.dumps(normalized_chunk, sort_keys=True)
+        content = json.dumps(normalized_message, sort_keys=True)
         return hashlib.sha256(content.encode()).hexdigest()
     
     def _load_processed_chunk_hashes(self) -> Set[str]:
@@ -105,42 +110,37 @@ class ChatChunker:
         return chats
     
     def _create_semantic_chunks(self, messages: List[Dict], chat_id: str) -> List[Dict]:
-        """Create semantic chunks from messages using token-based chunking."""
+        """Create semantic chunks from messages using simple text segmentation."""
         chunks = []
         
-        # Get tokenizer from the embedding model we'll use
-        try:
-            from sentence_transformers import SentenceTransformer
-            model = SentenceTransformer("all-MiniLM-L6-v2")
-            tokenizer = model.tokenizer
-            max_tokens = 512  # Standard limit for sentence-transformers
-        except ImportError:
-            # Fallback to character-based estimation if sentence-transformers not available
-            tokenizer = None
-            max_tokens = 2000  # Rough character estimate
+        # Use simple character-based estimation for chunking
+        # This avoids loading heavy embedding models in the chunking step
+        max_chars = 2000  # Conservative character limit for chunks
         
-        def count_tokens(text: str) -> int:
-            """Count tokens in text."""
-            if tokenizer:
-                return len(tokenizer.encode(text))
-            else:
-                # Rough estimation: 1 token ≈ 4 characters
-                return len(text) // 4
+        def count_chars(text: str) -> int:
+            """Count characters in text."""
+            return len(text)
         
         def split_message_into_chunks(message: Dict, message_index: int) -> List[Dict]:
             """Split a single message into chunks if it's too long."""
-            content = message.get('content', '').strip()
-            if not content:
-                return []
+            content = message.get('content', '')
             
-            # Only process user and assistant messages
+            # Skip non-user/assistant messages
             if message.get('role') not in ['user', 'assistant']:
                 return []
             
-            message_tokens = count_tokens(content)
+            message_chars = count_chars(content)
+            
+            # Generate message hash that matches tagging step
+            # Add chat_id to message for hash generation
+            message_with_chat_id = {
+                **message,
+                'chat_id': chat_id
+            }
+            message_hash = self._generate_message_hash(message_with_chat_id)
             
             # If message fits in one chunk, return it as is
-            if message_tokens <= max_tokens:
+            if message_chars <= max_chars:
                 chunk = {
                     'chunk_id': f"{chat_id}_msg_{message_index}_chunk_0",
                     'chat_id': chat_id,
@@ -148,7 +148,8 @@ class ChatChunker:
                     'content': content,
                     'message_ids': [message.get('id', '')],
                     'role': message.get('role'),
-                    'token_count': message_tokens,
+                    'char_count': message_chars,
+                    'message_hash': message_hash,  # Add message hash
                     'chunk_hash': self._generate_chunk_hash({
                         'content': content,
                         'chat_id': chat_id,
@@ -168,18 +169,18 @@ class ChatChunker:
             
             if not sentences:
                 # Fallback to character-based splitting
-                sentences = [content[i:i+max_tokens*4] for i in range(0, len(content), max_tokens*4)]
+                sentences = [content[i:i+max_chars] for i in range(0, len(content), max_chars)]
             
             message_chunks = []
             current_chunk_content = ""
-            current_chunk_tokens = 0
+            current_chunk_chars = 0
             chunk_index = 0
             
             for sentence in sentences:
-                sentence_tokens = count_tokens(sentence)
+                sentence_chars = count_chars(sentence)
                 
                 # If adding this sentence would exceed the limit, start a new chunk
-                if current_chunk_tokens + sentence_tokens > max_tokens and current_chunk_content:
+                if current_chunk_chars + sentence_chars > max_chars and current_chunk_content:
                     # Save current chunk
                     chunk = {
                         'chunk_id': f"{chat_id}_msg_{message_index}_chunk_{chunk_index}",
@@ -188,7 +189,8 @@ class ChatChunker:
                         'content': current_chunk_content.strip(),
                         'message_ids': [message.get('id', '')],
                         'role': message.get('role'),
-                        'token_count': current_chunk_tokens,
+                        'char_count': current_chunk_chars,
+                        'message_hash': message_hash, # Add message hash to chunk
                         'chunk_hash': self._generate_chunk_hash({
                             'content': current_chunk_content.strip(),
                             'chat_id': chat_id,
@@ -200,7 +202,7 @@ class ChatChunker:
                     
                     # Start new chunk
                     current_chunk_content = sentence
-                    current_chunk_tokens = sentence_tokens
+                    current_chunk_chars = sentence_chars
                     chunk_index += 1
                 else:
                     # Add to current chunk
@@ -208,7 +210,7 @@ class ChatChunker:
                         current_chunk_content += ". " + sentence
                     else:
                         current_chunk_content = sentence
-                    current_chunk_tokens += sentence_tokens
+                    current_chunk_chars += sentence_chars
             
             # Don't forget the last chunk
             if current_chunk_content:
@@ -219,7 +221,8 @@ class ChatChunker:
                     'content': current_chunk_content.strip(),
                     'message_ids': [message.get('id', '')],
                     'role': message.get('role'),
-                    'token_count': current_chunk_tokens,
+                    'char_count': current_chunk_chars,
+                    'message_hash': message_hash, # Add message hash to chunk
                     'chunk_hash': self._generate_chunk_hash({
                         'content': current_chunk_content.strip(),
                         'chat_id': chat_id,

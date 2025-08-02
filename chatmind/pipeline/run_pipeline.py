@@ -26,6 +26,13 @@ class PipelineRunner:
         self.processed_dir = Path(processed_dir)
         self.pipeline_dir = Path("chatmind/pipeline")
         
+        # Use the pipeline virtual environment Python executable
+        self.python_executable = self.pipeline_dir / "pipeline_env" / "bin" / "python"
+        if not self.python_executable.exists():
+            # Fallback to system Python if venv doesn't exist
+            import sys
+            self.python_executable = sys.executable
+        
     def _check_step_output(self, step_name: str, required_files: List[str]) -> bool:
         """Check if a pipeline step has completed by looking for output files."""
         step_dir = self.processed_dir / step_name
@@ -43,12 +50,12 @@ class PipelineRunner:
         logger.info(f"Running: {' '.join(command)}")
         
         try:
-            result = subprocess.run(command, check=True, capture_output=True, text=True)
+            # Run without capturing output so progress bars are visible
+            result = subprocess.run(command, check=True)
             logger.info(f"✅ {description} completed successfully")
             return True
         except subprocess.CalledProcessError as e:
             logger.error(f"❌ {description} failed: {e}")
-            logger.error(f"Error output: {e.stderr}")
             return False
     
     def run_ingestion(self, force: bool = False) -> bool:
@@ -58,8 +65,9 @@ class PipelineRunner:
             return True
         
         command = [
-            sys.executable, str(self.pipeline_dir / "ingestion" / "extract_and_flatten.py"),
-            "--output-dir", str(self.processed_dir / "ingestion")
+            str(self.python_executable), str(self.pipeline_dir / "ingestion" / "extract_and_flatten.py"),
+            "--processed-dir", str(self.processed_dir),
+            "--data-lake-dir", str(Path.cwd() / "data" / "lake")
         ]
         
         if force:
@@ -74,9 +82,8 @@ class PipelineRunner:
             return True
         
         command = [
-            sys.executable, str(self.pipeline_dir / "chunking" / "chunker.py"),
-            "--input-file", str(self.processed_dir / "ingestion" / "chats.jsonl"),
-            "--output-dir", str(self.processed_dir / "chunking")
+            str(self.python_executable), str(self.pipeline_dir / "chunking" / "chunker.py"),
+            "--input-file", str(self.processed_dir / "ingestion" / "chats.jsonl")
         ]
         
         if force:
@@ -96,14 +103,14 @@ class PipelineRunner:
         
         if method == "cloud" and cloud_script.exists():
             command = [
-                sys.executable, str(cloud_script),
+                str(self.python_executable), str(cloud_script),
                 "--chunks-file", str(self.processed_dir / "chunking" / "chunks.jsonl"),
                 "--state-file", str(self.processed_dir / "embedding" / "hashes.pkl")
             ]
         else:
             # Default to local method
             command = [
-                sys.executable, str(local_script),
+                str(self.python_executable), str(local_script),
                 "--chunks-file", str(self.processed_dir / "chunking" / "chunks.jsonl"),
                 "--state-file", str(self.processed_dir / "embedding" / "hashes.pkl")
             ]
@@ -120,7 +127,7 @@ class PipelineRunner:
             return True
         
         command = [
-            sys.executable, str(self.pipeline_dir / "clustering" / "clusterer.py"),
+            str(self.python_executable), str(self.pipeline_dir / "clustering" / "clusterer.py"),
             "--input-file", str(self.processed_dir / "embedding" / "embeddings.jsonl")
         ]
         
@@ -141,14 +148,14 @@ class PipelineRunner:
         
         if method == "cloud" and cloud_script.exists():
             command = [
-                sys.executable, str(cloud_script),
+                str(self.python_executable), str(cloud_script),
                 "--input-file", str(self.processed_dir / "ingestion" / "chats.jsonl"),
                 "--output-file", str(self.processed_dir / "tagging" / "tags.jsonl")
             ]
         else:
             # Default to local method
             command = [
-                sys.executable, str(local_script),
+                str(self.python_executable), str(local_script),
                 "--input-file", str(self.processed_dir / "ingestion" / "chats.jsonl"),
                 "--output-file", str(self.processed_dir / "tagging" / "tags.jsonl")
             ]
@@ -158,6 +165,20 @@ class PipelineRunner:
         
         return self._run_step("tagging", command, f"Running tagging step ({method})")
     
+    def run_tag_post_processing(self, force: bool = False) -> bool:
+        """Run the tag post-processing step."""
+        if not force and self._check_step_output("tagging", ["processed_tags.jsonl"]):
+            logger.info("ℹ️ Tag post-processing already completed, skipping...")
+            return True
+        
+        command = [
+            str(self.python_executable), str(self.pipeline_dir / "tagging" / "post_process_tags.py"),
+            "--input-file", str(self.processed_dir / "tagging" / "tags.jsonl"),
+            "--output-file", str(self.processed_dir / "tagging" / "processed_tags.jsonl")
+        ]
+        
+        return self._run_step("tag_post_processing", command, "Running tag post-processing step")
+    
     def run_tag_propagation(self, force: bool = False) -> bool:
         """Run the tag propagation step."""
         if not force and self._check_step_output("tagging", ["chunk_tags.jsonl"]):
@@ -165,7 +186,7 @@ class PipelineRunner:
             return True
         
         command = [
-            sys.executable, str(self.pipeline_dir / "tagging" / "propagate_tags_to_chunks.py"),
+            str(self.python_executable), str(self.pipeline_dir / "tagging" / "propagate_tags_to_chunks.py"),
             "--processed-tags-file", str(self.processed_dir / "tagging" / "processed_tags.jsonl"),
             "--chunks-file", str(self.processed_dir / "chunking" / "chunks.jsonl")
         ]
@@ -184,14 +205,14 @@ class PipelineRunner:
         
         if method == "cloud" and cloud_script.exists():
             command = [
-                sys.executable, str(cloud_script),
+                str(self.python_executable), str(cloud_script),
                 "--clustered-embeddings-file", str(self.processed_dir / "clustering" / "clustered_embeddings.jsonl"),
                 "--chunks-file", str(self.processed_dir / "chunking" / "chunks.jsonl")
             ]
         else:
             # Default to local method
             command = [
-                sys.executable, str(local_script),
+                str(self.python_executable), str(local_script),
                 "--clustered-embeddings-file", str(self.processed_dir / "clustering" / "clustered_embeddings.jsonl"),
                 "--chunks-file", str(self.processed_dir / "chunking" / "chunks.jsonl")
             ]
@@ -213,13 +234,13 @@ class PipelineRunner:
         
         if method == "cloud" and cloud_script.exists():
             command = [
-                sys.executable, str(cloud_script),
+                str(self.python_executable), str(cloud_script),
                 "--chats-file", str(self.processed_dir / "ingestion" / "chats.jsonl")
             ]
         else:
             # Default to local method
             command = [
-                sys.executable, str(local_script),
+                str(self.python_executable), str(local_script),
                 "--chats-file", str(self.processed_dir / "ingestion" / "chats.jsonl")
             ]
         
@@ -240,7 +261,7 @@ class PipelineRunner:
         
         # Run cluster positioning
         cluster_command = [
-            sys.executable, str(self.pipeline_dir / "positioning" / "position_clusters.py"),
+            str(self.python_executable), str(self.pipeline_dir / "positioning" / "position_clusters.py"),
             "--cluster-summaries-file", str(self.processed_dir / "cluster_summarization" / "cluster_summaries.json")
         ]
         
@@ -251,7 +272,7 @@ class PipelineRunner:
         
         # Run chat positioning
         chat_command = [
-            sys.executable, str(self.pipeline_dir / "positioning" / "position_chats.py"),
+            str(self.python_executable), str(self.pipeline_dir / "positioning" / "position_chats.py"),
             "--chat-summaries-file", str(self.processed_dir / "chat_summarization" / "chat_summaries.json")
         ]
         
@@ -274,7 +295,7 @@ class PipelineRunner:
         
         # Run chat similarity
         chat_command = [
-            sys.executable, str(self.pipeline_dir / "similarity" / "calculate_chat_similarities.py"),
+            str(self.python_executable), str(self.pipeline_dir / "similarity" / "calculate_chat_similarities.py"),
             "--embeddings-file", str(self.processed_dir / "positioning" / "chat_summary_embeddings.jsonl")
         ]
         
@@ -287,7 +308,7 @@ class PipelineRunner:
         
         # Run cluster similarity
         cluster_command = [
-            sys.executable, str(self.pipeline_dir / "similarity" / "calculate_cluster_similarities.py"),
+            str(self.python_executable), str(self.pipeline_dir / "similarity" / "calculate_cluster_similarities.py"),
             "--embeddings-file", str(self.processed_dir / "positioning" / "cluster_summary_embeddings.jsonl")
         ]
         
@@ -299,11 +320,22 @@ class PipelineRunner:
     
     def run_loading(self, force: bool = False) -> bool:
         """Run the Neo4j loading step."""
+        # Get Neo4j config from environment
+        import os
+        from dotenv import load_dotenv
+        
+        # Load environment variables
+        load_dotenv()
+        
+        neo4j_uri = os.getenv('NEO4J_URI', 'bolt://localhost:7687')
+        neo4j_user = os.getenv('NEO4J_USER', 'neo4j')
+        neo4j_password = os.getenv('NEO4J_PASSWORD', 'password')
+        
         command = [
-            sys.executable, str(self.pipeline_dir / "loading" / "load_graph.py"),
-            "--uri", "bolt://localhost:7687",
-            "--user", "neo4j",
-            "--password", "password"
+            str(self.python_executable), str(self.pipeline_dir / "loading" / "load_graph.py"),
+            "--uri", neo4j_uri,
+            "--user", neo4j_user,
+            "--password", neo4j_password
         ]
         
         if force:
@@ -328,6 +360,7 @@ class PipelineRunner:
             ("embedding", lambda f: self.run_embedding(embedding_method, f)),
             ("clustering", self.run_clustering),
             ("tagging", lambda f: self.run_tagging(tagging_method, f)),
+            ("tag_post_processing", self.run_tag_post_processing),
             ("tag_propagation", self.run_tag_propagation),
             ("cluster_summarization", lambda f: self.run_cluster_summarization(summarization_method, f)),
             ("chat_summarization", lambda f: self.run_chat_summarization(summarization_method, f)),
@@ -392,7 +425,7 @@ class PipelineRunner:
 @click.option('--steps', 
               multiple=True,
               type=click.Choice(['ingestion', 'chunking', 'embedding', 'clustering', 
-                               'tagging', 'tag_propagation', 'cluster_summarization', 'chat_summarization',
+                               'tagging', 'tag_post_processing', 'tag_propagation', 'cluster_summarization', 'chat_summarization',
                                'positioning', 'similarity', 'loading']),
               help='Specific steps to run (can specify multiple)')
 @click.option('--check-only', is_flag=True, help='Only check setup, don\'t run pipeline')

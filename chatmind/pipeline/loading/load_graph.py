@@ -152,7 +152,7 @@ class OptimizedNeo4jGraphLoader:
                 "tags"
             ),
             'tagged_chunks': self._load_data_file(
-                self.processed_dir / "tagging" / "tagged_chunks.jsonl", 
+                self.processed_dir / "tagging" / "chunk_tags.jsonl", 
                 "tagged chunks"
             ),
             
@@ -203,6 +203,7 @@ class OptimizedNeo4jGraphLoader:
         
         for chat in tqdm(chats, desc="Creating Chat nodes"):
             chat_hash = chat.get('content_hash', '')
+            chat_id = chat.get('chat_id', chat_hash)  # Use chat_id if available
             title = chat.get('title', 'Untitled')
             create_time = chat.get('create_time', '')
             source_file = chat.get('source_file', '')
@@ -211,7 +212,8 @@ class OptimizedNeo4jGraphLoader:
             # Create Chat node with enhanced properties
             query = """
             MERGE (c:Chat {chat_hash: $chat_hash})
-            SET c.title = $title,
+            SET c.chat_id = $chat_id,
+                c.title = $title,
                 c.create_time = $create_time,
                 c.source_file = $source_file,
                 c.message_count = $message_count,
@@ -221,6 +223,7 @@ class OptimizedNeo4jGraphLoader:
             
             result = session.run(query, {
                 'chat_hash': chat_hash,
+                'chat_id': chat_id,
                 'title': title,
                 'create_time': create_time,
                 'source_file': source_file,
@@ -238,6 +241,7 @@ class OptimizedNeo4jGraphLoader:
         
         for chat in tqdm(chats, desc="Creating Message nodes"):
             chat_hash = chat_mapping.get(chat.get('content_hash', ''), '')
+            chat_id = chat.get('chat_id', chat_hash)
             messages = chat.get('messages', [])
             
             for message in messages:
@@ -247,41 +251,45 @@ class OptimizedNeo4jGraphLoader:
                 timestamp = message.get('timestamp', '')
                 parent_id = message.get('parent_id', '')
                 
-                # Generate message hash
+                # Generate message hash (same as chunking step)
                 message_data = {
                     'content': content,
                     'chat_id': chat.get('content_hash', ''),
-                    'id': message_id,
+                    'message_id': message_id,
                     'role': role
                 }
                 message_hash = self._generate_content_hash(message_data)
                 
                 # Create Message node with enhanced properties
                 query = """
-                MERGE (m:Message {message_hash: $message_hash})
-                SET m.content = $content,
+                MERGE (m:Message {message_id: $message_id})
+                SET m.message_hash = $message_hash,
+                    m.content = $content,
                     m.role = $role,
                     m.timestamp = $timestamp,
                     m.parent_id = $parent_id,
+                    m.chat_id = $chat_id,
                     m.content_length = $content_length,
                     m.loaded_at = datetime()
                 WITH m
                 MATCH (c:Chat {chat_hash: $chat_hash})
-                MERGE (m)-[:BELONGS_TO]->(c)
+                MERGE (c)-[:CONTAINS]->(m)
                 RETURN m
                 """
                 
                 result = session.run(query, {
+                    'message_id': message_id,
                     'message_hash': message_hash,
                     'content': content,
                     'role': role,
                     'timestamp': timestamp,
                     'parent_id': parent_id,
+                    'chat_id': chat_id,
                     'content_length': len(content),
                     'chat_hash': chat_hash
                 })
                 
-                message_mapping[message_id] = message_hash
+                message_mapping[message_id] = message_id  # Use message_id as key
         
         logger.info(f"Created {len(message_mapping)} Message nodes")
         return message_mapping
@@ -291,46 +299,52 @@ class OptimizedNeo4jGraphLoader:
         chunk_mapping = {}
         
         for chunk in tqdm(chunks, desc="Creating Chunk nodes"):
-            chunk_hash = chunk.get('chunk_hash', '')
+            chunk_id = chunk.get('chunk_id', '')
+            chunk_hash = chunk.get('chunk_hash', chunk_id)
             content = chunk.get('content', '')
             role = chunk.get('role', '')
             token_count = chunk.get('token_count', 0)
-            message_ids = chunk.get('message_ids', [])
+            message_hash = chunk.get('message_hash', '')
+            chat_id = chunk.get('chat_id', '')
             
             # Create Chunk node with enhanced properties
             query = """
-            MERGE (ch:Chunk {chunk_hash: $chunk_hash})
-            SET ch.content = $content,
+            MERGE (ch:Chunk {chunk_id: $chunk_id})
+            SET ch.chunk_hash = $chunk_hash,
+                ch.content = $content,
                 ch.role = $role,
                 ch.token_count = $token_count,
+                ch.chat_id = $chat_id,
+                ch.message_hash = $message_hash,
                 ch.content_length = $content_length,
                 ch.loaded_at = datetime()
             RETURN ch
             """
             
             result = session.run(query, {
+                'chunk_id': chunk_id,
                 'chunk_hash': chunk_hash,
                 'content': content,
                 'role': role,
                 'token_count': token_count,
+                'chat_id': chat_id,
+                'message_hash': message_hash,
                 'content_length': len(content)
             })
             
-            # Create relationships to messages
-            for message_id in message_ids:
-                message_hash = message_mapping.get(message_id, '')
-                if message_hash:
-                    rel_query = """
-                    MATCH (ch:Chunk {chunk_hash: $chunk_hash})
-                    MATCH (m:Message {message_hash: $message_hash})
-                    MERGE (ch)-[:DERIVED_FROM]->(m)
-                    """
-                    session.run(rel_query, {
-                        'chunk_hash': chunk_hash,
-                        'message_hash': message_hash
-                    })
+            # Create relationship to message using message_hash
+            if message_hash:
+                rel_query = """
+                MATCH (ch:Chunk {chunk_id: $chunk_id})
+                MATCH (m:Message {message_hash: $message_hash})
+                MERGE (m)-[:HAS_CHUNK]->(ch)
+                """
+                session.run(rel_query, {
+                    'chunk_id': chunk_id,
+                    'message_hash': message_hash
+                })
             
-            chunk_mapping[chunk_hash] = chunk_hash
+            chunk_mapping[chunk_id] = chunk_id
         
         logger.info(f"Created {len(chunk_mapping)} Chunk nodes")
         return chunk_mapping
@@ -340,13 +354,14 @@ class OptimizedNeo4jGraphLoader:
         embedding_mapping = {}
         
         for embedding in tqdm(embeddings, desc="Creating Embedding nodes"):
-            chunk_hash = embedding.get('chunk_hash', '')
+            chunk_id = embedding.get('chunk_id', '')
+            chunk_hash = embedding.get('chunk_hash', chunk_id)
             embedding_vector = embedding.get('embedding', [])
             method = embedding.get('method', 'sentence-transformers')
             
             # Generate embedding hash
             embedding_data = {
-                'chunk_hash': chunk_hash,
+                'chunk_id': chunk_id,
                 'embedding': embedding_vector,
                 'method': method
             }
@@ -358,10 +373,11 @@ class OptimizedNeo4jGraphLoader:
             SET e.vector = $vector,
                 e.dimension = $dimension,
                 e.method = $method,
+                e.chunk_id = $chunk_id,
                 e.loaded_at = datetime()
             WITH e
-            MATCH (ch:Chunk {chunk_hash: $chunk_hash})
-            MERGE (e)-[:EMBEDS]->(ch)
+            MATCH (ch:Chunk {chunk_id: $chunk_id})
+            MERGE (ch)-[:HAS_EMBEDDING]->(e)
             RETURN e
             """
             
@@ -370,10 +386,10 @@ class OptimizedNeo4jGraphLoader:
                 'vector': embedding_vector,
                 'dimension': len(embedding_vector),
                 'method': method,
-                'chunk_hash': chunk_hash
+                'chunk_id': chunk_id
             })
             
-            embedding_mapping[chunk_hash] = embedding_hash
+            embedding_mapping[chunk_id] = embedding_hash
         
         logger.info(f"Created {len(embedding_mapping)} Embedding nodes")
         return embedding_mapping
@@ -383,7 +399,7 @@ class OptimizedNeo4jGraphLoader:
         cluster_mapping = {}
         
         for item in tqdm(clustered, desc="Creating Cluster nodes"):
-            chunk_hash = item.get('chunk_hash', '')
+            chunk_id = item.get('chunk_id', '')
             cluster_id = item.get('cluster_id', -1)
             umap_x = item.get('umap_x', 0.0)
             umap_y = item.get('umap_y', 0.0)
@@ -391,7 +407,7 @@ class OptimizedNeo4jGraphLoader:
             # Generate cluster hash
             cluster_data = {
                 'cluster_id': cluster_id,
-                'chunk_hash': chunk_hash,
+                'chunk_id': chunk_id,
                 'umap_x': umap_x,
                 'umap_y': umap_y
             }
@@ -404,8 +420,8 @@ class OptimizedNeo4jGraphLoader:
                 cl.umap_y = $umap_y,
                 cl.loaded_at = datetime()
             WITH cl
-            MATCH (ch:Chunk {chunk_hash: $chunk_hash})
-            MERGE (ch)-[:BELONGS_TO_CLUSTER]->(cl)
+            MATCH (ch:Chunk {chunk_id: $chunk_id})
+            MERGE (cl)-[:CONTAINS_CHUNK]->(ch)
             RETURN cl
             """
             
@@ -413,7 +429,7 @@ class OptimizedNeo4jGraphLoader:
                 'cluster_id': cluster_id,
                 'umap_x': umap_x,
                 'umap_y': umap_y,
-                'chunk_hash': chunk_hash
+                'chunk_id': chunk_id
             })
             
             cluster_mapping[cluster_id] = cluster_hash
@@ -642,22 +658,30 @@ class OptimizedNeo4jGraphLoader:
             
             # Only create relationships for meaningful similarities
             if similarity_score >= medium_threshold:
-                relationship_type = "SIMILAR_TO_CHAT_HIGH" if similarity_score >= high_threshold else "SIMILAR_TO_CHAT_MEDIUM"
-                
-                query = """
-                MATCH (c1:Chat {chat_hash: $chat1_id})
-                MATCH (c2:Chat {chat_hash: $chat2_id})
-                MERGE (c1)-[r:$relationship_type]->(c2)
-                SET r.similarity_score = $similarity_score,
-                    r.threshold_level = $threshold_level,
-                    r.loaded_at = datetime()
-                """
+                # Use different queries for different relationship types
+                if similarity_score >= high_threshold:
+                    query = """
+                    MATCH (c1:Chat {chat_hash: $chat1_id})
+                    MATCH (c2:Chat {chat_hash: $chat2_id})
+                    MERGE (c1)-[r:SIMILAR_TO_CHAT_HIGH]->(c2)
+                    SET r.similarity_score = $similarity_score,
+                        r.threshold_level = $threshold_level,
+                        r.loaded_at = datetime()
+                    """
+                else:
+                    query = """
+                    MATCH (c1:Chat {chat_hash: $chat1_id})
+                    MATCH (c2:Chat {chat_hash: $chat2_id})
+                    MERGE (c1)-[r:SIMILAR_TO_CHAT_MEDIUM]->(c2)
+                    SET r.similarity_score = $similarity_score,
+                        r.threshold_level = $threshold_level,
+                        r.loaded_at = datetime()
+                    """
                 
                 session.run(query, {
                     'chat1_id': chat1_id,
                     'chat2_id': chat2_id,
                     'similarity_score': similarity_score,
-                    'relationship_type': relationship_type,
                     'threshold_level': 'high' if similarity_score >= high_threshold else 'medium'
                 })
                 
@@ -677,22 +701,30 @@ class OptimizedNeo4jGraphLoader:
             
             # Only create relationships for meaningful similarities
             if similarity_score >= medium_threshold:
-                relationship_type = "SIMILAR_TO_CLUSTER_HIGH" if similarity_score >= high_threshold else "SIMILAR_TO_CLUSTER_MEDIUM"
-                
-                query = """
-                MATCH (cl1:Cluster {cluster_id: $cluster1_id})
-                MATCH (cl2:Cluster {cluster_id: $cluster2_id})
-                MERGE (cl1)-[r:$relationship_type]->(cl2)
-                SET r.similarity_score = $similarity_score,
-                    r.threshold_level = $threshold_level,
-                    r.loaded_at = datetime()
-                """
+                # Use different queries for different relationship types
+                if similarity_score >= high_threshold:
+                    query = """
+                    MATCH (cl1:Cluster {cluster_id: $cluster1_id})
+                    MATCH (cl2:Cluster {cluster_id: $cluster2_id})
+                    MERGE (cl1)-[r:SIMILAR_TO_CLUSTER_HIGH]->(cl2)
+                    SET r.similarity_score = $similarity_score,
+                        r.threshold_level = $threshold_level,
+                        r.loaded_at = datetime()
+                    """
+                else:
+                    query = """
+                    MATCH (cl1:Cluster {cluster_id: $cluster1_id})
+                    MATCH (cl2:Cluster {cluster_id: $cluster2_id})
+                    MERGE (cl1)-[r:SIMILAR_TO_CLUSTER_MEDIUM]->(cl2)
+                    SET r.similarity_score = $similarity_score,
+                        r.threshold_level = $threshold_level,
+                        r.loaded_at = datetime()
+                    """
                 
                 session.run(query, {
                     'cluster1_id': cluster1_id,
                     'cluster2_id': cluster2_id,
                     'similarity_score': similarity_score,
-                    'relationship_type': relationship_type,
                     'threshold_level': 'high' if similarity_score >= high_threshold else 'medium'
                 })
                 
@@ -708,6 +740,73 @@ class OptimizedNeo4jGraphLoader:
         logger.info(f"  🎯 Cluster Medium Similarities: {cluster_medium_similarities}")
         logger.info(f"  📊 Total relationships created: {high_similarities + medium_similarities + cluster_high_similarities + cluster_medium_similarities}")
     
+    def _create_constraints(self, session) -> None:
+        """Create Neo4j constraints and indexes for better performance."""
+        try:
+            # Create unique constraints
+            constraints = [
+                "CREATE CONSTRAINT chat_hash_unique IF NOT EXISTS FOR (c:Chat) REQUIRE c.chat_hash IS UNIQUE",
+                "CREATE CONSTRAINT message_id_unique IF NOT EXISTS FOR (m:Message) REQUIRE m.message_id IS UNIQUE",
+                "CREATE CONSTRAINT chunk_id_unique IF NOT EXISTS FOR (ch:Chunk) REQUIRE ch.chunk_id IS UNIQUE",
+                "CREATE CONSTRAINT embedding_hash_unique IF NOT EXISTS FOR (e:Embedding) REQUIRE e.embedding_hash IS UNIQUE",
+                "CREATE CONSTRAINT cluster_id_unique IF NOT EXISTS FOR (cl:Cluster) REQUIRE cl.cluster_id IS UNIQUE",
+                "CREATE CONSTRAINT tag_hash_unique IF NOT EXISTS FOR (t:Tag) REQUIRE t.tag_hash IS UNIQUE",
+                "CREATE CONSTRAINT summary_hash_unique IF NOT EXISTS FOR (s:Summary) REQUIRE s.summary_hash IS UNIQUE",
+                "CREATE CONSTRAINT chat_summary_hash_unique IF NOT EXISTS FOR (cs:ChatSummary) REQUIRE cs.chat_summary_hash IS UNIQUE"
+            ]
+            
+            for constraint in constraints:
+                try:
+                    session.run(constraint)
+                except Exception as e:
+                    logger.debug(f"Constraint already exists or failed: {e}")
+            
+            # Create indexes for better query performance
+            indexes = [
+                "CREATE INDEX chat_id_index IF NOT EXISTS FOR (c:Chat) ON (c.chat_id)",
+                "CREATE INDEX message_chat_id_index IF NOT EXISTS FOR (m:Message) ON (m.chat_id)",
+                "CREATE INDEX chunk_chat_id_index IF NOT EXISTS FOR (ch:Chunk) ON (ch.chat_id)",
+                "CREATE INDEX chunk_message_hash_index IF NOT EXISTS FOR (ch:Chunk) ON (ch.message_hash)",
+                "CREATE INDEX embedding_chunk_id_index IF NOT EXISTS FOR (e:Embedding) ON (e.chunk_id)",
+                "CREATE INDEX cluster_umap_index IF NOT EXISTS FOR (cl:Cluster) ON (cl.umap_x, cl.umap_y)",
+                "CREATE INDEX chat_umap_index IF NOT EXISTS FOR (c:Chat) ON (c.umap_x, c.umap_y)"
+            ]
+            
+            for index in indexes:
+                try:
+                    session.run(index)
+                except Exception as e:
+                    logger.debug(f"Index already exists or failed: {e}")
+            
+            logger.info("✅ Created constraints and indexes")
+        except Exception as e:
+            logger.warning(f"Could not create constraints: {e}")
+    
+    def _check_neo4j_content(self, session) -> Dict[str, int]:
+        """Check what's already loaded in Neo4j."""
+        try:
+            # Count existing nodes by type
+            counts = {}
+            node_types = ['Chat', 'Message', 'Chunk', 'Embedding', 'Cluster', 'Tag', 'Summary', 'ChatSummary']
+            
+            for node_type in node_types:
+                result = session.run(f"MATCH (n:{node_type}) RETURN count(n) as count")
+                count = result.single()['count']
+                counts[node_type.lower()] = count
+            
+            # Count relationships
+            rel_types = ['HAS_MESSAGE', 'HAS_CHUNK', 'HAS_EMBEDDING', 'HAS_CLUSTER', 'TAGGED_WITH', 'SIMILAR_TO_CHAT_HIGH', 'SIMILAR_TO_CLUSTER_HIGH']
+            
+            for rel_type in rel_types:
+                result = session.run(f"MATCH ()-[r:{rel_type}]->() RETURN count(r) as count")
+                count = result.single()['count']
+                counts[f"{rel_type.lower()}_relationships"] = count
+            
+            return counts
+        except Exception as e:
+            logger.warning(f"Could not check Neo4j content: {e}")
+            return {}
+    
     def _save_metadata(self, stats: Dict) -> None:
         """Save loading metadata."""
         metadata = {
@@ -715,9 +814,10 @@ class OptimizedNeo4jGraphLoader:
             'step': 'loading',
             'stats': stats,
             'version': '2.0',
-            'method': 'optimized_loader',
+            'method': 'incremental_loader',
             'features': [
                 'hash_based_tracking',
+                'incremental_loading',
                 'enhanced_properties',
                 'positioning_data',
                 'similarity_relationships',
@@ -761,6 +861,7 @@ class OptimizedNeo4jGraphLoader:
                 current_hashes[data_type] = self._generate_data_type_hash(data_type, item_list)
         
         # Check if already processed (unless force reload)
+        incremental_loading = False
         if not force_reload:
             existing_hashes = self._get_processed_hashes()
             if existing_hashes:
@@ -777,14 +878,36 @@ class OptimizedNeo4jGraphLoader:
                     logger.info("⏭️ Skipping (use --force to reload)")
                     return {'status': 'skipped', 'reason': 'no_changes'}
                 else:
-                    logger.info(f"🔄 Detected changes in: {', '.join(changed_types)}")
+                    logger.info(f"🔄 Incremental loading: {', '.join(changed_types)} have changed")
+                    incremental_loading = True
         
         # Load data into Neo4j
         with self.driver.session() as session:
+            # Check what's already loaded
+            existing_content = self._check_neo4j_content(session)
+            if existing_content:
+                logger.info("📊 Current Neo4j content:")
+                for content_type, count in existing_content.items():
+                    if count > 0:
+                        logger.info(f"  {content_type}: {count}")
+            
             # Clear database if force reload
             if force_reload:
                 session.run("MATCH (n) DETACH DELETE n")
                 logger.info("🗑️  Cleared existing data (force reload)")
+                incremental_loading = False
+            
+            # Create constraints and indexes
+            self._create_constraints(session)
+            
+            if incremental_loading:
+                logger.info("📊 Incremental loading - only creating changed data...")
+                # For incremental loading, we need to be more careful about dependencies
+                # For now, we'll do a full reload when any upstream data changes
+                # This could be optimized further in the future
+                logger.info("⚠️  Incremental loading detected changes - doing full reload for data consistency")
+                session.run("MATCH (n) DETACH DELETE n")
+                incremental_loading = False
             
             # Create nodes in order with progress reporting
             logger.info("📊 Creating nodes and relationships...")
@@ -841,7 +964,9 @@ class OptimizedNeo4jGraphLoader:
         logger.info(f"  🧠 Chat Summary Embeddings: {stats['chat_summary_embeddings_loaded']}")
         logger.info(f"  🧠 Cluster Summary Embeddings: {stats['cluster_summary_embeddings_loaded']}")
         
-        total_items = sum(stats.values()) - stats['status']
+        # Calculate total items (excluding the status string)
+        numeric_values = [v for v in stats.values() if isinstance(v, (int, float))]
+        total_items = sum(numeric_values)
         logger.info(f"🎉 Total items loaded: {total_items}")
         
         return stats

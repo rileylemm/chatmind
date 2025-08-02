@@ -19,10 +19,22 @@ from tqdm import tqdm
 import logging
 import pickle
 import re
+import sys
+
+# Add parent directory to path for imports
+sys.path.append(str(Path(__file__).parent.parent.parent))
 
 # Import data lake storage
-from chatmind.pipeline.ingestion.data_lake_storage import DataLakeStorage, DataLakeExtractor
-from chatmind.pipeline.ingestion.chatgpt_url_mapper import ChatGPTURLMapper, URLMappingExtractor
+try:
+    from .data_lake_storage import DataLakeStorage, DataLakeExtractor
+    from .chatgpt_url_mapper import ChatGPTURLMapper, URLMappingExtractor
+except ImportError:
+    # Fallback for direct execution
+    import sys
+    from pathlib import Path
+    sys.path.append(str(Path(__file__).parent))
+    from data_lake_storage import DataLakeStorage, DataLakeExtractor
+    from chatgpt_url_mapper import ChatGPTURLMapper, URLMappingExtractor
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

@@ -56,25 +56,13 @@ class TagPropagator:
     
     def _propagate_tags_to_chunk(self, chunk: Dict, processed_tags: Dict[str, Dict]) -> Optional[Dict]:
         """Propagate tags from parent message to chunk. Returns only chunk hash with tags."""
-        # Get the message ID from the chunk
-        message_ids = chunk.get('message_ids', [])
-        if not message_ids:
+        # Get the message hash directly from the chunk
+        message_hash = chunk.get('message_hash', '')
+        if not message_hash:
+            logger.warning(f"No message_hash found in chunk {chunk.get('chunk_id', 'unknown')}")
             return None
         
-        # Use the first message ID (chunks should only have one message ID now)
-        message_id = message_ids[0]
-        
-        # Generate message hash to find the processed tag entry
-        # We need to reconstruct the message hash from the chunk data
-        message_data = {
-            'content': chunk.get('content', ''),
-            'chat_id': chunk.get('chat_id', ''),
-            'id': message_id,
-            'role': chunk.get('role', '')
-        }
-        message_hash = hashlib.sha256(json.dumps(message_data, sort_keys=True).encode()).hexdigest()
-        
-        # Find the processed tag entry
+        # Find the processed tag entry using the message hash
         processed_tag_entry = processed_tags.get(message_hash)
         
         if processed_tag_entry:
@@ -82,7 +70,7 @@ class TagPropagator:
             chunk_tag_entry = {
                 'chunk_hash': chunk.get('chunk_hash', ''),
                 'chunk_id': chunk.get('chunk_id', ''),
-                'message_id': message_id,
+                'message_id': chunk.get('message_ids', [''])[0],
                 'chat_id': chunk.get('chat_id', ''),
                 'tags': processed_tag_entry.get('tags', []),
                 'domain': processed_tag_entry.get('domain', 'unknown'),
@@ -94,7 +82,7 @@ class TagPropagator:
             return chunk_tag_entry
         else:
             # No processed tag entry found
-            logger.warning(f"No processed tag entry found for chunk {chunk.get('chunk_id', 'unknown')}")
+            logger.warning(f"No processed tag entry found for chunk {chunk.get('chunk_id', 'unknown')} with message_hash {message_hash[:10]}...")
             return None
     
     def _save_chunk_tags(self, chunk_tags: List[Dict]) -> None:
