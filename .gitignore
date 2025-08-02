@@ -155,4 +155,7 @@ dmypy.json
 .pyre/
 
 # OpenAI API cost tracking
-cost_tracker.db 
+cost_tracker.db
+
+# Local documentation and analysis files
+docs/local/ 
