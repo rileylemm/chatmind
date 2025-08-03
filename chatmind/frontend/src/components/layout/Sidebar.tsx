@@ -7,7 +7,9 @@ import {
   BarChart3, 
   Settings,
   Tag,
-  Database
+  Database,
+  Search,
+  Lightbulb
 } from 'lucide-react';
 import { useUIStore } from '../../stores/uiStore';
 
@@ -18,6 +20,8 @@ const Sidebar: React.FC = () => {
   const navigation = [
     { name: 'Dashboard', href: '/', icon: Home },
     { name: 'Graph Explorer', href: '/graph', icon: Network },
+    { name: 'Discovery', href: '/discover', icon: Lightbulb },
+    { name: 'Search', href: '/search', icon: Search },
     { name: 'Messages', href: '/messages', icon: MessageSquare },
     { name: 'Analytics', href: '/analytics', icon: BarChart3 },
     { name: 'Tags', href: '/tags', icon: Tag },

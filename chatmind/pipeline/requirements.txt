@@ -20,6 +20,7 @@ requests>=2.31.0
 
 # Database
 neo4j>=5.0.0
+qdrant-client>=1.7.0
 
 # Configuration
 python-dotenv>=1.0.0

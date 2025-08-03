@@ -1,27 +1,30 @@
 #!/usr/bin/env python3
 """
-Enhanced Message Tagger for ChatMind (Cloud API Version)
+Cloud API Enhanced Tagger
 
-Tags messages using OpenAI API with conversation-level context.
-Updated for message-level tagging in the new pipeline structure.
+Uses OpenAI for high-quality semantic tagging and classification.
+Processes chunks with enhanced prompts and validation.
+Uses modular directory structure: data/processed/tagging/
 """
 
-import openai
-from openai import OpenAI
 import json
-import logging
-from typing import Dict, List, Optional, Tuple
-from pathlib import Path
-import time
-from tqdm import tqdm
-from collections import defaultdict, Counter
 import jsonlines
-import hashlib
-import pickle
+import numpy as np
+from pathlib import Path
+from typing import Dict, List, Tuple, Optional, Set
 from datetime import datetime
 import click
-import os
-import re
+from tqdm import tqdm
+import logging
+import pickle
+import hashlib
+import time
+import openai
+
+# Import pipeline configuration
+import sys
+sys.path.append(str(Path(__file__).parent.parent.parent))
+from config import get_openai_config
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -50,7 +53,7 @@ class EnhancedMessageTagger:
         if not api_key:
             logger.error("OPENAI_API_KEY environment variable not set")
             raise ValueError("OPENAI_API_KEY environment variable not set")
-        self.client = OpenAI(api_key=api_key)
+        self.client = openai.OpenAI(api_key=api_key)
     
     def _generate_message_hash(self, message: Dict) -> str:
         """Generate a hash for a message to track if it's been processed."""
@@ -454,10 +457,9 @@ def main(input_file: str, output_file: str, model: str, force: bool, check_only:
     if check_only:
         logger.info("🔍 Checking cloud API setup...")
         
-        # Check OpenAI API key
-        import os
-        api_key = os.getenv('OPENAI_API_KEY')
-        if not api_key:
+        # Check OpenAI API key using config
+        openai_config = get_openai_config()
+        if not openai_config['api_key']:
             logger.error("❌ OPENAI_API_KEY environment variable not set")
             return 1
         

@@ -21,6 +21,11 @@ import hashlib
 import time
 import openai
 
+# Import pipeline configuration
+import sys
+sys.path.append(str(Path(__file__).parent.parent.parent))
+from config import get_openai_config
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -278,6 +283,38 @@ class CloudChunkEmbedder:
         logger.info("✅ Cloud chunk embedding completed!")
         logger.info(f"  Total chunks: {stats['total_chunks']}")
         logger.info(f"  New chunks: {stats['new_chunks']}")
+        
+        return stats
+
+
+@click.command()
+@click.option('--chunks-file', required=True, help='Path to chunks JSONL file')
+@click.option('--state-file', required=True, help='Path to state file for tracking progress')
+@click.option('--force', is_flag=True, help='Force reprocess all chunks')
+@click.option('--model', default='text-embedding-3-small', help='OpenAI embedding model to use')
+def main(chunks_file: str, state_file: str, force: bool, model: str):
+    """Run cloud embedding on chunks."""
+    # Load OpenAI config
+    openai_config = get_openai_config()
+    if not openai_config['api_key']:
+        logger.error("❌ OPENAI_API_KEY environment variable not set")
+        return
+    
+    # Set OpenAI API key
+    openai.api_key = openai_config['api_key']
+    
+    # Initialize embedder
+    embedder = CloudChunkEmbedder(model_name=model)
+    
+    # Process chunks
+    result = embedder.process_chunks_to_embeddings(
+        chunks_file=Path(chunks_file),
+        state_file=Path(state_file),
+        force_reprocess=force
+    )
+    
+    if result['status'] == 'success':
+        logger.info("✅ Cloud embedding completed successfully!")
     else:
         logger.info(f"ℹ️ Cloud embedding status: {result['status']}")
 

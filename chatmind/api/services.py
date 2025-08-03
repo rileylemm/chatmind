@@ -289,44 +289,75 @@ class Neo4jService:
             raise RuntimeError(f"Failed to fetch semantic chunks: {e}")
     
     def search_by_semantic_similarity(self, query_text: str, limit: int = 20) -> List[Dict[str, Any]]:
-        """Search chunks by semantic similarity (requires embeddings)"""
+        """Search chunks by semantic similarity using embeddings"""
         if not self.driver:
             raise ConnectionError("Database not connected")
         
         try:
+            # Import sentence transformers for embedding generation
+            try:
+                from sentence_transformers import SentenceTransformer
+                import numpy as np
+            except ImportError:
+                logger.error("Sentence Transformers not available for semantic search")
+                return []
+            
+            # Load the same model used in the pipeline
+            model = SentenceTransformer('all-MiniLM-L6-v2')
+            
+            # Generate embedding for the query
+            query_embedding = model.encode(query_text)
+            
             with self.driver.session() as session:
-                # This would require vector similarity search
-                # For now, we'll do a simple text search
+                # Get all embeddings with their associated chunks
                 query = """
-                MATCH (ch:Chunk)
-                WHERE toLower(ch.text) CONTAINS toLower($query_text)
-                OPTIONAL MATCH (ch)-[:TAGGED_WITH]->(tag:Tag)
-                RETURN ch, collect(tag) as tags
-                ORDER BY ch.chunk_id
-                LIMIT $limit
+                MATCH (c:Chunk)-[:HAS_EMBEDDING]->(e:Embedding)
+                OPTIONAL MATCH (c)-[:BELONGS_TO]->(m:Message)
+                OPTIONAL MATCH (m)-[:TAGS]->(t:Tag)
+                RETURN c.chunk_id as chunk_id, 
+                       c.content as content,
+                       m.content as message_content,
+                       m.role as role,
+                       m.timestamp as timestamp,
+                       e.vector as embedding_vector,
+                       collect(DISTINCT t.tags) as tags
                 """
                 
-                result = session.run(query, query_text=query_text, limit=limit)
+                result = session.run(query)
                 
-                chunks = []
+                similarities = []
                 for record in result:
-                    chunk = record['ch']
-                    tags = record['tags']
-                    
-                    chunk_data = {
-                        "chunk_id": chunk.get('chunk_id'),
-                        "text": chunk.get('text'),
-                        "source_message_id": chunk.get('source_message_id'),
-                        "cluster_id": chunk.get('cluster_id'),
-                        "tags": [tag.get('name') for tag in tags if tag.get('name')]
-                    }
-                    chunks.append(chunk_data)
+                    embedding_vector = record['embedding_vector']
+                    if embedding_vector:
+                        # Convert to numpy array and calculate cosine similarity
+                        chunk_embedding = np.array(embedding_vector)
+                        similarity = self._cosine_similarity(query_embedding, chunk_embedding)
+                        
+                        similarities.append({
+                            'chunk_id': record['chunk_id'],
+                            'content': record['content'],
+                            'message_content': record['message_content'],
+                            'role': record['role'],
+                            'timestamp': record['timestamp'],
+                            'similarity': similarity,
+                            'tags': record['tags']
+                        })
                 
-                return chunks
+                # Sort by similarity and return top results
+                similarities.sort(key=lambda x: x['similarity'], reverse=True)
+                return similarities[:limit]
                 
         except Exception as e:
             logger.error(f"Error searching by semantic similarity: {e}")
             raise RuntimeError(f"Failed to search by semantic similarity: {e}")
+    
+    def _cosine_similarity(self, vec1, vec2) -> float:
+        """Calculate cosine similarity between two vectors"""
+        import numpy as np
+        dot_product = np.dot(vec1, vec2)
+        norm1 = np.linalg.norm(vec1)
+        norm2 = np.linalg.norm(vec2)
+        return dot_product / (norm1 * norm2) if norm1 * norm2 != 0 else 0.0
     
     def get_topics(self) -> List[Dict[str, Any]]:
         """Get all topics"""
@@ -764,8 +795,10 @@ class Neo4jService:
         """Get most discussed topics with frequency and trends"""
         try:
             with self.driver.session() as session:
+                # Use the actual Tag nodes and their properties
                 query = """
-                MATCH (m:Message)-[:TAGS]->(t:Tag)
+                MATCH (t:Tag)-[:TAGS]->(m:Message)
+                WHERE t.tags IS NOT NULL
                 UNWIND t.tags as tag
                 WITH tag, count(*) as count
                 """
@@ -802,10 +835,21 @@ class Neo4jService:
         """Get domain distribution and insights"""
         try:
             with self.driver.session() as session:
+                # For now, return a simple domain breakdown based on tag categories
                 query = """
-                MATCH (m:Message)-[:TAGS]->(t:Tag)
-                WHERE t.domain IS NOT NULL
-                RETURN t.domain as domain, count(*) as count
+                MATCH (t:Tag)-[:TAGS]->(m:Message)
+                WHERE t.tags IS NOT NULL
+                UNWIND t.tags as tag_name
+                WITH tag_name, count(*) as count
+                WITH tag_name, count,
+                     CASE 
+                         WHEN toLower(tag_name) CONTAINS 'ai' OR toLower(tag_name) CONTAINS 'machine' OR toLower(tag_name) CONTAINS 'learning' THEN 'AI/ML'
+                         WHEN toLower(tag_name) CONTAINS 'python' OR toLower(tag_name) CONTAINS 'programming' OR toLower(tag_name) CONTAINS 'code' THEN 'Programming'
+                         WHEN toLower(tag_name) CONTAINS 'health' OR toLower(tag_name) CONTAINS 'medical' OR toLower(tag_name) CONTAINS 'wellness' THEN 'Health'
+                         WHEN toLower(tag_name) CONTAINS 'business' OR toLower(tag_name) CONTAINS 'finance' OR toLower(tag_name) CONTAINS 'startup' THEN 'Business'
+                         ELSE 'General'
+                     END as domain
+                RETURN domain, sum(count) as count
                 ORDER BY count DESC
                 """
                 
@@ -878,13 +922,13 @@ class Neo4jService:
     # Enhanced Search Methods
     # ============================================================================
     
-    def search_content(self, query: str, limit: int = 50, role: Optional[str] = None) -> List[Dict[str, Any]]:
+    def search_content(self, search_query: str, limit: int = 50, role: Optional[str] = None) -> List[Dict[str, Any]]:
         """Full-text search across messages"""
         try:
             with self.driver.session() as session:
                 cypher_query = """
                 MATCH (m:Message)
-                WHERE toLower(m.content) CONTAINS toLower($query)
+                WHERE toLower(m.content) CONTAINS toLower($search_query)
                 """
                 
                 if role:
@@ -897,7 +941,7 @@ class Neo4jService:
                 LIMIT $limit
                 """
                 
-                result = session.run(cypher_query, query=query, limit=limit)
+                result = session.run(cypher_query, search_query=search_query, limit=limit)
                 messages = []
                 
                 for record in result:
@@ -925,7 +969,7 @@ class Neo4jService:
             with self.driver.session() as session:
                 if exact_match:
                     query = """
-                    MATCH (m:Message)-[:TAGS]->(t:Tag)
+                    MATCH (t:Tag)-[:TAGS]->(m:Message)
                     WHERE ALL(tag IN $tags WHERE tag IN t.tags)
                     RETURN m, collect(DISTINCT t.tags) as tags
                     ORDER BY m.timestamp DESC
@@ -933,7 +977,7 @@ class Neo4jService:
                     """
                 else:
                     query = """
-                    MATCH (m:Message)-[:TAGS]->(t:Tag)
+                    MATCH (t:Tag)-[:TAGS]->(m:Message)
                     WHERE ANY(tag IN $tags WHERE ANY(t IN t.tags WHERE t CONTAINS tag))
                     RETURN m, collect(DISTINCT t.tags) as tags
                     ORDER BY m.timestamp DESC

@@ -1,6 +1,6 @@
 # ChatMind Pipeline
 
-A modular data processing pipeline for ChatMind with optimized loading and environment management.
+A modular data processing pipeline for ChatMind with hybrid Neo4j + Qdrant architecture for optimal performance.
 
 ## 🚀 Quick Start
 
@@ -31,11 +31,28 @@ nano chatmind/pipeline/.env
 2. Root `.env` (fallback)
 3. Default values (lowest priority)
 
-### 3. Verify Setup
+### 3. Start Databases
 
 ```bash
-# Check Neo4j connection
-python chatmind/pipeline/loading/load_graph.py --check-only
+# Option 1: Use Docker Compose (recommended)
+cd chatmind/pipeline
+./manage_databases.sh start
+
+# Option 2: Use setup script
+./chatmind/pipeline/setup_hybrid.sh
+
+# Option 3: Manual Docker commands
+docker-compose -f chatmind/pipeline/docker-compose.yml up -d
+```
+
+### 4. Verify Setup
+
+```bash
+# Check database status
+./chatmind/pipeline/manage_databases.sh status
+
+# Check hybrid database setup
+python chatmind/pipeline/loading/load_hybrid.py --check-only
 
 # Check pipeline dependencies
 python scripts/check_pipeline_dependencies.py
@@ -67,6 +84,10 @@ NEO4J_URI=bolt://localhost:7687
 NEO4J_USER=neo4j
 NEO4J_PASSWORD=your_password
 
+# Qdrant Configuration
+QDRANT_URL=http://localhost:6333
+QDRANT_COLLECTION=chatmind_embeddings
+
 # Pipeline Settings
 PIPELINE_DEBUG=True
 PIPELINE_LOG_LEVEL=INFO
@@ -96,14 +117,16 @@ PIPELINE_MAX_TOKENS=4000
 7. **Cluster Summarization** (`cluster_summarization/`) - Cluster summaries
 8. **Positioning** (`positioning/`) - 2D coordinates + embeddings
 9. **Similarity** (`similarity/`) - Similarity calculations
-10. **Loading** (`loading/`) - Neo4j graph database loading
+10. **Loading** (`loading/`) - Hybrid Neo4j + Qdrant database loading
 
 ### Data Flow
 
 ```
 Raw Data → Ingestion → Chunking → Embedding → Clustering
     ↓
-Tagging → Summarization → Positioning → Similarity → Loading
+Tagging → Summarization → Positioning → Similarity → Hybrid Loading
+    ↓
+Neo4j (Graph Relationships) + Qdrant (Vector Embeddings)
 ```
 
 ## 🎯 Key Features
@@ -118,12 +141,31 @@ Tagging → Summarization → Positioning → Similarity → Loading
 - **Virtual environment isolation** - Dedicated dependencies
 - **Hierarchical config loading** - Flexible configuration management
 
-### Data Loading
-- **Comprehensive Neo4j integration** - All pipeline data types
+### Hybrid Data Loading
+- **Neo4j for graph relationships** - Chats, messages, tags, clusters, similarities
+- **Qdrant for vector embeddings** - Fast semantic search and similarity
+- **Cross-reference linking** - Seamless integration between databases
 - **Incremental loading** - Hash-based tracking for efficiency
-- **Rich node/relationship creation** - Detailed graph structure
 
 ## 📊 Usage Examples
+
+### Database Management
+```bash
+# Start databases
+./manage_databases.sh start
+
+# Check status
+./manage_databases.sh status
+
+# View logs
+./manage_databases.sh logs
+
+# Stop databases
+./manage_databases.sh stop
+
+# Create backup
+./manage_databases.sh backup
+```
 
 ### Run Full Pipeline
 ```bash
@@ -140,23 +182,36 @@ python run_pipeline.py --steps ingestion,chunking,embedding
 python run_pipeline.py --force --steps similarity
 ```
 
-### Load to Neo4j
+### Load to Hybrid Databases
 ```bash
+# Load both Neo4j and Qdrant
+python loading/load_hybrid.py
+
+# Load Neo4j only (graph relationships)
 python loading/load_graph.py
+
+# Load Qdrant only (embeddings)
+python loading/load_qdrant.py
 ```
 
 ## 🔍 Monitoring and Debugging
 
 ### Check Pipeline Status
 ```bash
+# Check database status
+./manage_databases.sh status
+
+# Check database health
+./manage_databases.sh health
+
 # Verify data directories
 python scripts/verify_data_directories.py
 
 # Check dependencies
 python scripts/check_pipeline_dependencies.py
 
-# Test Neo4j connection
-python loading/load_graph.py --check-only
+# Test hybrid database connections
+python loading/load_hybrid.py --check-only
 ```
 
 ### Debug Mode
@@ -185,10 +240,11 @@ python run_pipeline.py --local --force
 ## 📈 Performance
 
 ### Optimizations Implemented
-- **Embedding reuse**: 50%+ faster similarity calculations
+- **Hybrid architecture**: Neo4j for graphs, Qdrant for vectors
+- **Fast semantic search**: <1 second vs 600+ seconds previously
+- **Cross-reference linking**: Seamless integration between databases
 - **Hash-based tracking**: Only process changed data
-- **Modular loading**: Load only required data types
-- **Incremental Neo4j loading**: Skip already loaded data
+- **Incremental loading**: Skip already loaded data
 
 ### Monitoring
 - Processing statistics in metadata files

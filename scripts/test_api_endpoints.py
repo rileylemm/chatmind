@@ -822,15 +822,27 @@ class ChatMindAPITester:
                 "description": "Search by tags with exact matching"
             },
             {
-                "name": "Semantic Search (Default)",
+                "name": "Semantic Search (Programming)",
+                "endpoint": "/api/search/semantic",
+                "params": {"query": "programming", "limit": 5},
+                "description": "Semantic search for programming-related content"
+            },
+            {
+                "name": "Semantic Search (Technology)",
+                "endpoint": "/api/search/semantic",
+                "params": {"query": "technology", "limit": 5},
+                "description": "Semantic search for technology-related content"
+            },
+            {
+                "name": "Semantic Search (Machine Learning)",
                 "endpoint": "/api/search/semantic",
                 "params": {"query": "machine learning", "limit": 5},
-                "description": "Semantic search for machine learning"
+                "description": "Semantic search for machine learning content"
             },
             {
                 "name": "Semantic Search (High Similarity)",
                 "endpoint": "/api/search/semantic",
-                "params": {"query": "artificial intelligence", "min_similarity": 0.8, "limit": 3},
+                "params": {"query": "machine learning", "min_similarity": 0.8, "limit": 3},
                 "description": "Semantic search with high similarity threshold"
             }
         ]

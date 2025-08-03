@@ -36,21 +36,24 @@ curl http://localhost:8000/health
 
 ### Rich Semantic Knowledge Graph
 Your ChatMind database contains:
-- **1,714 Chats** with positioning data
-- **47,575 Chunks** with embeddings
-- **32,516 Tags** with semantic classification
-- **1,486 Cluster Summaries**
-- **1,714 Chat Summaries**
-- **86,588 Chat Similarities**
-- **305,013 Cluster Similarities**
-- **168,406 Total Nodes** in Neo4j database
+- **Chats** with positioning data
+- **Chunks** with embeddings (using Sentence Transformers)
+- **Tags** with semantic classification
+- **Cluster Summaries**
+- **Chat Summaries**
+- **Similarity relationships** between chats and clusters
+- **Total Nodes** in Neo4j database
+- **Total Relationships** connecting semantic data
+
+*Note: Actual counts depend on your processed data volume.*
 
 ### Core Features
 - **Discovery & Exploration**: Find topics, patterns, and insights
-- **Semantic Search**: Search by meaning, not just keywords
+- **Semantic Search**: Search by meaning, not just keywords (using embeddings and cosine similarity)
 - **Graph Visualization**: 2D/3D positioning and relationships
 - **Advanced Analytics**: Pattern analysis and recommendations
 - **Interactive Exploration**: Real-time graph navigation
+- **Vector Similarity**: 47,575 embeddings for semantic search
 
 ### Authentication
 Currently, the API runs without authentication for local development. For production deployment, consider adding API key authentication.
@@ -220,7 +223,7 @@ Get real-time dashboard statistics from your processed data.
     "total_chunks": 47575,
     "total_clusters": 1486,
     "active_tags": 32516,
-    "total_relationships": 391601,
+    "total_relationships": 299020,
     "total_cost": "$12.45",
     "total_calls": 1250
   },
@@ -228,6 +231,8 @@ Get real-time dashboard statistics from your processed data.
   "error": null
 }
 ```
+
+*Note: Values shown are examples and will vary based on your data.*
 
 **Example:**
 ```bash
@@ -321,7 +326,7 @@ Get semantic clusters with positioning and summaries.
 ### 4. Search APIs
 
 #### GET `/api/search/semantic`
-Search by semantic similarity using embeddings.
+Search by semantic similarity using embeddings and cosine similarity.
 
 **Query Parameters:**
 - `query` (string, required): Search query
@@ -333,22 +338,46 @@ Search by semantic similarity using embeddings.
 {
   "data": [
     {
-      "id": "msg_xyz789",
-      "content": "How do I implement machine learning algorithms?",
+      "chunk_id": "abc123_msg_0_chunk_0",
+      "content": "Example content",
+      "message_content": "Full message content",
       "role": "user",
-      "similarity_score": 0.89,
-      "chat_id": "chat_abc123",
-      "tags": ["#machine-learning", "#python"]
+      "timestamp": 1732234567.0,
+      "similarity": 0.95,
+      "tags": ["#example", "#tag"]
+    },
+    {
+      "chunk_id": "def456_msg_1_chunk_0", 
+      "content": "Related content",
+      "message_content": "Another message with related content",
+      "role": "assistant",
+      "timestamp": 1732234568.0,
+      "similarity": 0.85,
+      "tags": ["#related", "#content"]
     }
   ],
-  "message": "Semantic search completed",
+  "message": "Found 2 semantically similar chunks for query 'example'",
   "error": null
 }
 ```
 
-**Example:**
+**Features:**
+- **True Semantic Search**: Finds related content even when exact words don't match
+- **Cosine Similarity**: Uses vector embeddings for semantic comparison
+- **Contextual Understanding**: "japan" finds "Korea", "Italy", "Mexico" as related countries
+- **Programming Context**: "python" finds beginner discussions and script references
+- **AI Context**: "artificial intelligence" finds AI-related discussions
+
+**Examples:**
 ```bash
-curl "http://localhost:8000/api/search/semantic?query=machine learning&limit=10"
+# Search for programming-related content
+curl "http://localhost:8000/api/search/semantic?query=programming&limit=5"
+
+# Search for technology topics
+curl "http://localhost:8000/api/search/semantic?query=technology&limit=5"
+
+# Search with high similarity threshold
+curl "http://localhost:8000/api/search/semantic?query=machine learning&limit=5"
 ```
 
 #### GET `/api/search/content`

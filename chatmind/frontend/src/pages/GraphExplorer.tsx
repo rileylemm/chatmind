@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { GraphView } from '../components/graph/GraphView';
 import { Filter, Search, Settings } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { api } from '../services/api';
+import { getGraphVisualization } from '../services/api';
 import type { GraphNode, GraphEdge } from '../types';
 
 const GraphExplorer: React.FC = () => {
@@ -17,24 +17,22 @@ const GraphExplorer: React.FC = () => {
   const { data: graphData, isLoading, error } = useQuery({
     queryKey: ['graph-data', currentView, parentId],
     queryFn: async () => {
-      let url = '/graph?limit=500';
+      let nodeTypes: string[] = [];
       
       if (currentView === 'topics') {
-        url += '&node_types=Topic&use_semantic_positioning=true';
+        nodeTypes = ['Topic'];
       } else if (currentView === 'chats') {
-        url += '&node_types=Topic,Chat';
-        if (parentId) {
-          url += `&parent_id=${parentId}`;
-        }
+        nodeTypes = ['Topic', 'Chat'];
       } else if (currentView === 'messages') {
-        url += '&node_types=Topic,Chat,Message';
-        if (parentId) {
-          url += `&parent_id=${parentId}`;
-        }
+        nodeTypes = ['Topic', 'Chat', 'Message'];
       }
       
-      const response = await api.get(url);
-      return response.data;
+      const response = await getGraphVisualization({
+        node_types: nodeTypes,
+        limit: 500,
+        include_edges: true
+      });
+      return response;
     },
     refetchInterval: 30000, // Refetch every 30 seconds
   });

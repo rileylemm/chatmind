@@ -1,7 +1,7 @@
 // Graph Types
 export interface GraphNode {
   id: string;
-  type: 'Chat' | 'Message' | 'Topic' | 'Tag';
+  type: string;
   properties: {
     title?: string;
     content?: string;
@@ -18,7 +18,7 @@ export interface GraphNode {
 export interface GraphEdge {
   source: string;
   target: string;
-  type: 'CONTAINS' | 'SUMMARIZES' | 'HAS_TOPIC' | 'RELATED_TO';
+  type: string;
   properties?: {
     weight?: number;
     [key: string]: unknown;

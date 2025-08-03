@@ -319,29 +319,34 @@ class PipelineRunner:
         return cluster_success
     
     def run_loading(self, force: bool = False) -> bool:
-        """Run the Neo4j loading step."""
-        # Get Neo4j config from environment
+        """Run the hybrid loading step (Neo4j + Qdrant)."""
+        # Get database config from environment using config module
+        from config import get_neo4j_config
+        
+        # Load configuration
+        neo4j_config = get_neo4j_config()
+        neo4j_uri = neo4j_config['uri']
+        neo4j_user = neo4j_config['user']
+        neo4j_password = neo4j_config['password']
+        
+        # Qdrant config (these might not be in config yet, so use defaults)
         import os
-        from dotenv import load_dotenv
-        
-        # Load environment variables
-        load_dotenv()
-        
-        neo4j_uri = os.getenv('NEO4J_URI', 'bolt://localhost:7687')
-        neo4j_user = os.getenv('NEO4J_USER', 'neo4j')
-        neo4j_password = os.getenv('NEO4J_PASSWORD', 'password')
+        qdrant_url = os.getenv('QDRANT_URL', 'http://localhost:6335')
+        qdrant_collection = os.getenv('QDRANT_COLLECTION', 'chatmind_embeddings')
         
         command = [
-            str(self.python_executable), str(self.pipeline_dir / "loading" / "load_graph.py"),
-            "--uri", neo4j_uri,
-            "--user", neo4j_user,
-            "--password", neo4j_password
+            str(self.python_executable), str(self.pipeline_dir / "loading" / "load_hybrid.py"),
+            "--neo4j-uri", neo4j_uri,
+            "--neo4j-user", neo4j_user,
+            "--neo4j-password", neo4j_password,
+            "--qdrant-url", qdrant_url,
+            "--qdrant-collection", qdrant_collection
         ]
         
         if force:
             command.append("--force")
         
-        return self._run_step("loading", command, "Running Neo4j loading step")
+        return self._run_step("loading", command, "Running hybrid loading step (Neo4j + Qdrant)")
     
     def run_pipeline(self, 
                     embedding_method: str = "local",

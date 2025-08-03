@@ -1,0 +1,77 @@
+version: "3.8"
+
+services:
+  neo4j:
+    image: neo4j:5.15
+    container_name: chatmind_neo4j
+    ports:
+      - "7474:7474" # HTTP
+      - "7687:7687" # Bolt
+    environment:
+      - NEO4J_AUTH=neo4j/chatmind123
+      - NEO4J_PLUGINS=["apoc"]
+      - NEO4J_dbms_memory_heap_initial__size=512m
+      - NEO4J_dbms_memory_heap_max__size=2G
+      - NEO4J_dbms_memory_pagecache_size=1G
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+      - neo4j_import:/var/lib/neo4j/import
+      - neo4j_plugins:/plugins
+    networks:
+      - chatmind_network
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:7474",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: chatmind_qdrant
+    ports:
+      - "6335:6333" # HTTP API (different port to avoid conflicts)
+      - "6336:6334" # gRPC API (different port to avoid conflicts)
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    networks:
+      - chatmind_network
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:6333/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  neo4j_data:
+    driver: local
+  neo4j_logs:
+    driver: local
+  neo4j_import:
+    driver: local
+  neo4j_plugins:
+    driver: local
+  qdrant_storage:
+    driver: local
+
+networks:
+  chatmind_network:
+    driver: bridge

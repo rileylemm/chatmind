@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Optimized Neo4j Graph Database Loader
+Hybrid Neo4j Graph Database Loader
 
 Loads processed data from the modular pipeline into Neo4j.
-Optimized for the new pipeline structure with hash-based tracking.
+Optimized for hybrid architecture with Qdrant for embeddings.
 Uses modular directory structure: data/processed/loading/
 """
 
@@ -34,8 +34,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class OptimizedNeo4jGraphLoader:
-    """Optimized loader for modular pipeline data into Neo4j."""
+class HybridNeo4jGraphLoader:
+    """Hybrid loader for modular pipeline data into Neo4j (without embeddings)."""
     
     def __init__(self, 
                  uri: str = None,
@@ -49,13 +49,32 @@ class OptimizedNeo4jGraphLoader:
         self.uri = uri or neo4j_config['uri']
         self.user = user or neo4j_config['user']
         self.password = password or neo4j_config['password']
-        self.processed_dir = Path(processed_dir)
+        # Resolve processed_dir path
+        if Path(processed_dir).is_absolute():
+            self.processed_dir = Path(processed_dir)
+        else:
+            # If relative path, find project root and resolve relative to it
+            current_dir = Path(__file__).parent
+            project_root = None
+            
+            # Walk up the directory tree to find the project root
+            for parent in [current_dir] + list(current_dir.parents):
+                if (parent / ".env").exists():
+                    project_root = parent
+                    break
+            
+            if project_root is None:
+                # Fallback: assume we're in the pipeline directory and go up two levels
+                project_root = current_dir.parent.parent
+            
+            self.processed_dir = project_root / processed_dir
         
         # Debug logging
         logger.info(f"Neo4j connection config:")
         logger.info(f"  URI: {self.uri}")
         logger.info(f"  User: {self.user}")
         logger.info(f"  Password: {'*' * len(self.password) if self.password else 'NOT_SET'}")
+        logger.info(f"  Processed directory: {self.processed_dir}")
         
         # Use modular directory structure
         self.loading_dir = self.processed_dir / "loading"
@@ -73,7 +92,7 @@ class OptimizedNeo4jGraphLoader:
     
     def _get_processed_hashes(self) -> Dict[str, set]:
         """Get hashes of already processed data by type."""
-        hash_file = self.loading_dir / "loading_hashes.pkl"
+        hash_file = self.loading_dir / "neo4j_loading_hashes.pkl"
         if hash_file.exists():
             with open(hash_file, 'rb') as f:
                 return pickle.load(f)
@@ -81,7 +100,7 @@ class OptimizedNeo4jGraphLoader:
     
     def _save_processed_hashes(self, hashes: Dict[str, set]) -> None:
         """Save hashes of processed data by type."""
-        hash_file = self.loading_dir / "loading_hashes.pkl"
+        hash_file = self.loading_dir / "neo4j_loading_hashes.pkl"
         with open(hash_file, 'wb') as f:
             pickle.dump(hashes, f)
     
@@ -124,8 +143,8 @@ class OptimizedNeo4jGraphLoader:
         return data
     
     def _load_all_pipeline_data(self) -> Dict[str, any]:
-        """Load all data from the modular pipeline."""
-        logger.info("📖 Loading pipeline data...")
+        """Load all data from the modular pipeline (excluding embeddings)."""
+        logger.info("📖 Loading pipeline data for Neo4j...")
         
         data = {
             # Core data
@@ -136,10 +155,6 @@ class OptimizedNeo4jGraphLoader:
             'chunks': self._load_data_file(
                 self.processed_dir / "chunking" / "chunks.jsonl", 
                 "chunks"
-            ),
-            'embeddings': self._load_data_file(
-                self.processed_dir / "embedding" / "embeddings.jsonl", 
-                "embeddings"
             ),
             'clustered_embeddings': self._load_data_file(
                 self.processed_dir / "clustering" / "clustered_embeddings.jsonl", 
@@ -166,7 +181,7 @@ class OptimizedNeo4jGraphLoader:
                 "chat summaries"
             ),
             
-            # Positioning data (including embeddings)
+            # Positioning data
             'chat_positions': self._load_data_file(
                 self.processed_dir / "positioning" / "chat_positions.jsonl", 
                 "chat positions"
@@ -174,14 +189,6 @@ class OptimizedNeo4jGraphLoader:
             'cluster_positions': self._load_data_file(
                 self.processed_dir / "positioning" / "cluster_positions.jsonl", 
                 "cluster positions"
-            ),
-            'chat_summary_embeddings': self._load_data_file(
-                self.processed_dir / "positioning" / "chat_summary_embeddings.jsonl", 
-                "chat summary embeddings"
-            ),
-            'cluster_summary_embeddings': self._load_data_file(
-                self.processed_dir / "positioning" / "cluster_summary_embeddings.jsonl", 
-                "cluster summary embeddings"
             ),
             
             # Similarity data
@@ -295,7 +302,7 @@ class OptimizedNeo4jGraphLoader:
         return message_mapping
     
     def _create_chunk_nodes(self, session, chunks: List[Dict], message_mapping: Dict[str, str]) -> Dict[str, str]:
-        """Create Chunk nodes with enhanced properties."""
+        """Create Chunk nodes with enhanced properties and cross-reference IDs."""
         chunk_mapping = {}
         
         for chunk in tqdm(chunks, desc="Creating Chunk nodes"):
@@ -306,8 +313,9 @@ class OptimizedNeo4jGraphLoader:
             token_count = chunk.get('token_count', 0)
             message_hash = chunk.get('message_hash', '')
             chat_id = chunk.get('chat_id', '')
+            message_id = chunk.get('message_id', '')
             
-            # Create Chunk node with enhanced properties
+            # Create Chunk node with enhanced properties and cross-reference IDs
             query = """
             MERGE (ch:Chunk {chunk_id: $chunk_id})
             SET ch.chunk_hash = $chunk_hash,
@@ -315,6 +323,7 @@ class OptimizedNeo4jGraphLoader:
                 ch.role = $role,
                 ch.token_count = $token_count,
                 ch.chat_id = $chat_id,
+                ch.message_id = $message_id,
                 ch.message_hash = $message_hash,
                 ch.content_length = $content_length,
                 ch.loaded_at = datetime()
@@ -328,6 +337,7 @@ class OptimizedNeo4jGraphLoader:
                 'role': role,
                 'token_count': token_count,
                 'chat_id': chat_id,
+                'message_id': message_id,
                 'message_hash': message_hash,
                 'content_length': len(content)
             })
@@ -349,52 +359,7 @@ class OptimizedNeo4jGraphLoader:
         logger.info(f"Created {len(chunk_mapping)} Chunk nodes")
         return chunk_mapping
     
-    def _create_embedding_nodes(self, session, embeddings: List[Dict], chunk_mapping: Dict[str, str]) -> Dict[str, str]:
-        """Create Embedding nodes with enhanced properties."""
-        embedding_mapping = {}
-        
-        for embedding in tqdm(embeddings, desc="Creating Embedding nodes"):
-            chunk_id = embedding.get('chunk_id', '')
-            chunk_hash = embedding.get('chunk_hash', chunk_id)
-            embedding_vector = embedding.get('embedding', [])
-            method = embedding.get('method', 'sentence-transformers')
-            
-            # Generate embedding hash
-            embedding_data = {
-                'chunk_id': chunk_id,
-                'embedding': embedding_vector,
-                'method': method
-            }
-            embedding_hash = self._generate_content_hash(embedding_data)
-            
-            # Create Embedding node with enhanced properties
-            query = """
-            MERGE (e:Embedding {embedding_hash: $embedding_hash})
-            SET e.vector = $vector,
-                e.dimension = $dimension,
-                e.method = $method,
-                e.chunk_id = $chunk_id,
-                e.loaded_at = datetime()
-            WITH e
-            MATCH (ch:Chunk {chunk_id: $chunk_id})
-            MERGE (ch)-[:HAS_EMBEDDING]->(e)
-            RETURN e
-            """
-            
-            result = session.run(query, {
-                'embedding_hash': embedding_hash,
-                'vector': embedding_vector,
-                'dimension': len(embedding_vector),
-                'method': method,
-                'chunk_id': chunk_id
-            })
-            
-            embedding_mapping[chunk_id] = embedding_hash
-        
-        logger.info(f"Created {len(embedding_mapping)} Embedding nodes")
-        return embedding_mapping
-    
-    def _create_cluster_nodes(self, session, clustered: List[Dict], embedding_mapping: Dict[str, str]) -> Dict[int, str]:
+    def _create_cluster_nodes(self, session, clustered: List[Dict], chunk_mapping: Dict[str, str]) -> Dict[int, str]:
         """Create Cluster nodes with enhanced properties."""
         cluster_mapping = {}
         
@@ -748,7 +713,6 @@ class OptimizedNeo4jGraphLoader:
                 "CREATE CONSTRAINT chat_hash_unique IF NOT EXISTS FOR (c:Chat) REQUIRE c.chat_hash IS UNIQUE",
                 "CREATE CONSTRAINT message_id_unique IF NOT EXISTS FOR (m:Message) REQUIRE m.message_id IS UNIQUE",
                 "CREATE CONSTRAINT chunk_id_unique IF NOT EXISTS FOR (ch:Chunk) REQUIRE ch.chunk_id IS UNIQUE",
-                "CREATE CONSTRAINT embedding_hash_unique IF NOT EXISTS FOR (e:Embedding) REQUIRE e.embedding_hash IS UNIQUE",
                 "CREATE CONSTRAINT cluster_id_unique IF NOT EXISTS FOR (cl:Cluster) REQUIRE cl.cluster_id IS UNIQUE",
                 "CREATE CONSTRAINT tag_hash_unique IF NOT EXISTS FOR (t:Tag) REQUIRE t.tag_hash IS UNIQUE",
                 "CREATE CONSTRAINT summary_hash_unique IF NOT EXISTS FOR (s:Summary) REQUIRE s.summary_hash IS UNIQUE",
@@ -766,8 +730,8 @@ class OptimizedNeo4jGraphLoader:
                 "CREATE INDEX chat_id_index IF NOT EXISTS FOR (c:Chat) ON (c.chat_id)",
                 "CREATE INDEX message_chat_id_index IF NOT EXISTS FOR (m:Message) ON (m.chat_id)",
                 "CREATE INDEX chunk_chat_id_index IF NOT EXISTS FOR (ch:Chunk) ON (ch.chat_id)",
+                "CREATE INDEX chunk_message_id_index IF NOT EXISTS FOR (ch:Chunk) ON (ch.message_id)",
                 "CREATE INDEX chunk_message_hash_index IF NOT EXISTS FOR (ch:Chunk) ON (ch.message_hash)",
-                "CREATE INDEX embedding_chunk_id_index IF NOT EXISTS FOR (e:Embedding) ON (e.chunk_id)",
                 "CREATE INDEX cluster_umap_index IF NOT EXISTS FOR (cl:Cluster) ON (cl.umap_x, cl.umap_y)",
                 "CREATE INDEX chat_umap_index IF NOT EXISTS FOR (c:Chat) ON (c.umap_x, c.umap_y)"
             ]
@@ -787,7 +751,7 @@ class OptimizedNeo4jGraphLoader:
         try:
             # Count existing nodes by type
             counts = {}
-            node_types = ['Chat', 'Message', 'Chunk', 'Embedding', 'Cluster', 'Tag', 'Summary', 'ChatSummary']
+            node_types = ['Chat', 'Message', 'Chunk', 'Cluster', 'Tag', 'Summary', 'ChatSummary']
             
             for node_type in node_types:
                 result = session.run(f"MATCH (n:{node_type}) RETURN count(n) as count")
@@ -795,7 +759,7 @@ class OptimizedNeo4jGraphLoader:
                 counts[node_type.lower()] = count
             
             # Count relationships
-            rel_types = ['HAS_MESSAGE', 'HAS_CHUNK', 'HAS_EMBEDDING', 'HAS_CLUSTER', 'TAGGED_WITH', 'SIMILAR_TO_CHAT_HIGH', 'SIMILAR_TO_CLUSTER_HIGH']
+            rel_types = ['HAS_MESSAGE', 'HAS_CHUNK', 'HAS_CLUSTER', 'TAGGED_WITH', 'SIMILAR_TO_CHAT_HIGH', 'SIMILAR_TO_CLUSTER_HIGH']
             
             for rel_type in rel_types:
                 result = session.run(f"MATCH ()-[r:{rel_type}]->() RETURN count(r) as count")
@@ -811,10 +775,10 @@ class OptimizedNeo4jGraphLoader:
         """Save loading metadata."""
         metadata = {
             'timestamp': datetime.now().isoformat(),
-            'step': 'loading',
+            'step': 'neo4j_loading',
             'stats': stats,
-            'version': '2.0',
-            'method': 'incremental_loader',
+            'version': '3.0',
+            'method': 'hybrid_loader',
             'features': [
                 'hash_based_tracking',
                 'incremental_loading',
@@ -822,10 +786,12 @@ class OptimizedNeo4jGraphLoader:
                 'positioning_data',
                 'similarity_relationships',
                 'chat_summaries',
-                'cluster_summaries'
+                'cluster_summaries',
+                'cross_reference_ids',
+                'qdrant_compatible'
             ]
         }
-        metadata_file = self.loading_dir / "metadata.json"
+        metadata_file = self.loading_dir / "neo4j_metadata.json"
         try:
             with open(metadata_file, 'w') as f:
                 json.dump(metadata, f, indent=2)
@@ -835,7 +801,7 @@ class OptimizedNeo4jGraphLoader:
     
     def load_pipeline(self, force_reload: bool = False) -> Dict:
         """Load all pipeline data into Neo4j with granular hash-based tracking."""
-        logger.info("🚀 Starting optimized Neo4j data loading...")
+        logger.info("🚀 Starting hybrid Neo4j data loading...")
         
         if not self.driver:
             logger.error("Neo4j driver not available")
@@ -915,8 +881,7 @@ class OptimizedNeo4jGraphLoader:
             chat_mapping = self._create_chat_nodes(session, data['chats'])
             message_mapping = self._create_message_nodes(session, data['chats'], chat_mapping)
             chunk_mapping = self._create_chunk_nodes(session, data['chunks'], message_mapping)
-            embedding_mapping = self._create_embedding_nodes(session, data['embeddings'], chunk_mapping)
-            cluster_mapping = self._create_cluster_nodes(session, data['clustered_embeddings'], embedding_mapping)
+            cluster_mapping = self._create_cluster_nodes(session, data['clustered_embeddings'], chunk_mapping)
             tag_mapping = self._create_tag_nodes(session, data['tags'], message_mapping)
             summary_mapping = self._create_summary_nodes(session, data['cluster_summaries'], cluster_mapping)
             chat_summary_mapping = self._create_chat_summary_nodes(session, data['chat_summaries'], chat_mapping)
@@ -930,7 +895,6 @@ class OptimizedNeo4jGraphLoader:
             'status': 'success',
             'chats_loaded': len(data['chats']),
             'chunks_loaded': len(data['chunks']),
-            'embeddings_loaded': len(data['embeddings']),
             'clusters_loaded': len(data['clustered_embeddings']),
             'tags_loaded': len(data['tags']),
             'cluster_summaries_loaded': len(data['cluster_summaries']),
@@ -938,9 +902,7 @@ class OptimizedNeo4jGraphLoader:
             'chat_similarities_loaded': len(data['chat_similarities']),
             'cluster_similarities_loaded': len(data['cluster_similarities']),
             'chat_positions_loaded': len(data['chat_positions']),
-            'cluster_positions_loaded': len(data['cluster_positions']),
-            'chat_summary_embeddings_loaded': len(data['chat_summary_embeddings']),
-            'cluster_summary_embeddings_loaded': len(data['cluster_summary_embeddings'])
+            'cluster_positions_loaded': len(data['cluster_positions'])
         }
         
         # Save granular hashes for tracking
@@ -948,11 +910,10 @@ class OptimizedNeo4jGraphLoader:
         self._save_metadata(stats)
         
         # Enhanced user feedback
-        logger.info("✅ Optimized Neo4j loading completed!")
+        logger.info("✅ Hybrid Neo4j loading completed!")
         logger.info("📈 Loading Statistics:")
         logger.info(f"  💬 Chats: {stats['chats_loaded']}")
         logger.info(f"  📝 Chunks: {stats['chunks_loaded']}")
-        logger.info(f"  🔢 Embeddings: {stats['embeddings_loaded']}")
         logger.info(f"  🎯 Clusters: {stats['clusters_loaded']}")
         logger.info(f"  🏷️  Tags: {stats['tags_loaded']}")
         logger.info(f"  📊 Cluster Summaries: {stats['cluster_summaries_loaded']}")
@@ -961,13 +922,12 @@ class OptimizedNeo4jGraphLoader:
         logger.info(f"  🔗 Cluster Similarities: {stats['cluster_similarities_loaded']}")
         logger.info(f"  📍 Chat Positions: {stats['chat_positions_loaded']}")
         logger.info(f"  📍 Cluster Positions: {stats['cluster_positions_loaded']}")
-        logger.info(f"  🧠 Chat Summary Embeddings: {stats['chat_summary_embeddings_loaded']}")
-        logger.info(f"  🧠 Cluster Summary Embeddings: {stats['cluster_summary_embeddings_loaded']}")
         
         # Calculate total items (excluding the status string)
         numeric_values = [v for v in stats.values() if isinstance(v, (int, float))]
         total_items = sum(numeric_values)
         logger.info(f"🎉 Total items loaded: {total_items}")
+        logger.info("🔗 Cross-reference IDs preserved for Qdrant linking")
         
         return stats
     
@@ -984,7 +944,7 @@ class OptimizedNeo4jGraphLoader:
 @click.option('--force', is_flag=True, help='Force reload (clear existing data)')
 @click.option('--check-only', is_flag=True, help='Only check setup, don\'t load')
 def main(uri: str, user: str, password: str, force: bool, check_only: bool):
-    """Load pipeline data into Neo4j graph database with optimized loading."""
+    """Load pipeline data into Neo4j graph database with hybrid architecture."""
     
     # Load configuration if not explicitly provided
     if uri is None or user is None or password is None:
@@ -1005,15 +965,15 @@ def main(uri: str, user: str, password: str, force: bool, check_only: bool):
             logger.error(f"❌ Neo4j connection failed: {e}")
         return
     
-    loader = OptimizedNeo4jGraphLoader(uri=uri, user=user, password=password)
+    loader = HybridNeo4jGraphLoader(uri=uri, user=user, password=password)
     
     try:
         result = loader.load_pipeline(force_reload=force)
         
         if result['status'] == 'success':
-            logger.info("✅ Loading completed successfully!")
+            logger.info("✅ Neo4j loading completed successfully!")
         else:
-            logger.error(f"❌ Loading failed: {result.get('reason', 'unknown')}")
+            logger.error(f"❌ Neo4j loading failed: {result.get('reason', 'unknown')}")
     finally:
         loader.close()
 
