@@ -107,11 +107,13 @@ ai_memory/ # Project Root
 - **✅ Status:** Ready to apply semantic tags
 
 ### 6. Tag Post-Processing
-- **Input:** `data/processed/tagging/chunk_tags.jsonl`, `data/tags_masterlist/tags_master_list.json`
-- **Process:** Map tags to master list, normalize, deduplicate
-- **Output:** `data/processed/tagging/processed_tagged_chunks.jsonl`
-- **Smart:** Ensures tags are mapped and normalized
-- **✅ Status:** Ready to process tags
+- **Input:** `data/processed/tagging/tags.jsonl`, `data/tags_masterlist/tags_master_list.json`
+- **Process:** Map tags to master list, normalize, deduplicate, clean variations
+- **Output:** `data/processed/tagging/processed_tags.jsonl`
+- **Smart:** Ensures tags are mapped and normalized, handles variations like "japan", "Japan", "#japan", "#Japanese"
+- **Master List:** Pre-normalized tags in consistent format (lowercase, single # prefix)
+- **Missing Tags Report:** Generates `missing_tags_report.json` to suggest new tags for master list
+- **✅ Status:** Ready to process tags with comprehensive normalization
 
 ### 7. Cluster Summarization
 - **Input:** `data/processed/clustering/clustered_embeddings.jsonl`
@@ -151,10 +153,11 @@ ai_memory/ # Project Root
 - **Input:** All processed data from previous steps
 - **Process:** Loads data into both Neo4j (graph relationships) and Qdrant (vector embeddings)
 - **Output:** 
-  - **Neo4j:** Dual layer graph with all relationships and metadata
+  - **Neo4j:** Dual layer graph with all relationships and metadata, including direct tag-chunk relationships
   - **Qdrant:** Vector collection with cross-reference metadata for semantic search
 - **Smart:** Only loads when new data exists, maintains cross-references between databases
 - **Cross-References:** chunk_id, message_id, chat_id, embedding_hash for seamless linking
+- **Tag Relationships:** Creates (Tag)-[:TAGS]->(Message) and (Tag)-[:TAGS_CHUNK]->(Chunk) relationships
 - **✅ Status:** Ready to load into hybrid database architecture
 
 ---
@@ -167,22 +170,26 @@ ChatMind uses a **hybrid database architecture** that combines the strengths of 
 ### Neo4j: Graph Relationships
 **Purpose:** Store complex relationships, semantic tags, clustering, and metadata
 - **Chat Layer:** Conversations, messages, chunks, summaries
-- **Cluster Layer:** Semantic groupings, cluster summaries, positions
+- **Cluster Layer:** Semantic groupings, cluster summaries, positions (no embeddings)
 - **Cross-Layer Connections:** Tags, similarities, relationships
 - **Query Capabilities:** Complex graph traversals, relationship analysis
 
 ### Qdrant: Vector Search
 **Purpose:** Fast semantic search and similarity queries
-- **Embeddings:** 384-dimensional vectors for all chunks
+- **Chunk Embeddings:** 384-dimensional vectors for all chunks
+- **Cluster Embeddings:** 384-dimensional vectors for cluster summaries
+- **Chat Summary Embeddings:** 384-dimensional vectors for chat summaries
 - **Metadata:** Rich cross-reference data for Neo4j linking
-- **Search Capabilities:** Semantic similarity, approximate nearest neighbor search
+- **Search Capabilities:** Semantic similarity, hierarchical search (chunks + clusters + chat summaries)
 - **Performance:** Optimized for high-speed vector operations
+- **Storage:** Only database that stores embedding vectors
 
 ### Cross-Reference Linking
 **Seamless Integration:** Both databases maintain cross-references for unified queries
 - **chunk_id:** Links Qdrant points to Neo4j Chunk nodes
+- **cluster_id:** Links Qdrant cluster points to Neo4j Cluster nodes
+- **chat_id:** Links Qdrant chat summary points to Neo4j ChatSummary nodes
 - **message_id:** Links to Neo4j Message nodes
-- **chat_id:** Links to Neo4j Chat nodes
 - **embedding_hash:** Unique identifier for embeddings
 - **message_hash:** Content hash for deduplication
 
@@ -191,7 +198,80 @@ ChatMind uses a **hybrid database architecture** that combines the strengths of 
 - **Scalability:** Separate optimization for different query types
 - **Flexibility:** Choose best database for each operation
 - **Rich Queries:** Combine semantic search with graph relationships
+- **Hierarchical Search:** Search at chunk, cluster, and chat summary levels
 - **Future-Proof:** Easy to extend with new vector or graph features
+
+---
+
+## 📊 Complete Data Architecture
+
+### Neo4j (Graph Database) - Metadata & Relationships
+
+#### Core Content:
+- **Chats** → Chat nodes with title, create_time, source_file
+- **Messages** → Message nodes with content, role, timestamp  
+- **Chunks** → Chunk nodes with content, role, char_count
+
+#### Summaries:
+- **Chat Summaries** → ChatSummary nodes with summary text, key_points
+- **Cluster Summaries** → Summary nodes with summary text, topics, domain
+
+#### Semantic Data:
+- **Tags** → Tag nodes with tags list, topics, domain, complexity
+- **Clusters** → Cluster nodes with x,y coordinates, cluster_hash
+
+#### Relationships:
+- `(Chat)-[:CONTAINS]->(Message)`
+- `(Message)-[:CONTAINS]->(Chunk)`
+- `(Tag)-[:TAGS]->(Message)`
+- `(Tag)-[:TAGS_CHUNK]->(Chunk)`
+- `(Summary)-[:SUMMARIZES]->(Cluster)`
+- `(ChatSummary)-[:SUMMARIZES_CHAT]->(Chat)`
+
+### Qdrant (Vector Database) - Embeddings & Search
+
+#### Chunk Embeddings:
+- **Chunk Vectors** → 384-dimensional vectors
+- **Chunk Metadata** → Content, role, tags, domain, complexity
+- **Cross-references** → chunk_id, message_id, chat_id, message_hash
+
+#### Cluster Embeddings:
+- **Cluster Vectors** → 384-dimensional vectors
+- **Cluster Metadata** → Summary text, key_points, topics, domain, common_tags
+- **Cross-references** → cluster_id, embedding_hash
+
+#### Chat Summary Embeddings:
+- **Chat Summary Vectors** → 384-dimensional vectors
+- **Chat Summary Metadata** → Summary text, key_points, topics, domain, complexity
+- **Cross-references** → chat_id, embedding_hash
+
+### File Structure Summary
+
+```
+data/processed/
+├── ingestion/
+│   └── chats.jsonl                    # → Neo4j (Chat nodes)
+├── chunking/
+│   └── chunks.jsonl                   # → Neo4j (Chunk nodes)
+├── embedding/
+│   └── embeddings.jsonl               # → Qdrant (chunk vectors)
+├── clustering/
+│   └── clustered_embeddings.jsonl     # → Qdrant (chunk vectors + metadata)
+├── tagging/
+│   ├── processed_tags.jsonl           # → Neo4j (Tag nodes)
+│   └── chunk_tags.jsonl               # → Qdrant (chunk metadata)
+├── cluster_summarization/
+│   └── cluster_summaries.json         # → Neo4j (Summary nodes) + Qdrant (metadata)
+├── chat_summarization/
+│   └── chat_summaries.json            # → Neo4j (ChatSummary nodes) + Qdrant (metadata)
+├── positioning/
+│   ├── cluster_positions.jsonl        # → Neo4j (Cluster nodes)
+│   ├── cluster_summary_embeddings.jsonl # → Qdrant (cluster vectors)
+│   └── chat_summary_embeddings.jsonl  # → Qdrant (chat summary vectors)
+└── similarity/
+    ├── chat_similarities.jsonl        # → Neo4j (similarity relationships)
+    └── cluster_similarities.jsonl     # → Neo4j (similarity relationships)
+```
 
 ---
 
@@ -393,7 +473,9 @@ Each hash file contains:
 - `data/processed/similarity/cluster_similarities.jsonl` - Cluster similarity relationships
 
 ### Configuration Files
-- `data/tags_masterlist/tags_master_list.json` - Master tag list
+- `data/tags_masterlist/tags_master_list.json` - Your personal master tag list (pre-normalized)
+- `data/tags_masterlist/generic_tags_list.json` - Basic generic tags template (175 tags)
+- `data/tags_masterlist/comprehensive_generic_tags.json` - Comprehensive generic tags (366 tags)
 
 ---
 
@@ -435,6 +517,50 @@ pip install -r chatmind/pipeline/requirements.txt
 cp env.example .env
 # Edit .env with your API keys and Neo4j credentials
 ```
+
+### Tag Master List Setup
+```bash
+# Navigate to tags directory
+cd data/tags_masterlist/
+
+# Start with generic tags template
+cp generic_tags_list.json tags_master_list.json
+
+# Add your personal tags to tags_master_list.json
+# All tags should be pre-normalized (lowercase, single # prefix)
+
+# Optional: Use comprehensive template for maximum coverage
+# cp comprehensive_generic_tags.json tags_master_list.json
+```
+
+### Tag Optimization Workflow
+```bash
+# Run post-processing to find missing tags
+cd chatmind/pipeline
+python3 tagging/post_process_tags.py --check-only
+
+# Auto-add frequently occurring tags (3+ occurrences)
+python3 tagging/post_process_tags.py --auto-add --auto-add-threshold 3
+
+# Or manually review missing_tags_report.json and add tags
+# Edit data/tags_masterlist/tags_master_list.json
+
+# Re-run post-processing with updated master list
+python3 tagging/post_process_tags.py
+
+# Verify tag normalization worked
+grep -i "japan" data/processed/tagging/processed_tags.jsonl | head -5
+
+# Load into database (creates tag-chunk relationships automatically)
+python3 loading/load_graph.py
+```
+
+### Tag Processing Features
+- **Incremental Processing**: Only processes new/unchanged messages
+- **Auto-Add Tags**: Automatically adds tags with 3+ occurrences to master list
+- **Tag Normalization**: Ensures consistent format (lowercase, # prefix)
+- **Force Processing**: Use `--force` flag to reprocess all messages
+- **Missing Tags Report**: Generates detailed report of unmapped tags
 
 ---
 

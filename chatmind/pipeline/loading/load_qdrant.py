@@ -130,7 +130,7 @@ class QdrantVectorLoader:
         logger.info("📖 Loading embeddings data for Qdrant...")
         
         data = {
-            # Embeddings data
+            # Chunk embeddings data
             'embeddings': self._load_data_file(
                 self.processed_dir / "embedding" / "embeddings.jsonl", 
                 "embeddings"
@@ -146,6 +146,24 @@ class QdrantVectorLoader:
             'tagged_chunks': self._load_data_file(
                 self.processed_dir / "tagging" / "chunk_tags.jsonl", 
                 "tagged chunks"
+            ),
+            # Cluster embeddings data
+            'cluster_summary_embeddings': self._load_data_file(
+                self.processed_dir / "positioning" / "cluster_summary_embeddings.jsonl", 
+                "cluster summary embeddings"
+            ),
+            'cluster_summaries': self._load_json_file(
+                self.processed_dir / "cluster_summarization" / "cluster_summaries.json", 
+                "cluster summaries"
+            ),
+            # Chat summary embeddings data
+            'chat_summary_embeddings': self._load_data_file(
+                self.processed_dir / "positioning" / "chat_summary_embeddings.jsonl", 
+                "chat summary embeddings"
+            ),
+            'chat_summaries': self._load_json_file(
+                self.processed_dir / "chat_summarization" / "chat_summaries.json", 
+                "chat summaries"
             ),
         }
         
@@ -178,15 +196,20 @@ class QdrantVectorLoader:
             logger.error(f"❌ Failed to create collection: {e}")
             return False
     
-    def _prepare_points(self, embeddings: List[Dict], chunks: List[Dict], tagged_chunks: List[Dict]) -> List[PointStruct]:
-        """Prepare points for Qdrant with cross-reference metadata."""
+    def _prepare_points(self, embeddings: List[Dict], chunks: List[Dict], tagged_chunks: List[Dict], 
+                       cluster_summary_embeddings: List[Dict], cluster_summaries: Dict,
+                       chat_summary_embeddings: List[Dict], chat_summaries: Dict) -> List[PointStruct]:
+        """Prepare points for Qdrant with cross-reference metadata (chunks and clusters)."""
         points = []
         
         # Create lookup dictionaries for efficient data access
         chunks_lookup = {chunk['chunk_id']: chunk for chunk in chunks}
         tagged_chunks_lookup = {tagged['chunk_id']: tagged for tagged in tagged_chunks}
+        cluster_summaries_lookup = {str(cluster_id): summary_data for cluster_id, summary_data in cluster_summaries.items()}
+        chat_summaries_lookup = {str(chat_id): summary_data for chat_id, summary_data in chat_summaries.items()}
         
-        for embedding in tqdm(embeddings, desc="Preparing Qdrant points"):
+        # Process chunk embeddings
+        for embedding in tqdm(embeddings, desc="Preparing chunk points"):
             chunk_id = embedding.get('chunk_id', '')
             embedding_vector = embedding.get('embedding', [])
             embedding_hash = embedding.get('embedding_hash', '')
@@ -213,6 +236,9 @@ class QdrantVectorLoader:
                 id=point_id,  # Use integer ID for Qdrant compatibility
                 vector=embedding_vector,
                 payload={
+                    # Entity type
+                    'entity_type': 'chunk',
+                    
                     # Cross-reference IDs for Neo4j linking
                     'chunk_id': chunk_id,
                     'message_id': message_id,
@@ -226,6 +252,102 @@ class QdrantVectorLoader:
                     
                     # Semantic data
                     'tags': tags,
+                    'domain': domain,
+                    'complexity': complexity,
+                    
+                    # Processing metadata
+                    'loaded_at': datetime.now().isoformat(),
+                    'vector_dimension': len(embedding_vector),
+                    'embedding_method': 'sentence-transformers'
+                }
+            )
+            
+            points.append(point)
+        
+        # Process cluster embeddings
+        for cluster_embedding in tqdm(cluster_summary_embeddings, desc="Preparing cluster points"):
+            cluster_id = cluster_embedding.get('cluster_id', '')
+            embedding_vector = cluster_embedding.get('embedding', [])
+            embedding_hash = cluster_embedding.get('hash', '')
+            
+            # Get cluster summary data
+            cluster_summary_data = cluster_summaries_lookup.get(cluster_id, {})
+            summary = cluster_summary_data.get('summary', '')
+            domain = cluster_summary_data.get('domain', 'unknown')
+            topics = cluster_summary_data.get('topics', [])
+            complexity = cluster_summary_data.get('complexity', 'medium')
+            key_points = cluster_summary_data.get('key_points', [])
+            common_tags = cluster_summary_data.get('common_tags', [])
+            
+            # Create integer ID from cluster_id hash for Qdrant compatibility
+            point_id = int(hashlib.sha256(f"cluster_{cluster_id}".encode()).hexdigest()[:16], 16)
+            
+            # Create cluster point with comprehensive metadata
+            point = PointStruct(
+                id=point_id,
+                vector=embedding_vector,
+                payload={
+                    # Entity type
+                    'entity_type': 'cluster',
+                    
+                    # Cross-reference IDs for Neo4j linking
+                    'cluster_id': cluster_id,
+                    'embedding_hash': embedding_hash,
+                    
+                    # Content data
+                    'summary': summary,
+                    'key_points': key_points,
+                    
+                    # Semantic data
+                    'topics': topics,
+                    'domain': domain,
+                    'complexity': complexity,
+                    'common_tags': common_tags,
+                    
+                    # Processing metadata
+                    'loaded_at': datetime.now().isoformat(),
+                    'vector_dimension': len(embedding_vector),
+                    'embedding_method': 'sentence-transformers'
+                }
+            )
+            
+            points.append(point)
+        
+        # Process chat summary embeddings
+        for chat_embedding in tqdm(chat_summary_embeddings, desc="Preparing chat summary points"):
+            chat_id = chat_embedding.get('chat_id', '')
+            embedding_vector = chat_embedding.get('embedding', [])
+            embedding_hash = chat_embedding.get('hash', '')
+            
+            # Get chat summary data
+            chat_summary_data = chat_summaries_lookup.get(chat_id, {})
+            summary = chat_summary_data.get('summary', '')
+            key_points = chat_summary_data.get('key_points', [])
+            topics = chat_summary_data.get('topics', [])
+            domain = chat_summary_data.get('domain', 'unknown')
+            complexity = chat_summary_data.get('complexity', 'medium')
+            
+            # Create integer ID from chat_id hash for Qdrant compatibility
+            point_id = int(hashlib.sha256(f"chat_summary_{chat_id}".encode()).hexdigest()[:16], 16)
+            
+            # Create chat summary point with comprehensive metadata
+            point = PointStruct(
+                id=point_id,
+                vector=embedding_vector,
+                payload={
+                    # Entity type
+                    'entity_type': 'chat_summary',
+                    
+                    # Cross-reference IDs for Neo4j linking
+                    'chat_id': chat_id,
+                    'embedding_hash': embedding_hash,
+                    
+                    # Content data
+                    'summary': summary,
+                    'key_points': key_points,
+                    
+                    # Semantic data
+                    'topics': topics,
                     'domain': domain,
                     'complexity': complexity,
                     
@@ -304,7 +426,10 @@ class QdrantVectorLoader:
                 'cross_reference_metadata',
                 'neo4j_compatible',
                 'batch_uploading',
-                'cosine_similarity'
+                'cosine_similarity',
+                'chunk_embeddings',
+                'cluster_embeddings',
+                'hierarchical_search'
             ]
         }
         metadata_file = self.loading_dir / "qdrant_metadata.json"
@@ -374,7 +499,11 @@ class QdrantVectorLoader:
         points = self._prepare_points(
             data['embeddings'], 
             data['chunks'], 
-            data['tagged_chunks']
+            data['tagged_chunks'],
+            data['cluster_summary_embeddings'],
+            data['cluster_summaries'],
+            data['chat_summary_embeddings'],
+            data['chat_summaries']
         )
         
         # Upload points
@@ -390,6 +519,10 @@ class QdrantVectorLoader:
             'embeddings_loaded': len(data['embeddings']),
             'chunks_loaded': len(data['chunks']),
             'tagged_chunks_loaded': len(data['tagged_chunks']),
+            'cluster_embeddings_loaded': len(data['cluster_summary_embeddings']),
+            'cluster_summaries_loaded': len(data['cluster_summaries']),
+            'chat_summary_embeddings_loaded': len(data['chat_summary_embeddings']),
+            'chat_summaries_loaded': len(data['chat_summaries']),
             'points_uploaded': len(points),
             'collection_name': self.collection_name,
             'vector_dimension': 384,
@@ -406,10 +539,14 @@ class QdrantVectorLoader:
         # Enhanced user feedback
         logger.info("✅ Qdrant embeddings loading completed!")
         logger.info("📈 Loading Statistics:")
-        logger.info(f"  🔢 Embeddings: {stats['embeddings_loaded']}")
+        logger.info(f"  🔢 Chunk Embeddings: {stats['embeddings_loaded']}")
         logger.info(f"  📝 Chunks: {stats['chunks_loaded']}")
         logger.info(f"  🏷️  Tagged Chunks: {stats['tagged_chunks_loaded']}")
-        logger.info(f"  📤 Points Uploaded: {stats['points_uploaded']}")
+        logger.info(f"  🎯 Cluster Embeddings: {stats['cluster_embeddings_loaded']}")
+        logger.info(f"  📊 Cluster Summaries: {stats['cluster_summaries_loaded']}")
+        logger.info(f"  💬 Chat Summary Embeddings: {stats['chat_summary_embeddings_loaded']}")
+        logger.info(f"  📊 Chat Summaries: {stats['chat_summaries_loaded']}")
+        logger.info(f"  📤 Total Points Uploaded: {stats['points_uploaded']}")
         logger.info(f"  📊 Collection: {stats['collection_name']}")
         logger.info(f"  🔢 Vector Dimension: {stats['vector_dimension']}")
         logger.info(f"  📏 Distance Metric: {stats['distance_metric']}")
@@ -419,6 +556,7 @@ class QdrantVectorLoader:
         logger.info("  - chunk_id → Neo4j Chunk nodes")
         logger.info("  - message_id → Neo4j Message nodes")
         logger.info("  - chat_id → Neo4j Chat nodes")
+        logger.info("  - cluster_id → Neo4j Cluster nodes")
         logger.info("  - embedding_hash → Unique embedding identifier")
         logger.info("  - message_hash → Message content hash")
         

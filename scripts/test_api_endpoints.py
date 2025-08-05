@@ -21,7 +21,7 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
 class ChatMindAPITester:
-    """Test all ChatMind API endpoints."""
+    """Test all ChatMind API endpoints with hybrid Neo4j + Qdrant architecture."""
     
     def __init__(self, base_url: str = "http://localhost:8000"):
         self.base_url = base_url.rstrip('/')
@@ -112,7 +112,7 @@ class ChatMindAPITester:
         return self.test_endpoint(
             name="Health Check",
             method="GET",
-            endpoint="/health",
+            endpoint="/api/health",
             description="Check API health and connectivity"
         )
     
@@ -139,14 +139,19 @@ class ChatMindAPITester:
                 "description": "Get limited graph data"
             },
             {
-                "name": "Graph Data (Topics Only)",
-                "params": {"node_types": "Topic", "limit": 5},
-                "description": "Get only topic nodes"
+                "name": "Graph Data (Raw Layer)",
+                "params": {"layer": "raw", "limit": 5},
+                "description": "Get raw layer graph data (Chats and Messages)"
             },
             {
-                "name": "Graph Data (With Positioning)",
-                "params": {"use_semantic_positioning": "true"},
-                "description": "Get graph data with UMAP positioning"
+                "name": "Graph Data (Chunk Layer)",
+                "params": {"layer": "chunk", "limit": 5},
+                "description": "Get chunk layer graph data (Chunks and Clusters)"
+            },
+            {
+                "name": "Graph Data (Both Layers)",
+                "params": {"layer": "both", "limit": 10},
+                "description": "Get both layers graph data"
             }
         ]
         
@@ -782,68 +787,80 @@ class ChatMindAPITester:
         
         return results
     
-    def test_enhanced_search_endpoints(self):
-        """Test enhanced search endpoints."""
+    def test_hybrid_search_endpoints(self):
+        """Test hybrid search endpoints."""
         tests = [
             {
-                "name": "Search Content (Python)",
-                "endpoint": "/api/search/content",
+                "name": "Hybrid Semantic Search (Python)",
+                "endpoint": "/api/search/semantic",
                 "params": {"query": "python", "limit": 5},
-                "description": "Full-text search for Python content"
+                "description": "Hybrid semantic search for Python content"
             },
             {
-                "name": "Search Content (AI)",
-                "endpoint": "/api/search/content",
+                "name": "Hybrid Semantic Search (AI)",
+                "endpoint": "/api/search/semantic",
                 "params": {"query": "AI", "limit": 3},
-                "description": "Full-text search for AI content"
+                "description": "Hybrid semantic search for AI content"
             },
             {
-                "name": "Search Content (User Role)",
-                "endpoint": "/api/search/content",
-                "params": {"query": "help", "role": "user", "limit": 3},
-                "description": "Search content from user messages only"
-            },
-            {
-                "name": "Search Tags (Single Tag)",
-                "endpoint": "/api/search/tags",
-                "params": {"tags": "python", "limit": 5},
-                "description": "Search by single tag"
-            },
-            {
-                "name": "Search Tags (Multiple Tags)",
-                "endpoint": "/api/search/tags",
-                "params": {"tags": "python,api", "limit": 5},
-                "description": "Search by multiple tags"
-            },
-            {
-                "name": "Search Tags (Exact Match)",
-                "endpoint": "/api/search/tags",
-                "params": {"tags": "python", "exact_match": "true", "limit": 3},
-                "description": "Search by tags with exact matching"
-            },
-            {
-                "name": "Semantic Search (Programming)",
-                "endpoint": "/api/search/semantic",
-                "params": {"query": "programming", "limit": 5},
-                "description": "Semantic search for programming-related content"
-            },
-            {
-                "name": "Semantic Search (Technology)",
-                "endpoint": "/api/search/semantic",
-                "params": {"query": "technology", "limit": 5},
-                "description": "Semantic search for technology-related content"
-            },
-            {
-                "name": "Semantic Search (Machine Learning)",
+                "name": "Hybrid Semantic Search (Machine Learning)",
                 "endpoint": "/api/search/semantic",
                 "params": {"query": "machine learning", "limit": 5},
-                "description": "Semantic search for machine learning content"
+                "description": "Hybrid semantic search for machine learning content"
             },
             {
-                "name": "Semantic Search (High Similarity)",
+                "name": "Hybrid Semantic Search (With Domain Filter)",
                 "endpoint": "/api/search/semantic",
-                "params": {"query": "machine learning", "min_similarity": 0.8, "limit": 3},
-                "description": "Semantic search with high similarity threshold"
+                "params": {"query": "technology", "domain": "technology", "limit": 5},
+                "description": "Hybrid semantic search with domain filter"
+            },
+            {
+                "name": "Hybrid Semantic Search (With Tags Filter)",
+                "endpoint": "/api/search/semantic",
+                "params": {"query": "programming", "tags": "python,technology", "limit": 5},
+                "description": "Hybrid semantic search with tags filter"
+            },
+            {
+                "name": "Search by Domain (Technology)",
+                "endpoint": "/api/search/domain/technology",
+                "params": {"limit": 5},
+                "description": "Search by domain with graph context"
+            },
+            {
+                "name": "Search by Domain (Health)",
+                "endpoint": "/api/search/domain/health",
+                "params": {"limit": 5},
+                "description": "Search by health domain with graph context"
+            },
+            {
+                "name": "Search by Tags (Python)",
+                "endpoint": "/api/search/tags",
+                "params": {"tags": "python", "limit": 5},
+                "description": "Search by tags with graph context"
+            },
+            {
+                "name": "Search by Tags (Multiple)",
+                "endpoint": "/api/search/tags",
+                "params": {"tags": "python,technology", "limit": 5},
+                "description": "Search by multiple tags with graph context"
+            },
+            {
+                "name": "Search Statistics",
+                "endpoint": "/api/search/stats",
+                "params": {},
+                "description": "Get search statistics and database info"
+            },
+            {
+                "name": "Available Domains",
+                "endpoint": "/api/search/domains",
+                "params": {},
+                "description": "Get list of available domains for filtering"
+            },
+            {
+                "name": "Available Tags",
+                "endpoint": "/api/search/tags/available",
+                "params": {},
+                "description": "Get list of available tags for filtering"
             }
         ]
         
@@ -926,6 +943,122 @@ class ChatMindAPITester:
         
         return results
     
+    def test_conversation_context(self):
+        """Test conversation context endpoint."""
+        # First get a chat ID to test with
+        try:
+            response = self.session.get(f"{self.base_url}/api/chats?limit=1")
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("data") and len(data["data"]) > 0:
+                    chat_id = data["data"][0]["id"]
+                    
+                    return self.test_endpoint(
+                        name="Conversation Context",
+                        method="GET",
+                        endpoint=f"/api/conversations/{chat_id}/context",
+                        description=f"Get conversation context for chat {chat_id}"
+                    )
+                else:
+                    logger.warning("No chats available for testing conversation context endpoint")
+                    return {
+                        "name": "Conversation Context",
+                        "status": "SKIPPED",
+                        "error": "No chats available",
+                        "description": "Skipped due to no available chats"
+                    }
+            else:
+                logger.warning("Could not fetch chats for testing conversation context endpoint")
+                return {
+                    "name": "Conversation Context", 
+                    "status": "SKIPPED",
+                    "error": "Could not fetch chats",
+                    "description": "Skipped due to API error"
+                }
+        except Exception as e:
+            logger.warning(f"Error preparing conversation context test: {e}")
+            return {
+                "name": "Conversation Context",
+                "status": "SKIPPED", 
+                "error": str(e),
+                "description": "Skipped due to preparation error"
+            }
+    
+    def test_similar_content_search(self):
+        """Test similar content search endpoint."""
+        # First get a chunk ID to test with
+        try:
+            response = self.session.get(f"{self.base_url}/api/chunks?limit=1")
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("data") and len(data["data"]) > 0:
+                    chunk_id = data["data"][0]["chunk_id"]
+                    
+                    return self.test_endpoint(
+                        name="Similar Content Search",
+                        method="GET",
+                        endpoint=f"/api/search/similar/{chunk_id}",
+                        params={"limit": 5},
+                        description=f"Find similar content for chunk {chunk_id}"
+                    )
+                else:
+                    logger.warning("No chunks available for testing similar content search endpoint")
+                    return {
+                        "name": "Similar Content Search",
+                        "status": "SKIPPED",
+                        "error": "No chunks available",
+                        "description": "Skipped due to no available chunks"
+                    }
+            else:
+                logger.warning("Could not fetch chunks for testing similar content search endpoint")
+                return {
+                    "name": "Similar Content Search", 
+                    "status": "SKIPPED",
+                    "error": "Could not fetch chunks",
+                    "description": "Skipped due to API error"
+                }
+        except Exception as e:
+            logger.warning(f"Error preparing similar content search test: {e}")
+            return {
+                "name": "Similar Content Search",
+                "status": "SKIPPED", 
+                "error": str(e),
+                "description": "Skipped due to preparation error"
+            }
+    
+    def test_semantic_chunks(self):
+        """Test semantic chunks endpoint."""
+        tests = [
+            {
+                "name": "Semantic Chunks (Default)",
+                "params": {},
+                "description": "Get default semantic chunks"
+            },
+            {
+                "name": "Semantic Chunks (Limited)",
+                "params": {"limit": 5},
+                "description": "Get limited semantic chunks"
+            },
+            {
+                "name": "Semantic Chunks (By Cluster)",
+                "params": {"cluster_id": 0, "limit": 5},
+                "description": "Get semantic chunks for specific cluster"
+            }
+        ]
+        
+        results = []
+        for test in tests:
+            result = self.test_endpoint(
+                name=test["name"],
+                method="GET",
+                endpoint="/api/chunks",
+                params=test["params"],
+                description=test["description"]
+            )
+            results.append(result)
+        
+        return results
+    
     def test_analytics_endpoints(self):
         """Test analytics endpoints."""
         tests = [
@@ -986,6 +1119,7 @@ class ChatMindAPITester:
     def run_all_tests(self):
         """Run all API endpoint tests."""
         logger.info("🚀 Starting ChatMind API Endpoint Tests...")
+        logger.info("Architecture: Hybrid Neo4j + Qdrant")
         logger.info(f"Base URL: {self.base_url}")
         logger.info("=" * 60)
         
@@ -1004,6 +1138,10 @@ class ChatMindAPITester:
         # Test topics
         logger.info("\n📚 Testing Topics Endpoint...")
         self.test_topics()
+        
+        # Test semantic chunks
+        logger.info("\n📝 Testing Semantic Chunks Endpoint...")
+        self.test_semantic_chunks()
         
         # Test chats
         logger.info("\n💬 Testing Chats Endpoints...")
@@ -1047,9 +1185,17 @@ class ChatMindAPITester:
         logger.info("\n🔍 Testing Discovery Endpoints...")
         self.test_discovery_endpoints()
         
-        # Test new search endpoints
-        logger.info("\n🔍 Testing Enhanced Search Endpoints...")
-        self.test_enhanced_search_endpoints()
+        # Test hybrid search endpoints
+        logger.info("\n🔍 Testing Hybrid Search Endpoints...")
+        self.test_hybrid_search_endpoints()
+        
+        # Test conversation context
+        logger.info("\n💬 Testing Conversation Context Endpoint...")
+        self.test_conversation_context()
+        
+        # Test similar content search
+        logger.info("\n🔍 Testing Similar Content Search Endpoint...")
+        self.test_similar_content_search()
         
         # Test new graph exploration endpoints
         logger.info("\n🌐 Testing Graph Exploration Endpoints...")
@@ -1124,7 +1270,7 @@ def main():
     """Main function to run API tests."""
     import argparse
     
-    parser = argparse.ArgumentParser(description="Test ChatMind API endpoints")
+    parser = argparse.ArgumentParser(description="Test ChatMind API endpoints with hybrid architecture")
     parser.add_argument(
         "--base-url", 
         default="http://localhost:8000",

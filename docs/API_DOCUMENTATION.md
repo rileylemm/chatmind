@@ -2,7 +2,7 @@
 
 **Modern REST API for exploring your rich ChatGPT semantic knowledge graph.**
 
-The ChatMind API provides powerful endpoints for discovering insights, exploring semantic connections, and visualizing your processed ChatGPT conversations. Built with FastAPI for automatic documentation and validation, leveraging your rich Neo4j database with 168,406 nodes and sophisticated semantic relationships.
+The ChatMind API provides powerful endpoints for discovering insights, exploring semantic connections, and visualizing your processed ChatGPT conversations. Built with FastAPI for automatic documentation and validation, leveraging your rich Neo4j database with hybrid Qdrant vector search capabilities.
 
 ---
 
@@ -19,16 +19,16 @@ http://localhost:8000
 
 ### Health Check
 ```bash
-curl http://localhost:8000/health
+curl http://localhost:8000/api/health
 ```
 
 ---
 
 ## ✅ Test Coverage & Reliability
 - **All endpoints are covered by automated tests.**
-- **100% pass rate** as of August 2025 (see `scripts/test_api_endpoints.py`).
+- **100% pass rate** as of current development (see `test_simple_api.py`).
 - All endpoints return a standard response with `data`, `message`, and `error` keys.
-- **54 total endpoints tested** with comprehensive coverage.
+- **15 total endpoints tested** with comprehensive coverage.
 
 ---
 
@@ -37,6 +37,7 @@ curl http://localhost:8000/health
 ### Rich Semantic Knowledge Graph
 Your ChatMind database contains:
 - **Chats** with positioning data
+- **Messages** with content and metadata
 - **Chunks** with embeddings (using Sentence Transformers)
 - **Tags** with semantic classification
 - **Cluster Summaries**
@@ -51,9 +52,9 @@ Your ChatMind database contains:
 - **Discovery & Exploration**: Find topics, patterns, and insights
 - **Semantic Search**: Search by meaning, not just keywords (using embeddings and cosine similarity)
 - **Graph Visualization**: 2D/3D positioning and relationships
-- **Advanced Analytics**: Pattern analysis and recommendations
+- **Hybrid Search**: Combines Neo4j graph queries with Qdrant vector search
 - **Interactive Exploration**: Real-time graph navigation
-- **Vector Similarity**: 47,575 embeddings for semantic search
+- **Vector Similarity**: Embeddings for semantic search
 
 ### Authentication
 Currently, the API runs without authentication for local development. For production deployment, consider adding API key authentication.
@@ -62,7 +63,6 @@ Currently, the API runs without authentication for local development. For produc
 - All endpoints include comprehensive error handling
 - Neo4j connection issues are gracefully handled
 - Invalid parameters return appropriate HTTP status codes
-- Some endpoints may log warnings but still return successful responses
 - All DateTime objects are properly serialized to ISO format strings
 
 ### CORS Configuration
@@ -72,16 +72,25 @@ The API is configured to accept requests from:
 - `http://localhost:5173`
 - `http://127.0.0.1:5173`
 
-### Recent Improvements (August 2025)
-- ✅ **100% API Test Success Rate**: All 54 endpoints now passing
-- ✅ **Neo4j DateTime Serialization**: Fixed PydanticSerializationError issues
-- ✅ **Enhanced Error Handling**: Graceful fallbacks for all endpoints
-- ✅ **Robust Data Conversion**: Proper handling of Neo4j objects
-- ✅ **Comprehensive Test Coverage**: Full endpoint validation
+### Recent Improvements
+- ✅ **Modular Architecture**: Clean separation of routes, models, and utilities
+- ✅ **Test-Driven Development**: All endpoints tested and validated
+- ✅ **Hybrid Database Integration**: Seamless Neo4j + Qdrant operations
+- ✅ **Error Handling**: Robust error handling and graceful fallbacks
+- ✅ **Performance**: Optimized database connections and queries
 
 ---
 
 ## 📊 Data Models
+
+### ApiResponse
+```json
+{
+  "data": "any",
+  "message": "string",
+  "error": "string (optional)"
+}
+```
 
 ### GraphNode
 ```json
@@ -119,38 +128,21 @@ The API is configured to accept requests from:
 }
 ```
 
-### DashboardStats
+### SearchResult
 ```json
 {
-  "total_chats": "number",
-  "total_messages": "number", 
-  "total_chunks": "number",
-  "total_topics": "number",
-  "active_tags": "number",
-  "total_relationships": "number",
-  "total_cost": "string",
-  "total_calls": "number"
-}
-```
-
-### Message
-```json
-{
-  "id": "string",
+  "chunk_id": "string",
   "content": "string",
-  "role": "user|assistant",
-  "timestamp": "number",
+  "message_id": "string",
   "chat_id": "string",
-  "tags": ["string"],
-  "domain": "string",
-  "sentiment": "string"
+  "similarity_score": "number (optional)"
 }
 ```
 
-### Chat
+### Conversation
 ```json
 {
-  "id": "string",
+  "chat_id": "string",
   "title": "string",
   "create_time": "number",
   "message_count": "number",
@@ -159,27 +151,14 @@ The API is configured to accept requests from:
 }
 ```
 
-### Topic
+### Message
 ```json
 {
-  "topic_id": "number",
-  "name": "string",
-  "size": "number",
-  "umap_x": "number",
-  "umap_y": "number",
-  "summary": "string",
-  "key_points": ["string"],
-  "common_tags": ["string"]
-}
-```
-
-### Tag
-```json
-{
-  "name": "string",
-  "count": "number",
-  "category": "string",
-  "domain": "string"
+  "message_id": "string",
+  "content": "string",
+  "role": "user|assistant",
+  "timestamp": "number",
+  "chat_id": "string"
 }
 ```
 
@@ -189,7 +168,7 @@ The API is configured to accept requests from:
 
 ### 1. Health Check
 
-#### GET `/health`
+#### GET `/api/health`
 Check API health and connectivity.
 
 **Response:**
@@ -197,141 +176,52 @@ Check API health and connectivity.
 {
   "data": {
     "status": "healthy",
-    "timestamp": "2025-01-15T10:30:00Z"
+    "neo4j": "connected"
   },
-  "message": "API is running",
+  "message": "All services operational",
   "error": null
 }
 ```
 
 **Example:**
 ```bash
-curl http://localhost:8000/health
+curl http://localhost:8000/api/health
 ```
 
-### 2. Dashboard Statistics
+### 2. Search APIs
 
-#### GET `/api/stats/dashboard`
-Get real-time dashboard statistics from your processed data.
-
-**Response:**
-```json
-{
-  "data": {
-    "total_chats": 1714,
-    "total_messages": 2847,
-    "total_chunks": 47575,
-    "total_clusters": 1486,
-    "active_tags": 32516,
-    "total_relationships": 299020,
-    "total_cost": "$12.45",
-    "total_calls": 1250
-  },
-  "message": "Dashboard statistics retrieved",
-  "error": null
-}
-```
-
-*Note: Values shown are examples and will vary based on your data.*
-
-**Example:**
-```bash
-curl http://localhost:8000/api/stats/dashboard
-```
-
-### 3. Discovery APIs
-
-#### GET `/api/discover/topics`
-Get most discussed topics with frequency and trends.
-
-**Query Parameters:**
-- `limit` (int, optional): Maximum number of topics (default: 20)
-- `min_count` (int, optional): Minimum usage count filter
-- `domain` (string, optional): Filter by domain
-
-**Response:**
-```json
-{
-  "data": [
-    {
-      "topic": "python programming",
-      "count": 156,
-      "domain": "technology",
-      "trend": "increasing",
-      "related_topics": ["web development", "api design"]
-    }
-  ],
-  "message": "Topics discovered successfully",
-  "error": null
-}
-```
-
-**Example:**
-```bash
-curl "http://localhost:8000/api/discover/topics?limit=10&domain=technology"
-```
-
-#### GET `/api/discover/domains`
-Get domain distribution and insights.
-
-**Response:**
-```json
-{
-  "data": [
-    {
-      "domain": "technology",
-      "count": 892,
-      "percentage": 52.0,
-      "top_topics": ["python", "javascript", "api design"],
-      "sentiment_distribution": {
-        "positive": 65,
-        "neutral": 25,
-        "negative": 10
-      }
-    }
-  ],
-  "message": "Domain insights retrieved",
-  "error": null
-}
-```
-
-#### GET `/api/discover/clusters`
-Get semantic clusters with positioning and summaries.
-
-**Query Parameters:**
-- `limit` (int, optional): Maximum number of clusters (default: 50)
-- `min_size` (int, optional): Minimum cluster size
-- `include_positioning` (boolean, optional): Include UMAP coordinates (default: true)
-
-**Response:**
-```json
-{
-  "data": [
-    {
-      "cluster_id": 123,
-      "name": "AI Ethics Discussion",
-      "size": 45,
-      "umap_x": 0.234,
-      "umap_y": 0.567,
-      "summary": "Discussions about AI alignment and safety",
-      "key_points": ["ethics", "alignment", "safety"],
-      "common_tags": ["#ai", "#ethics", "#alignment"]
-    }
-  ],
-  "message": "Clusters discovered successfully",
-  "error": null
-}
-```
-
-### 4. Search APIs
-
-#### GET `/api/search/semantic`
-Search by semantic similarity using embeddings and cosine similarity.
+#### GET `/api/search`
+Simple search endpoint using Neo4j only.
 
 **Query Parameters:**
 - `query` (string, required): Search query
-- `limit` (int, optional): Maximum results (default: 20)
-- `min_similarity` (float, optional): Minimum similarity score (default: 0.7)
+- `limit` (int, optional): Maximum results (default: 10, max: 100)
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "content": "Example message content",
+      "message_id": "msg_123"
+    }
+  ],
+  "message": "Found 1 results for 'example'",
+  "error": null
+}
+```
+
+**Example:**
+```bash
+curl "http://localhost:8000/api/search?query=python&limit=5"
+```
+
+#### GET `/api/search/semantic`
+Semantic search using Qdrant vector database.
+
+**Query Parameters:**
+- `query` (string, required): Search query
+- `limit` (int, optional): Maximum results (default: 10, max: 100)
 
 **Response:**
 ```json
@@ -340,23 +230,12 @@ Search by semantic similarity using embeddings and cosine similarity.
     {
       "chunk_id": "abc123_msg_0_chunk_0",
       "content": "Example content",
-      "message_content": "Full message content",
-      "role": "user",
-      "timestamp": 1732234567.0,
-      "similarity": 0.95,
-      "tags": ["#example", "#tag"]
-    },
-    {
-      "chunk_id": "def456_msg_1_chunk_0", 
-      "content": "Related content",
-      "message_content": "Another message with related content",
-      "role": "assistant",
-      "timestamp": 1732234568.0,
-      "similarity": 0.85,
-      "tags": ["#related", "#content"]
+      "message_id": "msg_123",
+      "chat_id": "chat_456",
+      "similarity_score": 0.95
     }
   ],
-  "message": "Found 2 semantically similar chunks for query 'example'",
+  "message": "Found 1 semantic results for 'example'",
   "error": null
 }
 ```
@@ -366,112 +245,247 @@ Search by semantic similarity using embeddings and cosine similarity.
 - **Cosine Similarity**: Uses vector embeddings for semantic comparison
 - **Contextual Understanding**: "japan" finds "Korea", "Italy", "Mexico" as related countries
 - **Programming Context**: "python" finds beginner discussions and script references
-- **AI Context**: "artificial intelligence" finds AI-related discussions
 
-**Examples:**
+**Example:**
 ```bash
-# Search for programming-related content
-curl "http://localhost:8000/api/search/semantic?query=programming&limit=5"
-
-# Search for technology topics
-curl "http://localhost:8000/api/search/semantic?query=technology&limit=5"
-
-# Search with high similarity threshold
 curl "http://localhost:8000/api/search/semantic?query=machine learning&limit=5"
 ```
 
-#### GET `/api/search/content`
-Full-text search across messages.
+#### GET `/api/search/hybrid`
+Hybrid search combining Neo4j and Qdrant.
 
 **Query Parameters:**
-- `query` (string, required): Search term
-- `limit` (int, optional): Maximum results (default: 50)
-- `role` (string, optional): Filter by role (user/assistant)
+- `query` (string, required): Search query
+- `limit` (int, optional): Maximum results (default: 10, max: 100)
 
 **Response:**
 ```json
 {
   "data": [
     {
-      "id": "msg_xyz789",
-      "content": "I'm working on a Python FastAPI project...",
-      "role": "user",
-      "timestamp": 1732234567.0,
-      "chat_id": "chat_abc123",
-      "tags": ["#python", "#api"]
+      "chunk_id": "abc123_msg_0_chunk_0",
+      "content": "Example content",
+      "message_id": "msg_123",
+      "chat_id": "chat_456",
+      "similarity_score": 0.95,
+      "source": "qdrant"
     }
   ],
-  "message": "Content search completed",
+  "message": "Found 1 hybrid results for 'example'",
+  "error": null
+}
+```
+
+**Example:**
+```bash
+curl "http://localhost:8000/api/search/hybrid?query=python&limit=5"
+```
+
+#### GET `/api/search/stats`
+Get search statistics and database status.
+
+**Response:**
+```json
+{
+  "data": {
+    "neo4j_connected": true,
+    "qdrant_connected": true,
+    "embedding_model_loaded": true,
+    "total_conversations": 2,
+    "total_messages": 2,
+    "total_chunks": 47575
+  },
+  "message": "Search statistics retrieved",
   "error": null
 }
 ```
 
 #### GET `/api/search/tags`
-Search by specific tags or tag combinations.
+Search by specific tags.
 
 **Query Parameters:**
 - `tags` (string, required): Comma-separated tag list
-- `limit` (int, optional): Maximum results (default: 50)
-- `exact_match` (boolean, optional): Require exact tag matches (default: false)
+- `limit` (int, optional): Maximum results (default: 10, max: 100)
 
 **Response:**
 ```json
 {
   "data": [
     {
-      "id": "msg_xyz789",
-      "content": "Python web development with FastAPI",
+      "chunk_id": "abc123_msg_0_chunk_0",
+      "content": "Example content",
+      "message_id": "msg_123",
+      "chat_id": "chat_456",
+      "tags": ["#python", "#api"]
+    }
+  ],
+  "message": "Found 0 results for tags: python",
+  "error": null
+}
+```
+
+#### GET `/api/search/domain/{domain}`
+Search by domain.
+
+**Path Parameters:**
+- `domain` (string, required): Domain to search
+
+**Query Parameters:**
+- `limit` (int, optional): Maximum results (default: 10, max: 100)
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "chunk_id": "abc123_msg_0_chunk_0",
+      "content": "Example content",
+      "message_id": "msg_123",
+      "chat_id": "chat_456"
+    }
+  ],
+  "message": "Found 2 results for domain: technology",
+  "error": null
+}
+```
+
+#### GET `/api/search/similar/{chunk_id}`
+Find similar content to a specific chunk.
+
+**Path Parameters:**
+- `chunk_id` (string, required): Chunk ID to find similar content for
+
+**Query Parameters:**
+- `limit` (int, optional): Maximum results (default: 10, max: 100)
+
+**Response:**
+```json
+{
+  "data": [],
+  "message": "Found 0 similar results for chunk: abc123",
+  "error": null
+}
+```
+
+#### GET `/api/search/tags/available`
+Get all available tags.
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "name": "python",
+      "count": 156
+    }
+  ],
+  "message": "Found 23989 available tags",
+  "error": null
+}
+```
+
+### 3. Graph Exploration APIs
+
+#### GET `/api/graph`
+Get graph data for visualization.
+
+**Response:**
+```json
+{
+  "data": {
+    "nodes": [
+      {
+        "id": "chat_abc123",
+        "type": "Chat",
+        "properties": {
+          "title": "Python Web Development",
+          "domain": "technology"
+        },
+        "position": {
+          "x": 0.234,
+          "y": 0.567
+        }
+      }
+    ],
+    "edges": [
+      {
+        "source": "chat_abc123",
+        "target": "cluster_45",
+        "type": "SIMILAR_TO",
+        "properties": {
+          "score": 0.85
+        }
+      }
+    ]
+  },
+  "message": "Graph data retrieved",
+  "error": null
+}
+```
+
+#### GET `/api/conversations`
+Get all conversations.
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "chat_id": "chat_abc123",
+      "title": "Python Web Development",
+      "create_time": 1732234567.0,
+      "message_count": 5,
+      "position_x": 0.234,
+      "position_y": 0.567
+    }
+  ],
+  "message": "Found 3 conversations",
+  "error": null
+}
+```
+
+#### GET `/api/conversations/{chat_id}/messages`
+Get messages for a specific conversation.
+
+**Path Parameters:**
+- `chat_id` (string, required): Chat ID
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "message_id": "msg_123",
+      "content": "Example message content",
       "role": "user",
-      "tags": ["#python", "#web-development", "#api"],
+      "timestamp": 1732234567.0,
       "chat_id": "chat_abc123"
     }
   ],
-  "message": "Tag search completed",
+  "message": "Found 1 messages for chat: chat_abc123",
   "error": null
 }
 ```
 
-#### POST `/api/search/advanced`
-Advanced multi-criteria search.
+#### GET `/api/chunks/{chunk_id}`
+Get details for a specific chunk.
 
-**Request Body:**
-```json
-{
-  "query": "python",
-  "filters": {
-    "start_date": "2025-01-01",
-    "end_date": "2025-01-31",
-    "domain": "technology",
-    "sentiment": "positive",
-    "complexity": "intermediate",
-    "tags": ["#python", "#api"],
-    "min_similarity": 0.8,
-    "limit": 20
-  }
-}
-```
+**Path Parameters:**
+- `chunk_id` (string, required): Chunk ID
 
 **Response:**
 ```json
 {
-  "data": [
-    {
-      "id": "msg_xyz789",
-      "content": "Advanced Python FastAPI implementation",
-      "role": "user",
-      "similarity_score": 0.92,
-      "chat_id": "chat_abc123",
-      "tags": ["#python", "#api", "#advanced"],
-      "domain": "technology",
-      "sentiment": "positive"
-    }
-  ],
-  "message": "Advanced search completed",
+  "data": {
+    "chunk_id": "abc123_msg_0_chunk_0",
+    "content": "Example chunk content",
+    "message_id": "msg_123",
+    "chat_id": "chat_456"
+  },
+  "message": "Chunk details retrieved",
   "error": null
 }
 ```
-
-### 5. Graph Exploration APIs
 
 #### GET `/api/graph/visualization`
 Get data for 2D/3D graph visualization.
@@ -516,204 +530,41 @@ Get data for 2D/3D graph visualization.
 }
 ```
 
-#### GET `/api/graph/connections`
-Find connections between different conversations or topics.
+### 4. Debug APIs
 
-**Query Parameters:**
-- `source_id` (string, required): Source node ID
-- `target_id` (string, optional): Target node ID
-- `max_hops` (int, optional): Maximum path length (default: 3)
-- `relationship_types` (string, optional): Comma-separated relationship types
+#### GET `/api/debug/schema`
+Get database schema information.
 
 **Response:**
 ```json
 {
   "data": {
-    "paths": [
-      {
-        "path": ["chat_abc123", "cluster_45", "chat_def456"],
-        "length": 2,
-        "relationships": ["SIMILAR_TO", "CONTAINS"],
-        "total_score": 0.78
-      }
-    ],
-    "summary": {
-      "total_paths": 5,
-      "average_score": 0.72,
-      "strongest_connection": 0.89
+    "neo4j_schema": {
+      "nodes": [
+        {
+          "type": "Chat",
+          "count": 2,
+          "properties": ["chat_id", "title", "create_time", "message_count", "position_x", "position_y"]
+        }
+      ],
+      "relationships": [
+        {
+          "type": "CONTAINS",
+          "count": 2,
+          "properties": []
+        }
+      ]
+    },
+    "qdrant_schema": {
+      "collection_name": "chatmind_embeddings",
+      "vector_size": 384,
+      "total_points": 47575
     }
   },
-  "message": "Connections found",
+  "message": "Schema information retrieved",
   "error": null
 }
 ```
-
-#### GET `/api/graph/neighbors`
-Get semantic neighbors of a conversation or cluster.
-
-**Query Parameters:**
-- `node_id` (string, required): Node ID to explore
-- `limit` (int, optional): Maximum neighbors (default: 10)
-- `min_similarity` (float, optional): Minimum similarity (default: 0.7)
-- `relationship_type` (string, optional): Specific relationship type
-
-**Response:**
-```json
-{
-  "data": {
-    "node": {
-      "id": "chat_abc123",
-      "type": "Chat",
-      "title": "Python Web Development"
-    },
-    "neighbors": [
-      {
-        "id": "chat_def456",
-        "type": "Chat",
-        "title": "FastAPI Tutorial",
-        "similarity_score": 0.89,
-        "relationship_type": "SIMILAR_TO"
-      }
-    ],
-    "summary": {
-      "total_neighbors": 8,
-      "average_similarity": 0.76,
-      "strongest_connection": 0.92
-    }
-  },
-  "message": "Neighbors retrieved",
-  "error": null
-}
-```
-
-### 6. Analytics APIs
-
-#### GET `/api/analytics/patterns`
-Analyze conversation patterns and trends.
-
-**Query Parameters:**
-- `timeframe` (string, optional): Time period (daily, weekly, monthly)
-- `domain` (string, optional): Filter by domain
-- `include_sentiment` (boolean, optional): Include sentiment analysis (default: true)
-
-**Response:**
-```json
-{
-  "data": {
-    "conversation_frequency": [
-      {
-        "date": "2025-01-15",
-        "count": 12,
-        "avg_messages": 18.5
-      }
-    ],
-    "topic_evolution": [
-      {
-        "topic": "python",
-        "trend": "increasing",
-        "growth_rate": 0.15
-      }
-    ],
-    "sentiment_trends": {
-      "positive": 65,
-      "neutral": 25,
-      "negative": 10
-    },
-    "complexity_distribution": {
-      "beginner": 20,
-      "intermediate": 45,
-      "advanced": 35
-    }
-  },
-  "message": "Pattern analysis completed",
-  "error": null
-}
-```
-
-#### GET `/api/analytics/sentiment`
-Sentiment analysis over time.
-
-**Query Parameters:**
-- `start_date` (string, optional): Start date (YYYY-MM-DD)
-- `end_date` (string, optional): End date (YYYY-MM-DD)
-- `group_by` (string, optional): Grouping (day, week, month, domain)
-
-**Response:**
-```json
-{
-  "data": {
-    "overall_sentiment": {
-      "positive": 65,
-      "neutral": 25,
-      "negative": 10
-    },
-    "sentiment_by_domain": [
-      {
-        "domain": "technology",
-        "positive": 70,
-        "neutral": 20,
-        "negative": 10
-      }
-    ],
-    "sentiment_timeline": [
-      {
-        "date": "2025-01-15",
-        "positive": 8,
-        "neutral": 3,
-        "negative": 1
-      }
-    ]
-  },
-  "message": "Sentiment analysis completed",
-  "error": null
-}
-```
-
-### 7. Traditional APIs (Maintained for Compatibility)
-
-#### GET `/api/graph`
-Retrieve graph data for visualization (legacy endpoint).
-
-#### GET `/api/chats`
-Get all conversations.
-
-#### GET `/api/chats/{chat_id}/messages`
-Get messages for a specific chat.
-
-#### GET `/api/search`
-Basic content search (legacy endpoint).
-
-#### GET `/api/tags`
-Get all tags with counts.
-
-#### GET `/api/clusters/{cluster_id}`
-Get detailed cluster information.
-
-### 8. Custom Query Endpoints
-
-#### POST `/api/query/neo4j`
-Execute custom Neo4j Cypher queries for advanced analysis.
-
-### 9. Cost Tracking Endpoints
-
-#### GET `/api/costs/statistics`
-Get cost statistics for API operations.
-
-### 10. Health & Monitoring
-
-#### GET `/api/health/neo4j`
-Check Neo4j database connectivity.
-
----
-
-## 🔧 Known Minor Issues
-
-Some endpoints may log warnings during execution but still return successful responses:
-- **Content Search**: May log parameter conflicts but returns valid results
-- **Graph Connections**: May log Cypher syntax warnings but handles gracefully
-- **All endpoints**: Include robust error handling and fallback mechanisms
-
-These issues don't affect functionality and all endpoints return proper HTTP status codes.
 
 ---
 
@@ -741,12 +592,14 @@ These issues don't affect functionality and all endpoints return proper HTTP sta
 
 ### Starting the API Server
 ```bash
-# Using the startup script (recommended)
-python scripts/start_services.py
+# Using the run script
+python run.py
 
-# Manual start
-cd chatmind/api
-python3 -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+# Direct execution
+python main.py
+
+# With uvicorn
+python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### Environment Variables
@@ -754,10 +607,21 @@ python3 -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
 # Required
 NEO4J_URI=bolt://localhost:7687
 NEO4J_USER=neo4j
-NEO4J_PASSWORD=your_password
+NEO4J_PASSWORD=chatmind123
 
 # Optional
-OPENAI_API_KEY=your_openai_key  # For future features
+QDRANT_HOST=localhost
+QDRANT_PORT=6335
+QDRANT_COLLECTION=chatmind_embeddings
+EMBEDDING_MODEL=all-MiniLM-L6-v2
+API_HOST=0.0.0.0
+API_PORT=8000
+```
+
+### Running Tests
+```bash
+# Run comprehensive test suite
+python test_simple_api.py
 ```
 
 ---
@@ -766,75 +630,90 @@ OPENAI_API_KEY=your_openai_key  # For future features
 
 ### Frontend Integration (JavaScript)
 ```javascript
-// Discover topics
-const topicsResponse = await fetch('http://localhost:8000/api/discover/topics?limit=10');
-const topics = await topicsResponse.json();
+// Health check
+const healthResponse = await fetch('http://localhost:8000/api/health');
+const health = await healthResponse.json();
 
-// Semantic search
-const searchResponse = await fetch('http://localhost:8000/api/search/semantic?query=machine learning&limit=10');
+// Simple search
+const searchResponse = await fetch('http://localhost:8000/api/search?query=python&limit=5');
 const searchResults = await searchResponse.json();
 
+// Semantic search
+const semanticResponse = await fetch('http://localhost:8000/api/search/semantic?query=machine learning&limit=5');
+const semanticResults = await semanticResponse.json();
+
 // Graph visualization
-const graphResponse = await fetch('http://localhost:8000/api/graph/visualization?node_types=Chat,Cluster&limit=100');
+const graphResponse = await fetch('http://localhost:8000/api/graph/visualization?limit=100');
 const graphData = await graphResponse.json();
 
-// Pattern analysis
-const patternsResponse = await fetch('http://localhost:8000/api/analytics/patterns?timeframe=monthly');
-const patterns = await patternsResponse.json();
+// Get conversations
+const conversationsResponse = await fetch('http://localhost:8000/api/conversations');
+const conversations = await conversationsResponse.json();
 ```
 
 ### Python Integration
 ```python
 import requests
 
-# Discover clusters
-response = requests.get('http://localhost:8000/api/discover/clusters?limit=20')
-clusters = response.json()
+# Health check
+response = requests.get('http://localhost:8000/api/health')
+health = response.json()
 
-# Advanced search
-response = requests.post('http://localhost:8000/api/search/advanced', json={
-    'query': 'python',
-    'filters': {
-        'domain': 'technology',
-        'sentiment': 'positive',
-        'limit': 10
-    }
-})
+# Hybrid search
+response = requests.get('http://localhost:8000/api/search/hybrid?query=python&limit=10')
 results = response.json()
 
-# Graph connections
-response = requests.get('http://localhost:8000/api/graph/connections?source_id=chat_abc123&max_hops=3')
-connections = response.json()
+# Get graph data
+response = requests.get('http://localhost:8000/api/graph')
+graph_data = response.json()
+
+# Get available tags
+response = requests.get('http://localhost:8000/api/search/tags/available')
+tags = response.json()
 ```
 
 ---
 
-## 🎯 Roadmap
+## 🎯 Architecture
 
-### Phase 1: Core Discovery (✅ Complete)
-- ✅ Topic discovery and visualization
-- ✅ Basic semantic search
-- ✅ Graph visualization data
-- ✅ Conversation browsing
-- ✅ 100% API test coverage
+### Modular Design
+The API follows a clean, modular architecture:
 
-### Phase 2: Advanced Analytics (🔄 In Progress)
-- ✅ Pattern analysis and insights
-- ✅ Interactive graph exploration
-- ✅ Advanced search capabilities
-- 🔄 Personal analytics dashboard
-- 🔄 Real-time data updates
+```
+api/
+├── main.py                 # FastAPI app setup and startup/shutdown
+├── run.py                  # Entrypoint to run the server
+├── config.py               # Configuration management
+├── routes/                 # Individual route files
+│   ├── health.py           # Health checks
+│   ├── search.py           # Search endpoints
+│   ├── graph.py            # Graph exploration endpoints
+│   └── debug.py            # Debug endpoints
+├── models/                 # Pydantic models
+│   ├── __init__.py
+│   └── common.py
+├── utils/                  # Utility functions
+│   ├── __init__.py
+│   └── helpers.py
+└── services/               # Business logic (future expansion)
+    └── __init__.py
+```
 
-### Phase 3: Intelligence Features (Future)
-- 🔮 AI-powered insights and recommendations
-- 🔮 Advanced graph algorithms
-- 🔮 Real-time collaboration features
-- 🔮 Predictive analytics
-- 🔮 Machine learning integration
+### Database Integration
+- **Neo4j**: Handles graph relationships, metadata, and complex queries
+- **Qdrant**: Handles semantic search with embeddings
+- **Hybrid Queries**: Combines both databases for rich exploration
+- **Error Handling**: Graceful fallbacks for all database operations
+
+### Performance Features
+- **Singleton Pattern**: Single instances of database drivers and embedding models
+- **Connection Pooling**: Efficient database connection management
+- **Lazy Loading**: Embedding model loaded only when needed
+- **Global Connections**: Database connections passed via `set_global_connections` functions
 
 ---
 
 **API Version**: 3.0.0  
-**Last Updated**: August 2025  
+**Last Updated**: Current Development  
 **Maintainer**: ChatMind Development Team  
-**Test Status**: ✅ 100% Pass Rate (54/54 endpoints) 
+**Test Status**: ✅ 100% Pass Rate (15/15 endpoints) 

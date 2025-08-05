@@ -18,7 +18,7 @@ ChatMind is a powerful AI memory system that transforms your ChatGPT conversatio
 ChatMind uses a **hybrid database architecture** combining the best of both worlds:
 
 - **Neo4j**: Rich graph relationships, semantic tags, clustering, metadata
-- **Qdrant**: Fast vector search for semantic similarity
+- **Qdrant**: Fast vector search for semantic similarity (chunks + clusters + chat summaries)
 - **Cross-References**: Seamless linking between graph and vector data
 
 ## 🚀 Quick Start
@@ -55,7 +55,23 @@ cd ../frontend
 npm install
 ```
 
-### 4. Process Your Data
+### 4. Setup Tag Master List
+```bash
+# Navigate to the tags directory
+cd data/tags_masterlist/
+
+# Rename the generic tags list to your personal master list
+cp generic_tags_list.json tags_master_list.json
+
+# Edit tags_master_list.json to add your own normalized tags
+# The file contains 175 generic tags covering emotions, time, location, 
+# relationships, activities, health, technology, business, education, etc.
+
+# Optional: Use the comprehensive list for maximum coverage
+# cp comprehensive_generic_tags.json tags_master_list.json
+```
+
+### 5. Process Your Data
 ```bash
 # Add your ChatGPT exports to data/raw/
 # Run the pipeline
@@ -64,7 +80,7 @@ source pipeline_env/bin/activate
 python run_pipeline.py
 ```
 
-### 5. Start the Application
+### 6. Start the Application
 ```bash
 # Start API server
 cd chatmind/api
@@ -85,11 +101,41 @@ ai_memory/
 │   └── frontend/      # React frontend
 ├── data/              # Data storage
 │   ├── raw/          # ChatGPT exports
-│   └── processed/    # Pipeline outputs
+│   ├── processed/    # Pipeline outputs
+│   └── tags_masterlist/ # Tag master lists
+│       ├── tags_master_list.json          # Your personal master list
+│       ├── generic_tags_list.json         # Basic generic tags (175 tags)
+│       └── comprehensive_generic_tags.json # Comprehensive generic tags (366 tags)
 ├── docs/             # Documentation
 │   └── local/        # Project-specific docs
 └── scripts/          # Utilities and tests
 ```
+
+### 🏷️ Tag Master Lists
+
+ChatMind provides three tag list options:
+
+- **`tags_master_list.json`**: Your personal master list (3,200+ normalized tags)
+- **`generic_tags_list.json`**: Basic generic tags covering common categories (175 tags)
+- **`comprehensive_generic_tags.json`**: Extensive generic tags for maximum coverage (366 tags)
+
+### 🔍 Search Capabilities
+
+ChatMind provides hierarchical semantic search across all data levels:
+
+- **Chunk Search**: Find specific content and messages
+- **Cluster Search**: Discover related themes and topics
+- **Chat Summary Search**: Find similar conversations and discussions
+- **Tag Search**: Filter by semantic categories and topics
+
+The generic lists include tags for:
+- **Emotions**: #happy, #sad, #excited, #frustrated, etc.
+- **Time**: #morning, #deadline, #urgent, #routine, etc.
+- **Location**: #home, #office, #school, #hospital, etc.
+- **Activities**: #work, #study, #exercise, #traveling, etc.
+- **Technology**: #software, #hardware, #mobile, #desktop, etc.
+- **Business**: #startup, #corporate, #freelance, #sales, etc.
+- **And many more categories...**
 
 ## 🔄 Pipeline Overview
 
@@ -100,10 +146,42 @@ The ChatMind pipeline processes your ChatGPT conversations through these steps:
 3. **Embedding**: Generate vector representations
 4. **Clustering**: Group similar content together
 5. **Tagging**: Apply semantic tags and categories
-6. **Summarization**: Generate AI summaries
-7. **Positioning**: Create 2D coordinates for visualization
-8. **Similarity**: Calculate relationships between content
-9. **Loading**: Load into hybrid Neo4j + Qdrant architecture
+6. **Tag Post-Processing**: Normalize and map tags to master list
+7. **Summarization**: Generate AI summaries
+8. **Positioning**: Create 2D coordinates for visualization
+9. **Similarity**: Calculate relationships between content
+10. **Loading**: Load into hybrid Neo4j + Qdrant architecture (creates tag-chunk relationships)
+
+### 🏷️ Tag Optimization
+
+After running the pipeline, you can optimize your tag master list:
+
+```bash
+# Auto-add frequently occurring tags (3+ occurrences)
+cd chatmind/pipeline
+python tagging/post_process_tags.py --auto-add --auto-add-threshold 3
+
+# Or manually review missing tags
+python tagging/post_process_tags.py --check-only
+cat ../../data/processed/tagging/missing_tags_report.json
+
+# Edit data/tags_masterlist/tags_master_list.json to add custom tags
+# Re-run post-processing to normalize tags
+```
+
+### 🔍 Database Loading
+
+Load your processed data into the hybrid database architecture:
+
+```bash
+# Load into both Neo4j and Qdrant with cross-references
+cd chatmind/pipeline
+python loading/load_hybrid.py
+
+# Or load databases separately
+python loading/load_graph.py    # Neo4j (graph relationships)
+python loading/load_qdrant.py   # Qdrant (vector embeddings)
+```
 
 ## 🎯 Use Cases
 

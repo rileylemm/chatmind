@@ -179,19 +179,7 @@ class PipelineRunner:
         
         return self._run_step("tag_post_processing", command, "Running tag post-processing step")
     
-    def run_tag_propagation(self, force: bool = False) -> bool:
-        """Run the tag propagation step."""
-        if not force and self._check_step_output("tagging", ["chunk_tags.jsonl"]):
-            logger.info("ℹ️ Tag propagation already completed, skipping...")
-            return True
-        
-        command = [
-            str(self.python_executable), str(self.pipeline_dir / "tagging" / "propagate_tags_to_chunks.py"),
-            "--processed-tags-file", str(self.processed_dir / "tagging" / "processed_tags.jsonl"),
-            "--chunks-file", str(self.processed_dir / "chunking" / "chunks.jsonl")
-        ]
-        
-        return self._run_step("tag_propagation", command, "Running tag propagation step")
+
     
     def run_cluster_summarization(self, method: str = "local", force: bool = False) -> bool:
         """Run the cluster summarization step."""
@@ -366,7 +354,6 @@ class PipelineRunner:
             ("clustering", self.run_clustering),
             ("tagging", lambda f: self.run_tagging(tagging_method, f)),
             ("tag_post_processing", self.run_tag_post_processing),
-            ("tag_propagation", self.run_tag_propagation),
             ("cluster_summarization", lambda f: self.run_cluster_summarization(summarization_method, f)),
             ("chat_summarization", lambda f: self.run_chat_summarization(summarization_method, f)),
             ("positioning", self.run_positioning),
@@ -430,7 +417,7 @@ class PipelineRunner:
 @click.option('--steps', 
               multiple=True,
               type=click.Choice(['ingestion', 'chunking', 'embedding', 'clustering', 
-                               'tagging', 'tag_post_processing', 'tag_propagation', 'cluster_summarization', 'chat_summarization',
+                               'tagging', 'tag_post_processing', 'cluster_summarization', 'chat_summarization',
                                'positioning', 'similarity', 'loading']),
               help='Specific steps to run (can specify multiple)')
 @click.option('--check-only', is_flag=True, help='Only check setup, don\'t run pipeline')
@@ -445,12 +432,12 @@ def main(embedding_method: str, tagging_method: str, summarization_method: str,
     3. Embedding: Convert chunks to vectors
     4. Clustering: Group similar embeddings
     5. Tagging: Tag messages with topics
-    6. Tag Propagation: Propagate tags to chunks
+    6. Tag Post-Processing: Normalize and clean tags
     7. Cluster Summarization: Create cluster summaries
     8. Chat Summarization: Create chat summaries
     9. Positioning: Add spatial coordinates
     10. Similarity: Calculate chat similarities
-    11. Loading: Load into Neo4j database
+    11. Loading: Load into Neo4j database (creates tag-chunk relationships)
     
     EXAMPLES:
     # Run complete pipeline with local models

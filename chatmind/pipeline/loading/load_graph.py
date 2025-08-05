@@ -156,19 +156,15 @@ class HybridNeo4jGraphLoader:
                 self.processed_dir / "chunking" / "chunks.jsonl", 
                 "chunks"
             ),
-            'clustered_embeddings': self._load_data_file(
-                self.processed_dir / "clustering" / "clustered_embeddings.jsonl", 
-                "clustered embeddings"
+            'cluster_positions': self._load_data_file(
+                self.processed_dir / "positioning" / "cluster_positions.jsonl", 
+                "cluster positions"
             ),
             
-            # Tagging data
-            'tags': self._load_data_file(
-                self.processed_dir / "tagging" / "tags.jsonl", 
-                "tags"
-            ),
-            'tagged_chunks': self._load_data_file(
-                self.processed_dir / "tagging" / "chunk_tags.jsonl", 
-                "tagged chunks"
+            # Tagging data (post-processed message tags)
+            'processed_tags': self._load_data_file(
+                self.processed_dir / "tagging" / "processed_tags.jsonl", 
+                "processed tags"
             ),
             
             # Summarization data
@@ -359,42 +355,34 @@ class HybridNeo4jGraphLoader:
         logger.info(f"Created {len(chunk_mapping)} Chunk nodes")
         return chunk_mapping
     
-    def _create_cluster_nodes(self, session, clustered: List[Dict], chunk_mapping: Dict[str, str]) -> Dict[int, str]:
+    def _create_cluster_nodes(self, session, cluster_positions: List[Dict], chunk_mapping: Dict[str, str]) -> Dict[int, str]:
         """Create Cluster nodes with enhanced properties."""
         cluster_mapping = {}
         
-        for item in tqdm(clustered, desc="Creating Cluster nodes"):
-            chunk_id = item.get('chunk_id', '')
-            cluster_id = item.get('cluster_id', -1)
-            umap_x = item.get('umap_x', 0.0)
-            umap_y = item.get('umap_y', 0.0)
-            
-            # Generate cluster hash
-            cluster_data = {
-                'cluster_id': cluster_id,
-                'chunk_id': chunk_id,
-                'umap_x': umap_x,
-                'umap_y': umap_y
-            }
-            cluster_hash = self._generate_content_hash(cluster_data)
+        for item in tqdm(cluster_positions, desc="Creating Cluster nodes"):
+            cluster_id = int(item.get('cluster_id', -1))
+            x = item.get('x', 0.0)
+            y = item.get('y', 0.0)
+            cluster_hash = item.get('cluster_hash', '')
+            summary_hash = item.get('summary_hash', '')
             
             # Create Cluster node with enhanced properties
             query = """
             MERGE (cl:Cluster {cluster_id: $cluster_id})
-            SET cl.umap_x = $umap_x,
-                cl.umap_y = $umap_y,
+            SET cl.x = $x,
+                cl.y = $y,
+                cl.cluster_hash = $cluster_hash,
+                cl.summary_hash = $summary_hash,
                 cl.loaded_at = datetime()
-            WITH cl
-            MATCH (ch:Chunk {chunk_id: $chunk_id})
-            MERGE (cl)-[:CONTAINS_CHUNK]->(ch)
             RETURN cl
             """
             
             result = session.run(query, {
                 'cluster_id': cluster_id,
-                'umap_x': umap_x,
-                'umap_y': umap_y,
-                'chunk_id': chunk_id
+                'x': x,
+                'y': y,
+                'cluster_hash': cluster_hash,
+                'summary_hash': summary_hash
             })
             
             cluster_mapping[cluster_id] = cluster_hash
@@ -402,11 +390,11 @@ class HybridNeo4jGraphLoader:
         logger.info(f"Created {len(cluster_mapping)} Cluster nodes")
         return cluster_mapping
     
-    def _create_tag_nodes(self, session, tags: List[Dict], message_mapping: Dict[str, str]) -> Dict[str, str]:
-        """Create Tag nodes with enhanced properties."""
+    def _create_tag_nodes(self, session, processed_tags: List[Dict], message_mapping: Dict[str, str]) -> Dict[str, str]:
+        """Create Tag nodes and link them to both Messages and Chunks."""
         tag_mapping = {}
         
-        for tag_entry in tqdm(tags, desc="Creating Tag nodes"):
+        for tag_entry in tqdm(processed_tags, desc="Creating Tag nodes"):
             message_hash = tag_entry.get('message_hash', '')
             tags_list = tag_entry.get('tags', [])
             topics = tag_entry.get('topics', [])
@@ -424,7 +412,7 @@ class HybridNeo4jGraphLoader:
             }
             tag_hash = self._generate_content_hash(tag_data)
             
-            # Create Tag node with enhanced properties
+            # Create Tag node and link to Message
             query = """
             MERGE (t:Tag {tag_hash: $tag_hash})
             SET t.tags = $tags,
@@ -438,6 +426,9 @@ class HybridNeo4jGraphLoader:
             WITH t
             MATCH (m:Message {message_hash: $message_hash})
             MERGE (t)-[:TAGS]->(m)
+            WITH t, m
+            MATCH (m)-[:CONTAINS]->(c:Chunk)
+            MERGE (t)-[:TAGS_CHUNK]->(c)
             RETURN t
             """
             
@@ -455,7 +446,7 @@ class HybridNeo4jGraphLoader:
             
             tag_mapping[message_hash] = tag_hash
         
-        logger.info(f"Created {len(tag_mapping)} Tag nodes")
+        logger.info(f"Created {len(tag_mapping)} Tag nodes with chunk relationships")
         return tag_mapping
     
     def _create_summary_nodes(self, session, summaries: Dict, cluster_mapping: Dict[int, str]) -> Dict[int, str]:
@@ -881,8 +872,8 @@ class HybridNeo4jGraphLoader:
             chat_mapping = self._create_chat_nodes(session, data['chats'])
             message_mapping = self._create_message_nodes(session, data['chats'], chat_mapping)
             chunk_mapping = self._create_chunk_nodes(session, data['chunks'], message_mapping)
-            cluster_mapping = self._create_cluster_nodes(session, data['clustered_embeddings'], chunk_mapping)
-            tag_mapping = self._create_tag_nodes(session, data['tags'], message_mapping)
+            cluster_mapping = self._create_cluster_nodes(session, data['cluster_positions'], chunk_mapping)
+            tag_mapping = self._create_tag_nodes(session, data['processed_tags'], message_mapping)
             summary_mapping = self._create_summary_nodes(session, data['cluster_summaries'], cluster_mapping)
             chat_summary_mapping = self._create_chat_summary_nodes(session, data['chat_summaries'], chat_mapping)
             
@@ -895,8 +886,8 @@ class HybridNeo4jGraphLoader:
             'status': 'success',
             'chats_loaded': len(data['chats']),
             'chunks_loaded': len(data['chunks']),
-            'clusters_loaded': len(data['clustered_embeddings']),
-            'tags_loaded': len(data['tags']),
+            'clusters_loaded': len(data['cluster_positions']),
+            'tags_loaded': len(data['processed_tags']),
             'cluster_summaries_loaded': len(data['cluster_summaries']),
             'chat_summaries_loaded': len(data['chat_summaries']),
             'chat_similarities_loaded': len(data['chat_similarities']),

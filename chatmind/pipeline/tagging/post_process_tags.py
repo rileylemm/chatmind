@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 class GemmaOptimizedTagPostProcessor:
     """Post-processes tags optimized for Gemma-2B's clean output."""
     
-    def __init__(self, master_list_path: str = "data/tags_masterlist/tags_master_list.json"):
+    def __init__(self, master_list_path: str = "../../data/tags_masterlist/tags_master_list.json"):
         self.master_list_path = Path(master_list_path)
         self.master_tags = self.load_master_tags()
         self.missing_tags = Counter()
@@ -89,17 +89,12 @@ class GemmaOptimizedTagPostProcessor:
         """Find the best matching tag in master list."""
         normalized_tag = self.normalize_tag(tag)
         
-        # Exact match
+        # Exact match (master list is already normalized)
         if normalized_tag in master_tags:
             return normalized_tag
         
-        # Partial matches (tag contains master tag or vice versa)
-        for master_tag in master_tags:
-            if normalized_tag in master_tag or master_tag in normalized_tag:
-                return master_tag
-        
-        # No match found
-        return tag
+        # No match found - return the normalized tag
+        return normalized_tag
     
     def process_message_tags(self, message: Dict) -> Dict:
         """Process tags for a single message."""
@@ -116,16 +111,18 @@ class GemmaOptimizedTagPostProcessor:
             # Find best match in master list
             mapped_tag = self.find_best_match(tag, self.master_tags)
             
-            if mapped_tag == tag:
-                # Tag not in master list
-                self.missing_tags[tag] += 1
-                tags_unmapped += 1
-                processed_tags.append(tag)  # Keep original
-            else:
+            # Check if the normalized tag is in the master list
+            normalized_tag = self.normalize_tag(tag)
+            if normalized_tag in self.master_tags:
                 # Tag mapped to master list
                 self.mapped_tags[mapped_tag] += 1
                 tags_mapped += 1
                 processed_tags.append(mapped_tag)
+            else:
+                # Tag not in master list
+                self.missing_tags[tag] += 1
+                tags_unmapped += 1
+                processed_tags.append(mapped_tag)  # Use normalized version
         
         # Fix domain field
         original_domain = message.get('domain', 'unknown')
@@ -145,40 +142,68 @@ class GemmaOptimizedTagPostProcessor:
         
         return processed_message
     
-    def process_file(self, input_file: Path, output_file: Path) -> Dict:
-        """Process all messages in a file with Gemma-2B optimizations."""
+    def process_file(self, input_file: Path, output_file: Path, force: bool = False) -> Dict:
+        """Process all messages in a file with incremental processing support."""
         logger.info(f"Processing tags in {input_file}")
+        
+        # Load existing processed messages if file exists and not forcing
+        existing_processed = {}
+        if output_file.exists() and not force:
+            logger.info(f"Loading existing processed data from {output_file}")
+            with jsonlines.open(output_file, 'r') as reader:
+                for message in reader:
+                    message_hash = message.get('message_hash', '')
+                    if message_hash:
+                        existing_processed[message_hash] = message
+            logger.info(f"Loaded {len(existing_processed)} existing processed messages")
         
         processed_messages = []
         total_messages = 0
         total_mapped = 0
         total_unmapped = 0
         domain_fixes_count = 0
+        new_messages = 0
+        skipped_messages = 0
         
         with jsonlines.open(input_file) as reader:
             for message in reader:
+                message_hash = message.get('message_hash', '')
+                
+                # Skip if already processed (unless forcing)
+                if message_hash in existing_processed and not force:
+                    skipped_messages += 1
+                    continue
+                
                 processed_message = self.process_message_tags(message)
                 processed_messages.append(processed_message)
                 total_messages += 1
                 total_mapped += processed_message['tags_mapped']
                 total_unmapped += processed_message['tags_unmapped']
+                new_messages += 1
                 
                 # Count domain fixes
                 if processed_message.get('domain') != message.get('domain'):
                     domain_fixes_count += 1
         
-        # Save processed messages
+        # Combine existing and new processed messages
+        all_processed_messages = list(existing_processed.values()) + processed_messages
+        
+        # Save all processed messages
         with jsonlines.open(output_file, 'w') as writer:
-            for message in processed_messages:
+            for message in all_processed_messages:
                 writer.write(message)
         
-        logger.info(f"Processed {total_messages} messages")
-        logger.info(f"Total tags mapped: {total_mapped}")
-        logger.info(f"Total tags unmapped: {total_unmapped}")
+        logger.info(f"Processed {new_messages} new messages")
+        logger.info(f"Skipped {skipped_messages} already processed messages")
+        logger.info(f"Total messages in file: {len(all_processed_messages)}")
+        logger.info(f"New tags mapped: {total_mapped}")
+        logger.info(f"New tags unmapped: {total_unmapped}")
         logger.info(f"Domain fields fixed: {domain_fixes_count}")
         
         return {
-            'total_messages': total_messages,
+            'new_messages': new_messages,
+            'skipped_messages': skipped_messages,
+            'total_messages_in_file': len(all_processed_messages),
             'total_mapped': total_mapped,
             'total_unmapped': total_unmapped,
             'domain_fixes': domain_fixes_count,
@@ -230,12 +255,13 @@ class GemmaOptimizedTagPostProcessor:
         with open(self.master_list_path, 'r') as f:
             master_tags = json.load(f)
         
-        # Add suggested tags
+        # Add suggested tags (normalized)
         added_tags = []
         for tag in suggestions:
-            if tag not in master_tags:
-                master_tags.append(tag)
-                added_tags.append(tag)
+            normalized_tag = self.normalize_tag(tag)
+            if normalized_tag not in master_tags:
+                master_tags.append(normalized_tag)
+                added_tags.append(normalized_tag)
         
         # Save updated master list
         with open(self.master_list_path, 'w') as f:
@@ -262,10 +288,12 @@ class GemmaOptimizedTagPostProcessor:
               help='Minimum occurrences to auto-add tag')
 @click.option('--auto-add', is_flag=True,
               help='Automatically add frequently occurring missing tags')
+@click.option('--force', is_flag=True,
+              help='Force reprocess all messages (overwrite existing)')
 @click.option('--check-only', is_flag=True,
               help='Only check setup, don\'t process')
 def main(input_file: str, output_file: str, missing_report: str, 
-         auto_add_threshold: int, auto_add: bool, check_only: bool):
+         auto_add_threshold: int, auto_add: bool, force: bool, check_only: bool):
     """Post-process tags optimized for Gemma-2B output."""
     
     if check_only:
@@ -310,23 +338,25 @@ def main(input_file: str, output_file: str, missing_report: str,
     output_path.parent.mkdir(parents=True, exist_ok=True)
     
     # Process the file
-    stats = processor.process_file(input_path, output_path)
+    stats = processor.process_file(input_path, output_path, force=force)
     
-    # Save missing tags report
+    # Auto-add tags if requested (before saving report)
+    if auto_add:
+        processor.auto_add_suggested_tags(auto_add_threshold)
+    
+    # Save missing tags report (after auto-add)
     missing_report_path = Path(missing_report)
     missing_report_path.parent.mkdir(parents=True, exist_ok=True)
     processor.save_missing_tags_report(missing_report_path)
     
-    # Auto-add tags if requested
-    if auto_add:
-        processor.auto_add_suggested_tags(auto_add_threshold)
-    
     # Print summary
     logger.info("")
     logger.info("📊 Post-processing Summary:")
-    logger.info(f"  Total messages processed: {stats['total_messages']}")
-    logger.info(f"  Tags mapped to master list: {stats['total_mapped']}")
-    logger.info(f"  Tags not in master list: {stats['total_unmapped']}")
+    logger.info(f"  New messages processed: {stats['new_messages']}")
+    logger.info(f"  Messages skipped (already processed): {stats['skipped_messages']}")
+    logger.info(f"  Total messages in file: {stats['total_messages_in_file']}")
+    logger.info(f"  New tags mapped to master list: {stats['total_mapped']}")
+    logger.info(f"  New tags not in master list: {stats['total_unmapped']}")
     logger.info(f"  Domain fields fixed: {stats['domain_fixes']}")
     logger.info(f"  Unique missing tags: {len(stats['missing_tags'])}")
     
