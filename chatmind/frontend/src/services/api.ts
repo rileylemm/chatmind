@@ -87,70 +87,16 @@ export const handleApiError = (error: unknown): string => {
 };
 
 // ============================================================================
-// Discovery API Functions
+// Health API Functions
 // ============================================================================
 
-export interface DiscoveredTopic {
-  topic: string;
-  count: number;
-  domain: string;
-  trend: string;
-  related_topics: string[];
+export interface HealthStatus {
+  status: string;
+  neo4j: string;
 }
 
-export interface DiscoveredDomain {
-  domain: string;
-  count: number;
-  percentage: number;
-  top_topics: string[];
-  sentiment_distribution: {
-    positive: number;
-    neutral: number;
-    negative: number;
-  };
-}
-
-export interface DiscoveredCluster {
-  cluster_id: number;
-  name: string;
-  size: number;
-  umap_x?: number;
-  umap_y?: number;
-  summary: string;
-  key_points: string[];
-  common_tags: string[];
-}
-
-export const discoverTopics = async (params?: {
-  limit?: number;
-  min_count?: number;
-  domain?: string;
-}): Promise<DiscoveredTopic[]> => {
-  const searchParams = new URLSearchParams();
-  if (params?.limit) searchParams.append('limit', params.limit.toString());
-  if (params?.min_count) searchParams.append('min_count', params.min_count.toString());
-  if (params?.domain) searchParams.append('domain', params.domain);
-  
-  return apiGet<DiscoveredTopic[]>(`/api/discover/topics?${searchParams.toString()}`);
-};
-
-export const discoverDomains = async (): Promise<DiscoveredDomain[]> => {
-  return apiGet<DiscoveredDomain[]>('/api/discover/domains');
-};
-
-export const discoverClusters = async (params?: {
-  limit?: number;
-  min_size?: number;
-  include_positioning?: boolean;
-}): Promise<DiscoveredCluster[]> => {
-  const searchParams = new URLSearchParams();
-  if (params?.limit) searchParams.append('limit', params.limit.toString());
-  if (params?.min_size) searchParams.append('min_size', params.min_size.toString());
-  if (params?.include_positioning !== undefined) {
-    searchParams.append('include_positioning', params.include_positioning.toString());
-  }
-  
-  return apiGet<DiscoveredCluster[]>(`/api/discover/clusters?${searchParams.toString()}`);
+export const getHealthStatus = async (): Promise<HealthStatus> => {
+  return apiGet<HealthStatus>('/api/health');
 };
 
 // ============================================================================
@@ -158,310 +104,230 @@ export const discoverClusters = async (params?: {
 // ============================================================================
 
 export interface SearchResult {
-  id: string;
+  chunk_id?: string;
   content: string;
-  role?: string;
-  timestamp?: number;
+  message_id?: string;
   chat_id?: string;
-  tags?: string[];
   similarity_score?: number;
+  source?: string;
+  conversation_title?: string;
+  timestamp?: number;
+  role?: string;
+  tags?: string[];
 }
 
-export const searchSemantic = async (params: {
-  query: string;
-  limit?: number;
-  min_similarity?: number;
-}): Promise<SearchResult[]> => {
-  const searchParams = new URLSearchParams();
-  searchParams.append('query', params.query);
-  if (params.limit) searchParams.append('limit', params.limit.toString());
-  if (params.min_similarity) searchParams.append('min_similarity', params.min_similarity.toString());
-  
-  return apiGet<SearchResult[]>(`/api/search/semantic?${searchParams.toString()}`);
-};
-
-export const searchContent = async (params: {
-  query: string;
-  limit?: number;
+export interface SimpleSearchResult {
+  content: string;
+  message_id: string;
+  conversation_title?: string;
+  timestamp?: number;
   role?: string;
-}): Promise<SearchResult[]> => {
-  const searchParams = new URLSearchParams();
-  searchParams.append('query', params.query);
-  if (params.limit) searchParams.append('limit', params.limit.toString());
-  if (params.role) searchParams.append('role', params.role);
-  
-  return apiGet<SearchResult[]>(`/api/search/content?${searchParams.toString()}`);
+}
+
+// Simple search (Neo4j only)
+export const simpleSearch = async (params: {
+  query: string;
+  limit?: number;
+}): Promise<SimpleSearchResult[]> => {
+  const { query, limit = 10 } = params;
+  return apiGet<SimpleSearchResult[]>(`/api/search?query=${encodeURIComponent(query)}&limit=${limit}`);
 };
 
+// Semantic search (Qdrant only)
+export const semanticSearch = async (params: {
+  query: string;
+  limit?: number;
+}): Promise<SearchResult[]> => {
+  const { query, limit = 10 } = params;
+  return apiGet<SearchResult[]>(`/api/search/semantic?query=${encodeURIComponent(query)}&limit=${limit}`);
+};
+
+// Hybrid search (Neo4j + Qdrant)
+export const hybridSearch = async (params: {
+  query: string;
+  limit?: number;
+}): Promise<SearchResult[]> => {
+  const { query, limit = 10 } = params;
+  return apiGet<SearchResult[]>(`/api/search/hybrid?query=${encodeURIComponent(query)}&limit=${limit}`);
+};
+
+// Search by tags
 export const searchByTags = async (params: {
   tags: string[];
   limit?: number;
-  exact_match?: boolean;
 }): Promise<SearchResult[]> => {
-  const searchParams = new URLSearchParams();
-  searchParams.append('tags', params.tags.join(','));
-  if (params.limit) searchParams.append('limit', params.limit.toString());
-  if (params.exact_match !== undefined) {
-    searchParams.append('exact_match', params.exact_match.toString());
-  }
-  
-  return apiGet<SearchResult[]>(`/api/search/tags?${searchParams.toString()}`);
+  const { tags, limit = 10 } = params;
+  const tagsParam = tags.join(',');
+  return apiGet<SearchResult[]>(`/api/search/tags?tags=${encodeURIComponent(tagsParam)}&limit=${limit}`);
 };
 
-export const advancedSearch = async (params: {
-  query: string;
-  filters: {
-    start_date?: string;
-    end_date?: string;
-    domain?: string;
-    sentiment?: string;
-    complexity?: string;
-    tags?: string[];
-    min_similarity?: number;
-    limit?: number;
-  };
+// Search by domain
+export const searchByDomain = async (params: {
+  domain: string;
+  limit?: number;
 }): Promise<SearchResult[]> => {
-  return apiPost<SearchResult[]>('/api/search/advanced', {
-    query: params.query,
-    filters: params.filters,
-  });
+  const { domain, limit = 10 } = params;
+  return apiGet<SearchResult[]>(`/api/search/domain/${encodeURIComponent(domain)}?limit=${limit}`);
 };
 
-// ============================================================================
-// Graph Exploration API Functions
-// ============================================================================
+// Find similar content
+export const findSimilarContent = async (params: {
+  chunk_id: string;
+  limit?: number;
+}): Promise<SearchResult[]> => {
+  const { chunk_id, limit = 10 } = params;
+  return apiGet<SearchResult[]>(`/api/search/similar/${chunk_id}?limit=${limit}`);
+};
 
-export interface GraphVisualizationData {
-  nodes: Array<{
-    id: string;
-    type: string;
-    properties: Record<string, unknown>;
-    position?: { x: number; y: number };
-  }>;
-  edges: Array<{
-    source: string;
-    target: string;
-    type: string;
-    properties?: Record<string, unknown>;
-  }>;
+// Get available tags
+export interface AvailableTag {
+  name: string;
+  count: number;
 }
 
+export const getAvailableTags = async (): Promise<AvailableTag[]> => {
+  return apiGet<AvailableTag[]>('/api/search/tags/available');
+};
+
+// Search statistics
+export interface SearchStats {
+  neo4j_connected: boolean;
+  qdrant_connected: boolean;
+  embedding_model_loaded: boolean;
+  total_conversations: number;
+  total_messages: number;
+  total_chunks: number;
+}
+
+export const getSearchStats = async (): Promise<SearchStats> => {
+  return apiGet<SearchStats>('/api/search/stats');
+};
+
+// ============================================================================
+// Graph API Functions
+// ============================================================================
+
+export interface GraphNode {
+  id: string;
+  type: string;
+  properties: Record<string, unknown>;
+  position?: { x: number; y: number };
+}
+
+export interface GraphEdge {
+  source: string;
+  target: string;
+  type: string;
+  properties?: Record<string, unknown>;
+}
+
+export interface GraphData {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
+// Get graph data
+export const getGraphData = async (params?: {
+  limit?: number;
+}): Promise<GraphData> => {
+  const { limit = 100 } = params || {};
+  return apiGet<GraphData>(`/api/graph?limit=${limit}`);
+};
+
+// Get graph visualization data
 export const getGraphVisualization = async (params?: {
   node_types?: string[];
   limit?: number;
   include_edges?: boolean;
   filter_domain?: string;
-}): Promise<GraphVisualizationData> => {
+}): Promise<GraphData> => {
   const searchParams = new URLSearchParams();
   if (params?.node_types) searchParams.append('node_types', params.node_types.join(','));
   if (params?.limit) searchParams.append('limit', params.limit.toString());
-  if (params?.include_edges !== undefined) {
-    searchParams.append('include_edges', params.include_edges.toString());
-  }
+  if (params?.include_edges !== undefined) searchParams.append('include_edges', params.include_edges.toString());
   if (params?.filter_domain) searchParams.append('filter_domain', params.filter_domain);
   
-  return apiGet<GraphVisualizationData>(`/api/graph/visualization?${searchParams.toString()}`);
+  const queryString = searchParams.toString();
+  return apiGet<GraphData>(`/api/graph/visualization${queryString ? `?${queryString}` : ''}`);
 };
 
-export interface GraphConnection {
-  path: string[];
-  length: number;
-  relationships: string[];
-  total_score: number;
+// ============================================================================
+// Conversation API Functions
+// ============================================================================
+
+export interface Conversation {
+  chat_id: string;
+  title: string;
+  create_time: number;
+  message_count: number;
+  position_x: number;
+  position_y: number;
 }
 
-export interface GraphConnectionsData {
-  paths: GraphConnection[];
-  summary: {
-    total_paths: number;
-    average_score: number;
-    strongest_connection: number;
-  };
+export interface Message {
+  message_id: string;
+  content: string;
+  role: 'user' | 'assistant';
+  timestamp: number;
+  chat_id: string;
 }
 
-export const findGraphConnections = async (params: {
-  source_id: string;
-  target_id?: string;
-  max_hops?: number;
-  relationship_types?: string[];
-}): Promise<GraphConnectionsData> => {
-  const searchParams = new URLSearchParams();
-  searchParams.append('source_id', params.source_id);
-  if (params.target_id) searchParams.append('target_id', params.target_id);
-  if (params.max_hops) searchParams.append('max_hops', params.max_hops.toString());
-  if (params.relationship_types) {
-    searchParams.append('relationship_types', params.relationship_types.join(','));
-  }
-  
-  return apiGet<GraphConnectionsData>(`/api/graph/connections?${searchParams.toString()}`);
-};
-
-export interface GraphNeighbor {
-  id: string;
-  type: string;
-  title?: string;
-  similarity_score: number;
-  relationship_type: string;
+export interface ChunkDetails {
+  chunk_id: string;
+  content: string;
+  message_id: string;
+  chat_id: string;
 }
 
-export interface GraphNeighborsData {
-  node: {
-    id: string;
-    type: string;
-    title?: string;
-  };
-  neighbors: GraphNeighbor[];
-  summary: {
-    total_neighbors: number;
-    average_similarity: number;
-    strongest_connection: number;
-  };
-}
-
-export const getGraphNeighbors = async (params: {
-  node_id: string;
+// Get conversations
+export const getConversations = async (params?: {
   limit?: number;
-  min_similarity?: number;
-  relationship_type?: string;
-}): Promise<GraphNeighborsData> => {
-  const searchParams = new URLSearchParams();
-  searchParams.append('node_id', params.node_id);
-  if (params.limit) searchParams.append('limit', params.limit.toString());
-  if (params.min_similarity) searchParams.append('min_similarity', params.min_similarity.toString());
-  if (params.relationship_type) searchParams.append('relationship_type', params.relationship_type);
-  
-  return apiGet<GraphNeighborsData>(`/api/graph/neighbors?${searchParams.toString()}`);
+}): Promise<Conversation[]> => {
+  const { limit = 50 } = params || {};
+  return apiGet<Conversation[]>(`/api/conversations?limit=${limit}`);
 };
 
-// ============================================================================
-// Analytics API Functions
-// ============================================================================
-
-export interface AnalyticsPatterns {
-  conversation_frequency: Array<{
-    date: string;
-    count: number;
-    avg_messages: number;
-  }>;
-  topic_evolution: Array<{
-    topic: string;
-    trend: string;
-    growth_rate: number;
-  }>;
-  sentiment_trends: {
-    positive: number;
-    neutral: number;
-    negative: number;
-  };
-  complexity_distribution: {
-    beginner: number;
-    intermediate: number;
-    advanced: number;
-  };
-}
-
-export const analyzePatterns = async (params?: {
-  timeframe?: string;
-  domain?: string;
-  include_sentiment?: boolean;
-}): Promise<AnalyticsPatterns> => {
-  const searchParams = new URLSearchParams();
-  if (params?.timeframe) searchParams.append('timeframe', params.timeframe);
-  if (params?.domain) searchParams.append('domain', params.domain);
-  if (params?.include_sentiment !== undefined) {
-    searchParams.append('include_sentiment', params.include_sentiment.toString());
-  }
-  
-  return apiGet<AnalyticsPatterns>(`/api/analytics/patterns?${searchParams.toString()}`);
-};
-
-export interface SentimentAnalysis {
-  overall_sentiment: {
-    positive: number;
-    neutral: number;
-    negative: number;
-  };
-  sentiment_by_domain: Array<{
-    domain: string;
-    positive: number;
-    neutral: number;
-    negative: number;
-  }>;
-  sentiment_timeline: Array<{
-    date: string;
-    positive: number;
-    neutral: number;
-    negative: number;
-  }>;
-}
-
-export const analyzeSentiment = async (params?: {
-  start_date?: string;
-  end_date?: string;
-  group_by?: string;
-}): Promise<SentimentAnalysis> => {
-  const searchParams = new URLSearchParams();
-  if (params?.start_date) searchParams.append('start_date', params.start_date);
-  if (params?.end_date) searchParams.append('end_date', params.end_date);
-  if (params?.group_by) searchParams.append('group_by', params.group_by);
-  
-  return apiGet<SentimentAnalysis>(`/api/analytics/sentiment?${searchParams.toString()}`);
-};
-
-// ============================================================================
-// Legacy API Functions (for backward compatibility)
-// ============================================================================
-
-export const getDashboardStats = async () => {
-  return apiGet('/api/stats/dashboard');
-};
-
-export const getGraphData = async (params?: {
+// Get messages for a conversation
+export const getConversationMessages = async (params: {
+  chat_id: string;
   limit?: number;
-  node_types?: string;
-  parent_id?: string;
-  use_semantic_positioning?: boolean;
-  layer?: string;
-}) => {
-  const searchParams = new URLSearchParams();
-  if (params?.limit) searchParams.append('limit', params.limit.toString());
-  if (params?.node_types) searchParams.append('node_types', params.node_types);
-  if (params?.parent_id) searchParams.append('parent_id', params.parent_id);
-  if (params?.use_semantic_positioning !== undefined) {
-    searchParams.append('use_semantic_positioning', params.use_semantic_positioning.toString());
-  }
-  if (params?.layer) searchParams.append('layer', params.layer);
-  
-  return apiGet(`/api/graph?${searchParams.toString()}`);
+}): Promise<Message[]> => {
+  const { chat_id, limit = 50 } = params;
+  return apiGet<Message[]>(`/api/conversations/${chat_id}/messages?limit=${limit}`);
 };
 
-export const getChats = async (params?: { limit?: number }) => {
-  const searchParams = new URLSearchParams();
-  if (params?.limit) searchParams.append('limit', params.limit.toString());
-  
-  return apiGet(`/api/chats?${searchParams.toString()}`);
+// Get chunk details
+export const getChunkDetails = async (params: {
+  chunk_id: string;
+}): Promise<ChunkDetails> => {
+  const { chunk_id } = params;
+  return apiGet<ChunkDetails>(`/api/chunks/${chunk_id}`);
 };
 
-export const getChatMessages = async (chatId: string, params?: { limit?: number }) => {
-  const searchParams = new URLSearchParams();
-  if (params?.limit) searchParams.append('limit', params.limit.toString());
-  
-  return apiGet(`/api/chats/${chatId}/messages?${searchParams.toString()}`);
-};
+// ============================================================================
+// Debug API Functions
+// ============================================================================
 
-export const getTags = async () => {
-  return apiGet('/api/tags');
-};
+export interface DatabaseSchema {
+  neo4j_schema: {
+    nodes: Array<{
+      type: string;
+      count: number;
+      properties: string[];
+    }>;
+    relationships: Array<{
+      type: string;
+      count: number;
+      properties: string[];
+    }>;
+  };
+  qdrant_schema: {
+    collection_name: string;
+    vector_size: number;
+    total_points: number;
+  };
+}
 
-export const getCostStatistics = async (params?: {
-  start_date?: string;
-  end_date?: string;
-  operation?: string;
-}) => {
-  const searchParams = new URLSearchParams();
-  if (params?.start_date) searchParams.append('start_date', params.start_date);
-  if (params?.end_date) searchParams.append('end_date', params.end_date);
-  if (params?.operation) searchParams.append('operation', params.operation);
-  
-  return apiGet(`/api/costs/statistics?${searchParams.toString()}`);
+export const getDatabaseSchema = async (): Promise<DatabaseSchema> => {
+  return apiGet<DatabaseSchema>('/api/debug/schema');
 }; 

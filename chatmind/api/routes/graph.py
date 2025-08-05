@@ -139,19 +139,86 @@ async def get_conversation_messages(
 async def get_chunk_details(chunk_id: str):
     """Get details for a specific chunk"""
     try:
-        # For now, return basic chunk info
-        chunk_data = {
-            "chunk_id": chunk_id,
-            "content": f"Content for chunk {chunk_id}",
-            "message_id": "sample_message_id",
-            "chat_id": "sample_chat_id",
-            "similarity_score": 1.0
-        }
+        if not neo4j_driver:
+            raise HTTPException(status_code=503, detail="Database not connected")
         
-        return ApiResponse(
-            data=chunk_data,
-            message=f"Chunk details retrieved for {chunk_id}"
-        )
+        with neo4j_driver.session() as session:
+            # Query to get chunk details - message_id and chat_id are properties of the chunk
+            result = session.run("""
+                MATCH (c:Chunk {chunk_id: $chunk_id})
+                RETURN 
+                    c.chunk_id as chunk_id,
+                    c.content as content,
+                    c.message_id as message_id,
+                    c.chat_id as chat_id,
+                    c.embedding_vector as embedding_vector
+            """, chunk_id=chunk_id)
+            
+            record = result.single()
+            if not record:
+                # If chunk not found in Neo4j, try to get basic info from Qdrant
+                if qdrant_client:
+                    try:
+                        # Search for the chunk in Qdrant
+                        search_result = qdrant_client.search(
+                            collection_name=get_config()["qdrant"]["collection_name"],
+                            query_vector=[0.0] * 384,  # Dummy vector
+                            limit=1,
+                            query_filter={
+                                "must": [
+                                    {"key": "chunk_id", "match": {"value": chunk_id}}
+                                ]
+                            }
+                        )
+                        
+                        if search_result:
+                            payload = search_result[0].payload
+                            chunk_data = {
+                                "chunk_id": chunk_id,
+                                "content": payload.get("content", f"Content for chunk {chunk_id}"),
+                                "message_id": payload.get("message_id", "unknown"),
+                                "chat_id": payload.get("chat_id", "unknown"),
+                                "similarity_score": 1.0
+                            }
+                        else:
+                            chunk_data = {
+                                "chunk_id": chunk_id,
+                                "content": f"Content for chunk {chunk_id}",
+                                "message_id": "not_found",
+                                "chat_id": "not_found",
+                                "similarity_score": 1.0
+                            }
+                    except Exception as qdrant_error:
+                        logger.warning(f"Qdrant lookup failed: {qdrant_error}")
+                        chunk_data = {
+                            "chunk_id": chunk_id,
+                            "content": f"Content for chunk {chunk_id}",
+                            "message_id": "error",
+                            "chat_id": "error",
+                            "similarity_score": 1.0
+                        }
+                else:
+                    chunk_data = {
+                        "chunk_id": chunk_id,
+                        "content": f"Content for chunk {chunk_id}",
+                        "message_id": "no_qdrant",
+                        "chat_id": "no_qdrant",
+                        "similarity_score": 1.0
+                    }
+            else:
+                # Found in Neo4j
+                chunk_data = {
+                    "chunk_id": record["chunk_id"],
+                    "content": record["content"],
+                    "message_id": record["message_id"] or "unknown",
+                    "chat_id": record["chat_id"] or "unknown",
+                    "similarity_score": 1.0
+                }
+            
+            return ApiResponse(
+                data=chunk_data,
+                message=f"Chunk details retrieved for {chunk_id}"
+            )
         
     except Exception as e:
         logger.error(f"Chunk details error: {e}")

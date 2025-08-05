@@ -35,11 +35,17 @@ async def simple_search(
             raise HTTPException(status_code=503, detail="Database not connected")
         
         with neo4j_driver.session() as session:
-            # Simple text search in messages
+            # Simple text search in messages with enrichment
             result = session.run("""
                 MATCH (m:Message)
                 WHERE m.content CONTAINS $search_term
-                RETURN m.content as content, m.message_id as message_id
+                MATCH (c:Chat {chat_id: m.chat_id})
+                RETURN 
+                    m.content as content, 
+                    m.message_id as message_id,
+                    m.role as role,
+                    m.timestamp as timestamp,
+                    c.title as conversation_title
                 LIMIT $limit
             """, search_term=q, limit=limit)
             
@@ -47,7 +53,10 @@ async def simple_search(
             for record in result:
                 results.append({
                     "content": record["content"],
-                    "message_id": record["message_id"]
+                    "message_id": record["message_id"],
+                    "role": record["role"] or "unknown",
+                    "timestamp": convert_neo4j_to_json(record["timestamp"]) if record["timestamp"] else None,
+                    "conversation_title": record["conversation_title"] or "Untitled Conversation"
                 })
             
             return ApiResponse(
@@ -84,13 +93,57 @@ async def semantic_search(
         
         results = []
         for result in search_result:
-            results.append({
+            content = result.payload.get("content", "")
+            
+            # Calculate keyword boost
+            query_lower = query.lower()
+            content_lower = content.lower()
+            
+            # Boost score if query terms are present
+            keyword_boost = 0.0
+            if query_lower in content_lower:
+                keyword_boost = 0.3  # Significant boost for exact keyword match
+            elif any(word in content_lower for word in query_lower.split()):
+                keyword_boost = 0.1  # Small boost for partial matches
+            
+            # Apply boost to similarity score (capped at 1.0)
+            boosted_score = min(1.0, result.score + keyword_boost)
+            
+            # Get basic chunk info
+            chunk_data = {
                 "chunk_id": result.payload.get("chunk_id"),
-                "content": result.payload.get("content", ""),
+                "content": content,
                 "message_id": result.payload.get("message_id"),
                 "chat_id": result.payload.get("chat_id"),
-                "similarity_score": result.score
-            })
+                "similarity_score": boosted_score,
+                "conversation_title": "Unknown",
+                "timestamp": None,
+                "role": "unknown"
+            }
+            
+            # Enrich with Neo4j data if available
+            if neo4j_driver and chunk_data["message_id"]:
+                try:
+                    with neo4j_driver.session() as session:
+                        # Get message and chat details
+                        cypher_result = session.run("""
+                            MATCH (m:Message {message_id: $message_id})
+                            MATCH (c:Chat {chat_id: m.chat_id})
+                            RETURN 
+                                m.role as role,
+                                m.timestamp as timestamp,
+                                c.title as conversation_title
+                        """, message_id=chunk_data["message_id"])
+                        
+                        record = cypher_result.single()
+                        if record:
+                            chunk_data["role"] = record["role"] or "unknown"
+                            chunk_data["timestamp"] = convert_neo4j_to_json(record["timestamp"]) if record["timestamp"] else None
+                            chunk_data["conversation_title"] = record["conversation_title"] or "Untitled Conversation"
+                except Exception as e:
+                    logger.warning(f"Neo4j enrichment failed for message {chunk_data['message_id']}: {e}")
+            
+            results.append(chunk_data)
         
         return ApiResponse(
             data=results,
@@ -124,14 +177,42 @@ async def hybrid_search(
                 )
                 
                 for result in search_result:
-                    results.append({
+                    # Get basic chunk info
+                    chunk_data = {
                         "type": "semantic",
                         "chunk_id": result.payload.get("chunk_id"),
                         "content": result.payload.get("content", ""),
                         "message_id": result.payload.get("message_id"),
                         "chat_id": result.payload.get("chat_id"),
-                        "similarity_score": result.score
-                    })
+                        "similarity_score": result.score,
+                        "conversation_title": "Unknown",
+                        "timestamp": None,
+                        "role": "unknown"
+                    }
+                    
+                    # Enrich with Neo4j data if available
+                    if neo4j_driver and chunk_data["message_id"]:
+                        try:
+                            with neo4j_driver.session() as session:
+                                # Get message and chat details
+                                cypher_result = session.run("""
+                                    MATCH (m:Message {message_id: $message_id})
+                                    MATCH (c:Chat {chat_id: m.chat_id})
+                                    RETURN 
+                                        m.role as role,
+                                        m.timestamp as timestamp,
+                                        c.title as conversation_title
+                                """, message_id=chunk_data["message_id"])
+                                
+                                record = cypher_result.single()
+                                if record:
+                                    chunk_data["role"] = record["role"] or "unknown"
+                                    chunk_data["timestamp"] = convert_neo4j_to_json(record["timestamp"]) if record["timestamp"] else None
+                                    chunk_data["conversation_title"] = record["conversation_title"] or "Untitled Conversation"
+                        except Exception as e:
+                            logger.warning(f"Neo4j enrichment failed for message {chunk_data['message_id']}: {e}")
+                    
+                    results.append(chunk_data)
             except Exception as e:
                 logger.warning(f"Qdrant search failed: {e}")
         
@@ -183,16 +264,17 @@ async def search_stats():
         if neo4j_driver:
             try:
                 with neo4j_driver.session() as session:
-                    result = session.run("""
-                        MATCH (n)
-                        RETURN 
-                            count(DISTINCT n:Chat) as conversations,
-                            count(DISTINCT n:Message) as messages
-                    """)
-                    record = result.single()
-                    if record:
-                        stats["total_conversations"] = record["conversations"]
-                        stats["total_messages"] = record["messages"]
+                    # Count conversations
+                    chat_result = session.run("MATCH (c:Chat) RETURN count(c) as conversations")
+                    chat_record = chat_result.single()
+                    
+                    # Count messages
+                    message_result = session.run("MATCH (m:Message) RETURN count(m) as messages")
+                    message_record = message_result.single()
+                    
+                    if chat_record and message_record:
+                        stats["total_conversations"] = chat_record["conversations"]
+                        stats["total_messages"] = message_record["messages"]
             except Exception as e:
                 logger.warning(f"Neo4j stats error: {e}")
         
@@ -219,57 +301,39 @@ async def search_by_tags(
     tags: str = Query(..., description="Comma-separated list of tags"),
     limit: int = Query(default=10, ge=1, le=100)
 ):
-    """Search by tags endpoint - Hybrid approach"""
+    """Search by tags endpoint - Neo4j only"""
     try:
+        if not neo4j_driver:
+            raise HTTPException(status_code=503, detail="Database not connected")
+        
         results = []
         tag_list = [tag.strip() for tag in tags.split(",")]
         
-        # Get chunks from Qdrant
-        if qdrant_client:
-            try:
-                search_result = qdrant_client.search(
-                    collection_name="chatmind_embeddings",
-                    query_vector=[0.0] * 384,  # Dummy vector
-                    limit=limit * 3,  # Get more to filter
-                    with_payload=True,
-                    with_vectors=False
-                )
-                
-                # Enrich with Neo4j tag data
-                if neo4j_driver:
-                    for result in search_result:
-                        message_id = result.payload.get("message_id")
-                        if message_id:
-                            try:
-                                with neo4j_driver.session() as session:
-                                    # Get message and its tags from Neo4j
-                                    cypher_result = session.run("""
-                                        MATCH (m:Message {message_id: $message_id})<-[:TAGS]-(t:Tag)
-                                        UNWIND t.tags as tag
-                                        RETURN DISTINCT tag as tag_name
-                                    """, message_id=message_id)
-                                    
-                                    message_tags = [record["tag_name"] for record in cypher_result]
-                                    
-                                    # Check if any search tags match message tags
-                                    if any(tag.lower() in [mt.lower() for mt in message_tags] for tag in tag_list):
-                                        results.append({
-                                            "chunk_id": result.payload.get("chunk_id"),
-                                            "content": result.payload.get("content", ""),
-                                            "message_id": message_id,
-                                            "chat_id": result.payload.get("chat_id"),
-                                            "tags": message_tags,
-                                            "similarity_score": result.score
-                                        })
-                                        
-                                        if len(results) >= limit:
-                                            break
-                            except Exception as e:
-                                logger.warning(f"Neo4j tag lookup failed for message {message_id}: {e}")
-                                continue
-                                
-            except Exception as e:
-                logger.warning(f"Qdrant tag search failed: {e}")
+        with neo4j_driver.session() as session:
+            # Search for messages that have ALL of the specified tags (AND logic)
+            cypher_result = session.run("""
+                MATCH (m:Message)<-[:TAGS]-(t:Tag)
+                WHERE ALL(tag IN $tag_list WHERE tag IN t.tags)
+                RETURN DISTINCT 
+                    m.content as content,
+                    m.message_id as message_id,
+                    m.chat_id as chat_id,
+                    m.role as role,
+                    m.timestamp as timestamp,
+                    t.tags as tags
+                LIMIT $limit
+            """, tag_list=tag_list, limit=limit)
+            
+            for record in cypher_result:
+                results.append({
+                    "content": record["content"],
+                    "message_id": record["message_id"],
+                    "chat_id": record["chat_id"],
+                    "role": record["role"],
+                    "timestamp": convert_neo4j_to_json(record["timestamp"]) if record["timestamp"] else None,
+                    "tags": record["tags"],
+                    "similarity_score": 1.0  # Direct tag match
+                })
         
         return ApiResponse(
             data=results,
@@ -415,31 +479,35 @@ async def search_similar_content(
 
 @router.get("/tags/available", response_model=ApiResponse)
 async def get_available_tags():
-    """Get list of available tags from Neo4j"""
+    """Get list of available tags from Neo4j with counts"""
     try:
-        tags = set()
+        tag_counts = {}
         
-        # Get tags from Neo4j
+        # Get tags with counts from Neo4j
         if neo4j_driver:
             try:
                 with neo4j_driver.session() as session:
                     result = session.run("""
                         MATCH (t:Tag)
                         UNWIND t.tags as tag
-                        RETURN DISTINCT tag as tag_name
-                        ORDER BY tag
+                        RETURN tag as tag_name, count(*) as tag_count
+                        ORDER BY tag_count DESC, tag_name
                     """)
                     
                     for record in result:
                         tag_name = record["tag_name"]
+                        tag_count = record["tag_count"]
                         if tag_name and tag_name.strip():
-                            tags.add(tag_name.strip())
+                            tag_counts[tag_name.strip()] = tag_count
                             
             except Exception as e:
                 logger.warning(f"Neo4j tag collection failed: {e}")
         
+        # Convert to list of objects
+        tags = [{"name": tag, "count": count} for tag, count in tag_counts.items()]
+        
         return ApiResponse(
-            data=list(tags),
+            data=tags,
             message=f"Found {len(tags)} available tags"
         )
         

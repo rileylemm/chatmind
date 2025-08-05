@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Sun, Moon, Search, Command, Bell, User, Home, Network, MessageSquare, BarChart3, Tag, Database, Settings } from 'lucide-react';
+import { Sun, Moon, Search, Command, Bell, User, Tag } from 'lucide-react';
 import { useUIStore } from '../../stores/uiStore';
 
 const Header: React.FC = () => {
@@ -8,13 +8,8 @@ const Header: React.FC = () => {
   const location = useLocation();
 
   const navigation = [
-    { name: 'Dashboard', href: '/', icon: Home },
-    { name: 'Graph Explorer', href: '/graph', icon: Network },
-    { name: 'Messages', href: '/messages', icon: MessageSquare },
-    { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-    { name: 'Tags', href: '/tags', icon: Tag },
-    { name: 'Data Lake', href: '/data', icon: Database },
-    { name: 'Settings', href: '/settings', icon: Settings },
+    { name: 'Semantic Discovery', href: '/search', icon: Search },
+    { name: 'Tag-Based Discovery', href: '/discovery', icon: Tag },
   ];
 
   return (

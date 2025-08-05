@@ -1,15 +1,8 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
-  Home, 
-  Network, 
-  MessageSquare, 
-  BarChart3, 
-  Settings,
   Tag,
-  Database,
-  Search,
-  Lightbulb
+  Search
 } from 'lucide-react';
 import { useUIStore } from '../../stores/uiStore';
 
@@ -18,15 +11,8 @@ const Sidebar: React.FC = () => {
   const location = useLocation();
 
   const navigation = [
-    { name: 'Dashboard', href: '/', icon: Home },
-    { name: 'Graph Explorer', href: '/graph', icon: Network },
-    { name: 'Discovery', href: '/discover', icon: Lightbulb },
-    { name: 'Search', href: '/search', icon: Search },
-    { name: 'Messages', href: '/messages', icon: MessageSquare },
-    { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-    { name: 'Tags', href: '/tags', icon: Tag },
-    { name: 'Data Lake', href: '/data', icon: Database },
-    { name: 'Settings', href: '/settings', icon: Settings },
+    { name: 'Semantic Discovery', href: '/search', icon: Search },
+    { name: 'Tag-Based Discovery', href: '/discovery', icon: Tag },
   ];
 
   if (!sidebarOpen) {
@@ -38,8 +24,11 @@ const Sidebar: React.FC = () => {
       {/* Sidebar header */}
       <div className="p-6 border-b border-gray-200 dark:border-gray-700">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-          Navigation
+          CM ChatMind
         </h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          Knowledge Graph Explorer
+        </p>
       </div>
 
       {/* Navigation menu */}
