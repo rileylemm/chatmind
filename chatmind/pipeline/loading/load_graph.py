@@ -355,12 +355,12 @@ class HybridNeo4jGraphLoader:
         logger.info(f"Created {len(chunk_mapping)} Chunk nodes")
         return chunk_mapping
     
-    def _create_cluster_nodes(self, session, cluster_positions: List[Dict], chunk_mapping: Dict[str, str]) -> Dict[int, str]:
+    def _create_cluster_nodes(self, session, cluster_positions: List[Dict], chunk_mapping: Dict[str, str]) -> Dict[str, str]:
         """Create Cluster nodes with enhanced properties."""
         cluster_mapping = {}
         
         for item in tqdm(cluster_positions, desc="Creating Cluster nodes"):
-            cluster_id = int(item.get('cluster_id', -1))
+            cluster_id = item.get('cluster_id', '')  # Keep as string to match summary files
             x = item.get('x', 0.0)
             y = item.get('y', 0.0)
             cluster_hash = item.get('cluster_hash', '')
@@ -449,12 +449,12 @@ class HybridNeo4jGraphLoader:
         logger.info(f"Created {len(tag_mapping)} Tag nodes with chunk relationships")
         return tag_mapping
     
-    def _create_summary_nodes(self, session, summaries: Dict, cluster_mapping: Dict[int, str]) -> Dict[int, str]:
+    def _create_summary_nodes(self, session, summaries: Dict, cluster_mapping: Dict[str, str]) -> Dict[str, str]:
         """Create Summary nodes with enhanced properties."""
         summary_mapping = {}
         
         for cluster_id_str, summary_data in tqdm(summaries.items(), desc="Creating Summary nodes"):
-            cluster_id = int(cluster_id_str)
+            cluster_id = cluster_id_str  # Keep as string to match cluster nodes
             summary_text = summary_data.get('summary', '')
             domain = summary_data.get('domain', 'other')
             topics = summary_data.get('topics', [])
@@ -578,7 +578,7 @@ class HybridNeo4jGraphLoader:
         
         # Create cluster positioning nodes
         for position in tqdm(cluster_positions, desc="Creating Cluster Position nodes"):
-            cluster_id = position.get('cluster_id', -1)
+            cluster_id = position.get('cluster_id', '')  # Keep as string to match cluster nodes
             umap_x = position.get('umap_x', 0.0)
             umap_y = position.get('umap_y', 0.0)
             
@@ -651,8 +651,8 @@ class HybridNeo4jGraphLoader:
         cluster_medium_similarities = 0
         
         for similarity in tqdm(cluster_similarities, desc="Creating Cluster Similarity relationships"):
-            cluster1_id = similarity.get('cluster1_id', -1)
-            cluster2_id = similarity.get('cluster2_id', -1)
+            cluster1_id = similarity.get('cluster1_id', '')  # Keep as string to match cluster nodes
+            cluster2_id = similarity.get('cluster2_id', '')  # Keep as string to match cluster nodes
             similarity_score = similarity.get('similarity', 0.0)
             
             # Only create relationships for meaningful similarities
@@ -804,7 +804,7 @@ class HybridNeo4jGraphLoader:
         # Check for minimum required data
         if not data['chats']:
             logger.warning("⚠️  No chats found - pipeline may not have been run yet")
-            logger.info("💡 Run the pipeline first: python run_pipeline.py --local")
+            logger.info("💡 Run the pipeline first: python chatmind/pipeline/run_pipeline.py --local")
             return {'status': 'no_chats', 'reason': 'pipeline_not_run'}
         
         # Generate current hashes by data type

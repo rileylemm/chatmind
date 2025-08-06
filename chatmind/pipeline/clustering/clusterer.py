@@ -38,7 +38,7 @@ class EmbeddingClusterer:
         self.input_file = Path(input_file)
         
         # Use modular directory structure
-        self.output_dir = Path("data/processed/clustering")
+        self.output_dir = Path("../../data/processed/clustering")
         self.output_dir.mkdir(parents=True, exist_ok=True)
         
     def _generate_embedding_hash(self, embedding: Dict) -> str:
@@ -148,7 +148,7 @@ class EmbeddingClusterer:
         clustered_embeddings = []
         for i, embedding in enumerate(embeddings):
             clustered_embedding = embedding.copy()
-            clustered_embedding['cluster_id'] = int(cluster_labels[i])
+            clustered_embedding['cluster_id'] = str(cluster_labels[i])  # Use string cluster IDs for consistency
             clustered_embedding['umap_x'] = float(umap_embeddings[i][0])
             clustered_embedding['umap_y'] = float(umap_embeddings[i][1])
             clustered_embeddings.append(clustered_embedding)
@@ -162,13 +162,15 @@ class EmbeddingClusterer:
         
         # Load existing clusters
         clusters_file = self.output_dir / "clustered_embeddings.jsonl"
-        existing_clusters = self._load_existing_clusters(clusters_file)
+        existing_clusters = [] if force_reprocess else self._load_existing_clusters(clusters_file)
         
         # Load processed hashes
         processed_hashes = set()
         if not force_reprocess:
             processed_hashes = self._load_processed_embedding_hashes()
             logger.info(f"Found {len(processed_hashes)} existing processed hashes")
+        else:
+            logger.info("Force reprocess: clearing existing processed hashes")
         
         # Load embeddings
         embeddings = self._load_embeddings(self.input_file)

@@ -443,10 +443,10 @@ class EnhancedMessageTagger:
 
 @click.command()
 @click.option('--input-file',
-              default='data/processed/ingestion/chats.jsonl',
+              default='../../data/processed/ingestion/chats.jsonl',
               help='Input JSONL file with chats')
 @click.option('--output-file',
-              default='data/processed/tagging/tags.jsonl',
+              default='../../data/processed/tagging/tags.jsonl',
               help='Output JSONL file for tagged messages')
 @click.option('--model', default='gpt-3.5-turbo', help='OpenAI model to use')
 @click.option('--force', is_flag=True, help='Force reprocess all messages')

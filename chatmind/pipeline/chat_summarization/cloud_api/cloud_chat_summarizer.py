@@ -28,11 +28,11 @@ logger = logging.getLogger(__name__)
 class CloudChatSummarizer:
     """Creates chat summaries using OpenAI API."""
     
-    def __init__(self, chats_file: str = "data/processed/ingestion/chats.jsonl"):
+    def __init__(self, chats_file: str = "../../data/processed/ingestion/chats.jsonl"):
         self.chats_file = Path(chats_file)
         
         # Use modular directory structure
-        self.output_dir = Path("data/processed/chat_summarization")
+        self.output_dir = Path("../../data/processed/chat_summarization")
         self.output_dir.mkdir(parents=True, exist_ok=True)
         
         # Initialize OpenAI client
@@ -665,7 +665,7 @@ Respond with JSON only:
 
 @click.command()
 @click.option('--chats-file', 
-              default='data/processed/ingestion/chats.jsonl',
+              default='../../data/processed/ingestion/chats.jsonl',
               help='Input chats file')
 @click.option('--force', is_flag=True, help='Force reprocess all chats')
 @click.option('--check-only', is_flag=True, help='Only check setup, don\'t process')

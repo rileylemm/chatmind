@@ -486,8 +486,11 @@ Each hash file contains:
 # Activate pipeline environment
 source chatmind_env/bin/activate
 
-# Run full pipeline with local models
+# Run full pipeline with local models (default)
 python3 chatmind/pipeline/run_pipeline.py
+
+# Run full pipeline with local models (explicit)
+python3 chatmind/pipeline/run_pipeline.py --local
 ```
 
 ### Individual Steps
