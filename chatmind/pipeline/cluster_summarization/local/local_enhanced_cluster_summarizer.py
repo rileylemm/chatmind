@@ -28,13 +28,13 @@ logger = logging.getLogger(__name__)
 class LocalClusterSummarizer:
     """Creates cluster summaries using local LLM."""
     
-    def __init__(self, clustered_embeddings_file: str = "data/processed/clustering/clustered_embeddings.jsonl",
-                 chunks_file: str = "data/processed/chunking/chunks.jsonl"):
+    def __init__(self, clustered_embeddings_file: str = "../../data/processed/clustering/clustered_embeddings.jsonl",
+                 chunks_file: str = "../../data/processed/chunking/chunks.jsonl"):
         self.clustered_embeddings_file = Path(clustered_embeddings_file)
         self.chunks_file = Path(chunks_file)
         
         # Use modular directory structure
-        self.output_dir = Path("data/processed/cluster_summarization")
+        self.output_dir = Path("../../data/processed/cluster_summarization")
         self.output_dir.mkdir(parents=True, exist_ok=True)
     
     def _sanitize_text(self, text: str) -> str:
@@ -84,7 +84,7 @@ class LocalClusterSummarizer:
         
         return text
     
-    def _generate_cluster_hash(self, cluster_id: int, chunk_hashes: List[str]) -> str:
+    def _generate_cluster_hash(self, cluster_id: str, chunk_hashes: List[str]) -> str:
         """Generate a hash for a cluster to track if it's been processed."""
         # Create a normalized version for hashing
         normalized_cluster = {
@@ -171,16 +171,16 @@ class LocalClusterSummarizer:
             logger.warning(f"Chunks file not found: {self.chunks_file}")
         return chunks
     
-    def _group_chunks_by_cluster(self, clustered_embeddings: List[Dict], chunks: Dict[str, Dict]) -> Dict[int, List[Dict]]:
+    def _group_chunks_by_cluster(self, clustered_embeddings: List[Dict], chunks: Dict[str, Dict]) -> Dict[str, List[Dict]]:
         """Group chunks by cluster_id using chunk_hash as the link."""
         clusters = defaultdict(list)
         
         for embedding in clustered_embeddings:
             chunk_hash = embedding.get('chunk_hash', '')
-            cluster_id = embedding.get('cluster_id', -1)
+            cluster_id = embedding.get('cluster_id', '-1')
             
-            # Skip noise clusters (cluster_id = -1)
-            if cluster_id == -1:
+            # Skip noise clusters (cluster_id = '-1')
+            if cluster_id == '-1':
                 continue
                 
             # Find the corresponding chunk
@@ -386,7 +386,7 @@ Respond with JSON only:
         
         return None
     
-    def _summarize_cluster(self, cluster_id: int, cluster_chunks: List[Dict]) -> Optional[Dict]:
+    def _summarize_cluster(self, cluster_id: str, cluster_chunks: List[Dict]) -> Optional[Dict]:
         """Summarize a cluster of chunks."""
         logger.info(f"Summarizing cluster {cluster_id} with {len(cluster_chunks)} chunks")
         
@@ -467,7 +467,7 @@ Respond with JSON only:
             if cluster_hash not in processed_hashes or force_reprocess:
                 summary = self._summarize_cluster(cluster_id, cluster_chunks)
                 if summary:
-                    new_summaries[str(cluster_id)] = summary
+                    new_summaries[cluster_id] = summary  # cluster_id is already a string
                     processed_cluster_hashes.add(cluster_hash)
             else:
                 logger.info(f"Cluster {cluster_id} already processed, skipping")
@@ -504,10 +504,10 @@ Respond with JSON only:
 
 @click.command()
 @click.option('--clustered-embeddings-file', 
-              default='data/processed/clustering/clustered_embeddings.jsonl',
+              default='../../data/processed/clustering/clustered_embeddings.jsonl',
               help='Input clustered embeddings file')
 @click.option('--chunks-file', 
-              default='data/processed/chunking/chunks.jsonl',
+              default='../../data/processed/chunking/chunks.jsonl',
               help='Input chunks file')
 @click.option('--force', is_flag=True, help='Force reprocess all clusters')
 @click.option('--check-only', is_flag=True, help='Only check setup, don\'t process')

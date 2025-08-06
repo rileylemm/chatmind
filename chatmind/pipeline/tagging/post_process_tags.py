@@ -9,6 +9,7 @@ Updated for message-level tagging in the new pipeline structure.
 
 import json
 import jsonlines
+import re
 from pathlib import Path
 from typing import Dict, List, Set, Tuple
 import logging
@@ -93,6 +94,15 @@ class GemmaOptimizedTagPostProcessor:
         if normalized_tag in master_tags:
             return normalized_tag
         
+        # Try to find semantic matches by removing hyphens/underscores/spaces
+        # This handles cases like #webdev -> #web-dev
+        semantic_normalized = re.sub(r'[-_\s]+', '', normalized_tag)
+        
+        for master_tag in master_tags:
+            master_semantic = re.sub(r'[-_\s]+', '', master_tag)
+            if semantic_normalized == master_semantic:
+                return master_tag
+        
         # No match found - return the normalized tag
         return normalized_tag
     
@@ -111,9 +121,8 @@ class GemmaOptimizedTagPostProcessor:
             # Find best match in master list
             mapped_tag = self.find_best_match(tag, self.master_tags)
             
-            # Check if the normalized tag is in the master list
-            normalized_tag = self.normalize_tag(tag)
-            if normalized_tag in self.master_tags:
+            # Check if the mapped tag is in the master list (could be semantic match)
+            if mapped_tag in self.master_tags:
                 # Tag mapped to master list
                 self.mapped_tags[mapped_tag] += 1
                 tags_mapped += 1
@@ -275,13 +284,13 @@ class GemmaOptimizedTagPostProcessor:
 
 @click.command()
 @click.option('--input-file', 
-              default='data/processed/tagging/tags.jsonl',
+              default='../../data/processed/tagging/tags.jsonl',
               help='Input file with tagged messages')
 @click.option('--output-file', 
-              default='data/processed/tagging/processed_tags.jsonl',
+              default='../../data/processed/tagging/processed_tags.jsonl',
               help='Output file for processed messages')
 @click.option('--missing-report', 
-              default='data/processed/tagging/missing_tags_report.json',
+              default='../../data/processed/tagging/missing_tags_report.json',
               help='Report file for missing tags')
 @click.option('--auto-add-threshold', 
               default=3,

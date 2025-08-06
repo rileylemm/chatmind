@@ -50,7 +50,7 @@ Thank you for your interest in contributing to ChatMind! This document provides 
    ```bash
    # Add test data
    cp test_data.zip data/raw/
-   python run_pipeline.py
+   python chatmind/pipeline/run_pipeline.py
    ```
 
 ### Frontend Development

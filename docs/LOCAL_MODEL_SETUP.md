@@ -105,13 +105,13 @@ The pipeline supports local models with a simple flag:
 
 ```bash
 # Use local models for all AI components
-python3 run_pipeline.py --local
+python3 chatmind/pipeline/run_pipeline.py --local
 
 # Skip expensive steps during development
-python3 run_pipeline.py --local --skip-tagging
+python3 chatmind/pipeline/run_pipeline.py --local --skip-tagging
 
 # Force reprocess with local models
-python3 run_pipeline.py --local --force-reprocess
+python3 chatmind/pipeline/run_pipeline.py --local --force-reprocess
 ```
 
 ## ⚙️ Configuration Options

@@ -401,6 +401,7 @@ class PipelineRunner:
 
 
 @click.command()
+@click.option('--local', is_flag=True, help='Use local models for all steps (shorthand for --embedding-method local --tagging-method local --summarization-method local)')
 @click.option('--embedding-method', 
               type=click.Choice(['local', 'cloud']),
               default='local',
@@ -421,7 +422,7 @@ class PipelineRunner:
                                'positioning', 'similarity', 'loading']),
               help='Specific steps to run (can specify multiple)')
 @click.option('--check-only', is_flag=True, help='Only check setup, don\'t run pipeline')
-def main(embedding_method: str, tagging_method: str, summarization_method: str, 
+def main(local: bool, embedding_method: str, tagging_method: str, summarization_method: str, 
          force: bool, steps: List[str], check_only: bool):
     """
     Run the complete ChatMind pipeline.
@@ -440,8 +441,11 @@ def main(embedding_method: str, tagging_method: str, summarization_method: str,
     11. Loading: Load into Neo4j database (creates tag-chunk relationships)
     
     EXAMPLES:
-    # Run complete pipeline with local models
+    # Run complete pipeline with local models (default)
     python3 chatmind/pipeline/run_pipeline.py
+    
+    # Run complete pipeline with local models (explicit)
+    python3 chatmind/pipeline/run_pipeline.py --local
     
     # Run with cloud embedding
     python3 chatmind/pipeline/run_pipeline.py --embedding-method cloud
@@ -452,6 +456,12 @@ def main(embedding_method: str, tagging_method: str, summarization_method: str,
     # Force reprocess everything
     python3 chatmind/pipeline/run_pipeline.py --force
     """
+    
+    # If --local flag is used, override all methods to local
+    if local:
+        embedding_method = 'local'
+        tagging_method = 'local'
+        summarization_method = 'local'
     
     if check_only:
         logger.info("🔍 Checking pipeline setup...")

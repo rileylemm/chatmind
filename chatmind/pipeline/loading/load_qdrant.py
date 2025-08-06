@@ -125,6 +125,21 @@ class QdrantVectorLoader:
             logger.warning(f"⚠️  {description} file not found: {file_path}")
         return data
     
+    def _load_json_file(self, file_path: Path, description: str) -> Dict:
+        """Load data from JSON file."""
+        if not file_path.exists():
+            logger.warning(f"⚠️  {description} file not found: {file_path}")
+            return {}
+        
+        try:
+            with open(file_path, 'r') as f:
+                data = json.load(f)
+            logger.info(f"✅ Loaded {description}")
+            return data
+        except Exception as e:
+            logger.error(f"❌ Failed to load {description}: {e}")
+            return {}
+    
     def _load_embeddings_data(self) -> Dict[str, any]:
         """Load embeddings and related data for Qdrant."""
         logger.info("📖 Loading embeddings data for Qdrant...")
@@ -454,7 +469,7 @@ class QdrantVectorLoader:
         # Check for minimum required data
         if not data['embeddings']:
             logger.warning("⚠️  No embeddings found - pipeline may not have been run yet")
-            logger.info("💡 Run the pipeline first: python run_pipeline.py --local")
+            logger.info("💡 Run the pipeline first: python chatmind/pipeline/run_pipeline.py --local")
             return {'status': 'no_embeddings', 'reason': 'pipeline_not_run'}
         
         # Generate current hashes by data type
