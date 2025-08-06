@@ -226,6 +226,18 @@ class HybridDatabaseTester:
             "Cross-DB - Embedding hash consistency",
             lambda: self._test_embedding_hash_consistency()
         )
+        
+        # Test content verification between databases
+        self.test_query(
+            "Cross-DB - Content verification",
+            lambda: self._test_content_verification()
+        )
+        
+        # Test basic semantic search functionality
+        self.test_query(
+            "Cross-DB - Basic semantic search",
+            lambda: self._test_basic_semantic_search()
+        )
     
     def test_semantic_search_workflow(self):
         """Test semantic search workflow using Qdrant and Neo4j."""
@@ -2244,6 +2256,92 @@ class HybridDatabaseTester:
             logger.info("⚠️  Good, but some queries need attention.")
         else:
             logger.error("❌ Many queries are failing. Check database setup.")
+    
+    def _test_content_verification(self):
+        """Test content verification between Neo4j and Qdrant."""
+        # Get sample chunk from Neo4j
+        with self.neo4j_driver.session() as session:
+            result = session.run("""
+                MATCH (ch:Chunk) 
+                RETURN ch.chunk_id as chunk_id, ch.content as content 
+                LIMIT 1
+            """)
+            neo4j_chunk = result.single()
+            
+            if not neo4j_chunk:
+                return {'status': 'failed', 'reason': 'no_chunks_in_neo4j'}
+            
+            chunk_id = neo4j_chunk['chunk_id']
+            content = neo4j_chunk['content']
+            
+            # Try to find the same chunk in Qdrant
+            try:
+                qdrant_point = self.qdrant_client.retrieve(
+                    collection_name=self.qdrant_collection,
+                    ids=[chunk_id]
+                )
+                
+                if not qdrant_point:
+                    return {
+                        'status': 'failed', 
+                        'reason': f'chunk_not_found_in_qdrant: {chunk_id}'
+                    }
+                
+                qdrant_content = qdrant_point[0].payload.get('content', '')
+                
+                # Verify content matches
+                if content != qdrant_content:
+                    return {
+                        'status': 'failed',
+                        'reason': 'content_mismatch',
+                        'neo4j_content': content[:50] + '...',
+                        'qdrant_content': qdrant_content[:50] + '...'
+                    }
+                
+                return {
+                    'status': 'success',
+                    'chunk_id': chunk_id,
+                    'content_matches': True,
+                    'neo4j_content_length': len(content),
+                    'qdrant_content_length': len(qdrant_content)
+                }
+                
+            except Exception as e:
+                return {
+                    'status': 'failed',
+                    'reason': f'qdrant_retrieve_error: {str(e)}',
+                    'chunk_id': chunk_id
+                }
+    
+    def _test_basic_semantic_search(self):
+        """Test basic semantic search functionality in Qdrant."""
+        try:
+            # Get collection info to check if we have points
+            collection_info = self.qdrant_client.get_collection(self.qdrant_collection)
+            
+            if collection_info.points_count == 0:
+                return {'status': 'failed', 'reason': 'no_points_in_collection'}
+            
+            # Try a simple search with a test vector
+            search_results = self.qdrant_client.search(
+                collection_name=self.qdrant_collection,
+                query_vector=[0.1] * 384,  # Simple test vector
+                limit=5
+            )
+            
+            if not search_results:
+                return {'status': 'failed', 'reason': 'search_returned_no_results'}
+            
+            return {
+                'status': 'success',
+                'search_results_count': len(search_results),
+                'first_result_score': search_results[0].score,
+                'first_result_id': search_results[0].id,
+                'collection_points': collection_info.points_count
+            }
+            
+        except Exception as e:
+            return {'status': 'failed', 'reason': f'semantic_search_error: {str(e)}'}
     
     def export_results(self, output_file="hybrid_db_test_results.json"):
         """Export test results to JSON."""
