@@ -38,7 +38,7 @@ class EmbeddingClusterer:
         self.input_file = Path(input_file)
         
         # Use modular directory structure
-        self.output_dir = Path("../../data/processed/clustering")
+        self.output_dir = Path("data/processed/clustering")
         self.output_dir.mkdir(parents=True, exist_ok=True)
         
     def _generate_embedding_hash(self, embedding: Dict) -> str:

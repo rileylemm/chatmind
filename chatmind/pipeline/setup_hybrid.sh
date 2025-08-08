@@ -42,7 +42,7 @@ fi
 
 # Check Qdrant
 echo "Testing Qdrant connection..."
-if curl -s http://localhost:6333/collections > /dev/null; then
+if curl -s http://localhost:6335/collections > /dev/null; then
     echo "✅ Qdrant is accessible"
 else
     echo "⚠️  Qdrant may still be starting up"
@@ -63,7 +63,7 @@ fi
 
 # Check Qdrant
 echo "Testing Qdrant connection..."
-if curl -s http://localhost:6333/collections > /dev/null; then
+if curl -s http://localhost:6335/collections > /dev/null; then
     echo "✅ Qdrant is accessible"
 else
     echo "⚠️  Qdrant may still be starting up"
@@ -75,7 +75,7 @@ echo ""
 echo "📊 Database URLs:"
 echo "  Neo4j Browser: http://localhost:7474"
 echo "  Neo4j Bolt: bolt://localhost:7687"
-echo "  Qdrant: http://localhost:6333"
+echo "  Qdrant: http://localhost:6335"
 echo ""
 echo "🔧 Next steps:"
 echo "  1. Activate pipeline environment: source chatmind/pipeline/activate_pipeline.sh"

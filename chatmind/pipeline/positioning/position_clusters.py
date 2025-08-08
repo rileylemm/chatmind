@@ -307,6 +307,8 @@ class ClusterPositioner:
                 'cluster_hash': cluster_id,  # cluster_id serves as the cluster hash
                 'x': x,
                 'y': y,
+                'umap_x': x,
+                'umap_y': y,
                 'summary_hash': summary_hash,
                 'positioning_hash': positioning_hash,
                 'timestamp': datetime.now().isoformat()
