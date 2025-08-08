@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 class GemmaOptimizedTagPostProcessor:
     """Post-processes tags optimized for Gemma-2B's clean output."""
     
-    def __init__(self, master_list_path: str = "../../data/tags_masterlist/tags_master_list.json"):
+    def __init__(self, master_list_path: str = "../../data/tags_masterlist/comprehensive_generic_tags.json"):
         self.master_list_path = Path(master_list_path)
         self.master_tags = self.load_master_tags()
         self.missing_tags = Counter()

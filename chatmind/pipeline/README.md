@@ -85,7 +85,7 @@ NEO4J_USER=neo4j
 NEO4J_PASSWORD=your_password
 
 # Qdrant Configuration
-QDRANT_URL=http://localhost:6333
+QDRANT_URL=http://localhost:6335
 QDRANT_COLLECTION=chatmind_embeddings
 
 # Pipeline Settings

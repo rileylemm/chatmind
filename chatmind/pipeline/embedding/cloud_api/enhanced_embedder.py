@@ -19,7 +19,8 @@ import logging
 import pickle
 import hashlib
 import time
-import openai
+import os
+from openai import OpenAI
 
 # Import pipeline configuration
 import sys
@@ -53,6 +54,9 @@ class CloudChunkEmbedder:
             'errors': 0,
             'total_tokens': 0
         }
+        
+        # Initialize OpenAI client (reads OPENAI_API_KEY from environment)
+        self.client = OpenAI()
         
     def _generate_chunk_hash(self, chunk: Dict) -> str:
         """Generate a hash for a chunk to track if it's been processed."""
@@ -157,12 +161,12 @@ class CloudChunkEmbedder:
             # Retry logic for API calls
             for attempt in range(self.max_retries):
                 try:
-                    response = openai.Embedding.create(
+                    response = self.client.embeddings.create(
                         input=content,
                         model=self.model_name
                     )
                     
-                    embedding_vector = response['data'][0]['embedding']
+                    embedding_vector = response.data[0].embedding
                     chunk_with_embedding = chunk.copy()
                     chunk_with_embedding['embedding'] = embedding_vector
                     chunk_with_embedding['embedding_hash'] = self._generate_embedding_hash(embedding_vector)
@@ -171,7 +175,11 @@ class CloudChunkEmbedder:
                     embeddings.append(embedding_vector)
                     
                     self.stats['api_calls'] += 1
-                    self.stats['total_tokens'] += response['usage']['total_tokens']
+                    # Embeddings responses may omit usage; handle safely
+                    try:
+                        self.stats['total_tokens'] += getattr(response, 'usage', {}).get('total_tokens', 0)  # type: ignore
+                    except Exception:
+                        pass
                     
                     # Add delay between calls
                     time.sleep(self.delay_between_calls)
@@ -300,8 +308,8 @@ def main(chunks_file: str, state_file: str, force: bool, model: str):
         logger.error("❌ OPENAI_API_KEY environment variable not set")
         return
     
-    # Set OpenAI API key
-    openai.api_key = openai_config['api_key']
+    # Set environment variable so OpenAI client can pick it up
+    os.environ['OPENAI_API_KEY'] = openai_config['api_key']
     
     # Initialize embedder
     embedder = CloudChunkEmbedder(model_name=model)

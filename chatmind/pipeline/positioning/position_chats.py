@@ -336,6 +336,8 @@ class ChatPositioner:
                 'chat_hash': chat_id,  # chat_id IS the content_hash from original chats
                 'x': x,
                 'y': y,
+                'umap_x': x,
+                'umap_y': y,
                 'primary_cluster': primary_cluster,
                 'summary_hash': summary_hash,
                 'positioning_hash': positioning_hash,
