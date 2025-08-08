@@ -6,7 +6,7 @@ ChatMind is a powerful AI memory system that transforms your ChatGPT conversatio
 
 > Authoritative setup & usage: see [docs/UserGuide.md](docs/UserGuide.md). This is the single source of truth. The README is a high‑level overview.
 
-[![CI](https://img.shields.io/github/actions/workflow/status/your-username/ai_memory/ci.yml?branch=main)](../../actions)
+[![CI](https://img.shields.io/github/actions/workflow/status/rileylemm/chatmind/ci.yml?branch=main)](https://github.com/rileylemm/chatmind/actions)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 ### ✨ Key Features
@@ -83,15 +83,9 @@ ai_memory/
 
 This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
 
-## 🗺️ Roadmap (Initial Open Source)
+## 🗺️ Roadmap
 
-- Minimal CLI-inspired frontend MVP (done)
-- Add ingestion for Markdown files (.md) to pipeline
-- Batch processing controls for pipeline runs
-- Expand data sources (Slack export, Notion export)
-- Improve API ergonomics and pagination
-- Iterative UI improvements on tags/search/cluster flows
-- Dockerize API and frontend services (compose) — run only DBs via compose for now
+See the dedicated roadmap: [docs/ROADMAP.md](docs/ROADMAP.md)
 
 ## ✅ Open‑Source Readiness Checklist
 

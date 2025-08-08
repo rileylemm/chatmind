@@ -104,11 +104,7 @@ docs/
 
 ## 🗺️ Roadmap
 
-- Add `.md` ingestion to pipeline (docs + implementation)
-- Batch pipeline controls and scheduler docs
-- API pagination and query ergonomics
-- Frontend usability passes on minimal UI
-- Dockerize API and frontend services (compose) — for now, compose only runs DBs
+See the dedicated roadmap: [docs/ROADMAP.md](ROADMAP.md)
 
 Open-source readiness: This docs set avoids project-specific data. See `docs/local/` for internal references not included in releases.
 
