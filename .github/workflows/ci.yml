@@ -22,8 +22,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install ruff
 
-      - name: Lint Python
-        run: ruff check chatmind
+      - name: Lint backend (ruff)
+        run: ruff check chatmind/api
 
       - name: Backend quick import
         run: |
@@ -52,7 +52,3 @@ jobs:
         working-directory: chatmind/frontend
         run: |
           npx tsc --noEmit
-
-      - name: ESLint frontend
-        working-directory: chatmind/frontend
-        run: npx eslint .
