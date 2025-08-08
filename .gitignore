@@ -33,6 +33,7 @@ ENV/
 env.bak/
 venv.bak/
 chatmind_env/
+chatmind/pipeline/pipeline_env/
 
 # IDE
 .vscode/
@@ -56,9 +57,23 @@ data/processed/
 data/embeddings/
 data/lake/
 data/interim/
+data_copy/
+
+# Hash files and metadata (user-specific processing state)
+data/processed/*/processed_*.pkl
+data/processed/*/metadata.json
+data/processed/*/hashes.pkl
+data/processed/*/*_hashes.pkl
+data/processed/*/similarity_hashes.pkl
+data/processed/*/chat_similarity_hashes.pkl
+data/processed/*/cluster_similarity_hashes.pkl
+
+# Backup data (should not be committed)
+data/backup*/
+data/*backup*/
 
 # Personal tag list (keep user's personal tags private)
-data/tags/tags_master_list.json
+data/tags_masterlist/tags_master_list.json
 
 # Logs
 *.log
@@ -141,4 +156,9 @@ dmypy.json
 .pyre/
 
 # OpenAI API cost tracking
-cost_tracker.db 
+cost_tracker.db
+
+# Local documentation and analysis files
+# (kept out of open source releases)
+docs/local/
+docs/dev_plans/ 

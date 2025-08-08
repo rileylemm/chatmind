@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main, frontend-enhancements]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff
+
+      - name: Lint Python
+        run: ruff check chatmind
+
+      - name: Backend quick import
+        run: |
+          pip install -r chatmind/api/requirements.txt
+          python - <<'PY'
+          import importlib
+          import sys
+          try:
+              importlib.import_module('chatmind.api.main')
+              print('Backend import OK')
+          except Exception as e:
+              print('Backend import failed:', e)
+              sys.exit(1)
+          PY
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install frontend deps
+        working-directory: chatmind/frontend
+        run: npm ci
+
+      - name: Typecheck frontend
+        working-directory: chatmind/frontend
+        run: |
+          npx tsc --noEmit
+
+      - name: ESLint frontend
+        working-directory: chatmind/frontend
+        run: npx eslint .
