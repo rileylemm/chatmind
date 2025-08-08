@@ -2,6 +2,9 @@
 
 This roadmap outlines near-term goals and areas where contributors can help.
 
+## Scope
+A lightweight plan focusing on making the current MVP useful while inviting contributors.
+
 ## Pipeline
 - Add Markdown (.md) ingestion (single files and directories)
 - Batch processing CLI flags: `--batch-size`, `--resume`, `--since <date>`
