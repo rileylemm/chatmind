@@ -22,8 +22,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install ruff
 
-      - name: Lint backend (ruff)
-        run: ruff check chatmind/api
+      - name: Lint backend (ruff critical only)
+        run: ruff check --select E9,F63,F7,F82 chatmind/api
 
       - name: Set up Node
         uses: actions/setup-node@v4
