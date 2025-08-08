@@ -202,6 +202,21 @@ python loading/load_qdrant.py   # Qdrant (vector embeddings)
 
 ## 🛠️ Development
 
+### Quick Dev Setup
+```bash
+# (optional) Install pre-commit hooks
+pipx install pre-commit || pip install pre-commit
+pre-commit install
+
+# Start services and run pipeline
+make up
+chatmind --local
+
+# Run API and Frontend
+make api
+make frontend
+```
+
 ### Local Development
 ```bash
 # Setup development environment
