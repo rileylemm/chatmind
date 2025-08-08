@@ -7,7 +7,7 @@ This document is a fast lane for an AI assistant/agent to understand, navigate, 
 ### TL;DR (What this project is)
 - Hybrid knowledge system for personal/work chat data
 - Pipeline (Python) → processes data into structured artifacts
-- Databases → Neo4j (graph) + Qdrant (vectors)
+- Databases via root compose: `docker compose up -d neo4j qdrant`
 - API (FastAPI) → queries hybrid data
 - Frontend (Vite React) → visualizes and searches
 
