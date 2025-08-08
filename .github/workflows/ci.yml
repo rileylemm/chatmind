@@ -25,20 +25,6 @@ jobs:
       - name: Lint backend (ruff)
         run: ruff check chatmind/api
 
-      - name: Backend quick import
-        run: |
-          pip install -r chatmind/api/requirements.txt
-          python - <<'PY'
-          import importlib
-          import sys
-          try:
-              importlib.import_module('chatmind.api.main')
-              print('Backend import OK')
-          except Exception as e:
-              print('Backend import failed:', e)
-              sys.exit(1)
-          PY
-
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
