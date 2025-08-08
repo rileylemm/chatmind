@@ -56,11 +56,11 @@ api/
    pip install -r requirements.txt
    ```
 
-2. **Set Environment Variables**:
+2. **Set Environment Variables** (or copy `.env.example` and source it):
    ```bash
    export NEO4J_URI="bolt://localhost:7687"
    export NEO4J_USER="neo4j"
-   export NEO4J_PASSWORD="chatmind123"
+   export NEO4J_PASSWORD="your_strong_password_here"
    export QDRANT_HOST="localhost"
    export QDRANT_PORT="6335"
    export QDRANT_COLLECTION="chatmind_embeddings"
@@ -173,7 +173,7 @@ The API uses environment variables for configuration:
 
 - `NEO4J_URI`: Neo4j connection URI (default: bolt://localhost:7687)
 - `NEO4J_USER`: Neo4j username (default: neo4j)
-- `NEO4J_PASSWORD`: Neo4j password (default: chatmind123)
+- `NEO4J_PASSWORD`: Neo4j password (no default; set via env)
 - `QDRANT_HOST`: Qdrant server host (default: localhost)
 - `QDRANT_PORT`: Qdrant server port (default: 6335)
 - `QDRANT_COLLECTION`: Qdrant collection name (default: chatmind_embeddings)
