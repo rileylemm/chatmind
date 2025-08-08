@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ChatMind Hybrid Architecture Setup Script
-# Sets up both Neo4j and Qdrant using Docker Compose for optimal performance
+# Sets up Neo4j and Qdrant using root-level Docker Compose
 
 echo "🚀 Setting up ChatMind Hybrid Architecture..."
 echo "=============================================="
@@ -12,20 +12,23 @@ if ! docker info > /dev/null 2>&1; then
     exit 1
 fi
 
-# Check if Docker Compose is available
-if ! command -v docker-compose &> /dev/null; then
-    echo "❌ Docker Compose is not available. Please install Docker Compose and try again."
-    exit 1
+# Determine compose command
+if command -v docker-compose &> /dev/null; then
+    COMPOSE_CMD="docker-compose"
+else
+    COMPOSE_CMD="docker compose"
 fi
 
-echo "📊 Starting databases with Docker Compose..."
+# Go to repo root (this script is at chatmind/pipeline)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+cd "$REPO_ROOT"
+
+echo "📊 Starting databases with Docker Compose (root)..."
 echo "   This will start both Neo4j and Qdrant with persistent storage"
 
-# Navigate to the pipeline directory
-cd "$(dirname "$0")"
-
 # Start services with Docker Compose
-docker-compose up -d
+$COMPOSE_CMD up -d neo4j qdrant
 
 echo "⏳ Waiting for databases to be ready..."
 sleep 15

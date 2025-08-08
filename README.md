@@ -193,6 +193,7 @@ python loading/load_qdrant.py   # Qdrant (vector embeddings)
 
 ## 📚 Documentation
 
+- **[AI Entry Point](docs/AI_ENTRY_POINT.md)** - Quick guide for AI assistants and agents
 - **[User Guide](docs/UserGuide.md)** - Setup and usage instructions
 - **[API Documentation](docs/API_DOCUMENTATION.md)** - Backend API reference
 - **[Pipeline Overview](docs/PIPELINE_OVERVIEW_AND_INCREMENTAL.md)** - Data processing architecture
