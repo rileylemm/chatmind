@@ -289,3 +289,69 @@ async def get_graph_visualization(
     except Exception as e:
         logger.error(f"Graph visualization error: {e}")
         raise HTTPException(status_code=500, detail=str(e)) 
+
+
+@router.get("/graph/expand/{node_id}", response_model=ApiResponse)
+async def expand_node(node_id: str):
+    """Expand a node to show its connections"""
+    try:
+        if not neo4j_driver:
+            raise HTTPException(status_code=503, detail="Database not connected")
+        
+        with neo4j_driver.session() as session:
+            # Get node and its immediate neighbors
+            result = session.run("""
+                MATCH (node)
+                WHERE node.chat_id = $node_id OR node.message_id = $node_id OR node.chunk_id = $node_id
+                OPTIONAL MATCH (node)-[r]-(neighbor)
+                RETURN 
+                    node.chat_id as node_chat_id,
+                    node.message_id as node_message_id,
+                    node.chunk_id as node_chunk_id,
+                    labels(node) as node_labels,
+                    properties(node) as node_props,
+                    type(r) as rel_type,
+                    labels(neighbor) as neighbor_labels,
+                    properties(neighbor) as neighbor_props
+                LIMIT 50
+            """, node_id=node_id)
+            
+            node_data = None
+            connections = []
+            
+            for record in result:
+                if not node_data:
+                    # First record contains the node data
+                    node_data = {
+                        "id": node_id,
+                        "chat_id": record["node_chat_id"],
+                        "message_id": record["node_message_id"],
+                        "chunk_id": record["node_chunk_id"],
+                        "labels": record["node_labels"],
+                        "properties": convert_neo4j_to_json(record["node_props"])
+                    }
+                
+                # Add connection if relationship exists
+                if record["rel_type"]:
+                    connections.append({
+                        "relationship_type": record["rel_type"],
+                        "neighbor_labels": record["neighbor_labels"],
+                        "neighbor_properties": convert_neo4j_to_json(record["neighbor_props"])
+                    })
+            
+            if not node_data:
+                raise HTTPException(status_code=404, detail="Node not found")
+            
+            return ApiResponse(
+                data={
+                    "node": node_data,
+                    "connections": connections
+                },
+                message=f"Node expansion: {len(connections)} connections found"
+            )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Node expansion error: {e}")
+        raise HTTPException(status_code=500, detail=str(e)) 

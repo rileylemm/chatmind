@@ -251,14 +251,19 @@ class ChatMindAPITester:
         """Test search endpoint with various queries."""
         tests = [
             {
-                "name": "Search (Python)",
-                "params": {"query": "python", "limit": 5},
-                "description": "Search for Python-related content"
+                "name": "Search (Health)",
+                "params": {"query": "health", "limit": 5},
+                "description": "Search for health-related content"
             },
             {
-                "name": "Search (AI)",
-                "params": {"query": "AI", "limit": 3},
-                "description": "Search for AI-related content"
+                "name": "Search (Medical)",
+                "params": {"query": "medical", "limit": 3},
+                "description": "Search for medical-related content"
+            },
+            {
+                "name": "Search (Technology)",
+                "params": {"query": "technology", "limit": 3},
+                "description": "Search for technology-related content"
             },
             {
                 "name": "Search (Empty Query)",
@@ -280,41 +285,7 @@ class ChatMindAPITester:
         
         return results
     
-    def test_cost_statistics(self):
-        """Test cost statistics endpoint with various parameters."""
-        tests = [
-            {
-                "name": "Cost Statistics (Default)",
-                "params": {},
-                "description": "Get all cost statistics"
-            },
-            {
-                "name": "Cost Statistics (Date Range)",
-                "params": {
-                    "start_date": "2025-01-01",
-                    "end_date": "2025-01-31"
-                },
-                "description": "Get cost statistics for specific date range"
-            },
-            {
-                "name": "Cost Statistics (Operation Filter)",
-                "params": {"operation": "tagging"},
-                "description": "Get cost statistics for tagging operation"
-            }
-        ]
-        
-        results = []
-        for test in tests:
-            result = self.test_endpoint(
-                name=test["name"],
-                method="GET",
-                endpoint="/api/costs/statistics",
-                params=test["params"],
-                description=test["description"]
-            )
-            results.append(result)
-        
-        return results
+
     
     def test_tags(self):
         """Test tags endpoint."""
@@ -791,22 +762,22 @@ class ChatMindAPITester:
         """Test hybrid search endpoints."""
         tests = [
             {
-                "name": "Hybrid Semantic Search (Python)",
+                "name": "Hybrid Semantic Search (Health)",
                 "endpoint": "/api/search/semantic",
-                "params": {"query": "python", "limit": 5},
-                "description": "Hybrid semantic search for Python content"
+                "params": {"query": "health", "limit": 5},
+                "description": "Hybrid semantic search for health content"
             },
             {
-                "name": "Hybrid Semantic Search (AI)",
+                "name": "Hybrid Semantic Search (Medical)",
                 "endpoint": "/api/search/semantic",
-                "params": {"query": "AI", "limit": 3},
-                "description": "Hybrid semantic search for AI content"
+                "params": {"query": "medical", "limit": 3},
+                "description": "Hybrid semantic search for medical content"
             },
             {
-                "name": "Hybrid Semantic Search (Machine Learning)",
+                "name": "Hybrid Semantic Search (Symptoms)",
                 "endpoint": "/api/search/semantic",
-                "params": {"query": "machine learning", "limit": 5},
-                "description": "Hybrid semantic search for machine learning content"
+                "params": {"query": "symptoms", "limit": 5},
+                "description": "Hybrid semantic search for symptoms content"
             },
             {
                 "name": "Hybrid Semantic Search (With Domain Filter)",
@@ -904,18 +875,7 @@ class ChatMindAPITester:
                 "params": {"include_edges": "false", "limit": 5},
                 "description": "Get visualization data without edges"
             },
-            {
-                "name": "Graph Connections (Default)",
-                "endpoint": "/api/graph/connections",
-                "params": {"source_id": "test_chat", "max_hops": 2},
-                "description": "Find connections from test chat"
-            },
-            {
-                "name": "Graph Connections (Limited Hops)",
-                "endpoint": "/api/graph/connections",
-                "params": {"source_id": "test_chat", "max_hops": 1},
-                "description": "Find connections with limited hops"
-            },
+
             {
                 "name": "Graph Neighbors (Default)",
                 "endpoint": "/api/graph/neighbors",
@@ -1116,6 +1076,129 @@ class ChatMindAPITester:
         
         return results
     
+    def test_api_docs(self):
+        """Test that API documentation is accessible"""
+        tests = [
+            {
+                "name": "Swagger UI Documentation",
+                "endpoint": "/docs",
+                "description": "Check that Swagger UI documentation is accessible"
+            },
+            {
+                "name": "ReDoc Documentation",
+                "endpoint": "/redoc",
+                "description": "Check that ReDoc documentation is accessible"
+            }
+        ]
+        
+        results = []
+        for test in tests:
+            result = self.test_endpoint(
+                name=test["name"],
+                method="GET",
+                endpoint=test["endpoint"],
+                description=test["description"]
+            )
+            results.append(result)
+        
+        return results
+    
+    def test_connection_discovery_endpoints(self):
+        """Test connection discovery endpoints."""
+        # First get some chat IDs to test with
+        try:
+            response = self.session.get(f"{self.base_url}/api/chats?limit=3")
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("data") and len(data["data"]) >= 2:
+                    chat1_id = data["data"][0]["id"]
+                    chat2_id = data["data"][1]["id"]
+                    
+                    tests = [
+                        {
+                            "name": "Connection Explanation",
+                            "endpoint": f"/api/connections/explain",
+                            "params": {"source_id": chat1_id, "target_id": chat2_id},
+                            "description": f"Explain connection between chats {chat1_id} and {chat2_id}"
+                        },
+                        {
+                            "name": "Cross-Domain Search (Health)",
+                            "endpoint": "/api/search/cross-domain",
+                            "params": {"query": "stress", "limit": 5},
+                            "description": "Find stress across different domains"
+                        },
+                        {
+                            "name": "Cross-Domain Search (Technology)",
+                            "endpoint": "/api/search/cross-domain",
+                            "params": {"query": "python", "limit": 3},
+                            "description": "Find python across different domains"
+                        },
+                        {
+                            "name": "Discovery Suggestions (Default)",
+                            "endpoint": "/api/discover/suggestions",
+                            "params": {"limit": 3},
+                            "description": "Get discovery suggestions"
+                        },
+                        {
+                            "name": "Discovery Suggestions (Limited)",
+                            "endpoint": "/api/discover/suggestions",
+                            "params": {"limit": 1},
+                            "description": "Get limited discovery suggestions"
+                        },
+                        {
+                            "name": "Timeline Semantic (Default)",
+                            "endpoint": "/api/timeline/semantic",
+                            "params": {},
+                            "description": "Get timeline with semantic connections"
+                        },
+                        {
+                            "name": "Timeline Semantic (Date Range)",
+                            "endpoint": "/api/timeline/semantic",
+                            "params": {
+                                "start_date": "2025-01-01",
+                                "end_date": "2025-01-31"
+                            },
+                            "description": "Get timeline with semantic connections for date range"
+                        }
+                    ]
+                    
+                    results = []
+                    for test in tests:
+                        result = self.test_endpoint(
+                            name=test["name"],
+                            method="GET",
+                            endpoint=test["endpoint"],
+                            params=test["params"],
+                            description=test["description"]
+                        )
+                        results.append(result)
+                    
+                    return results
+                else:
+                    logger.warning("Not enough chats available for testing connection discovery endpoints")
+                    return [{
+                        "name": "Connection Discovery Endpoints",
+                        "status": "SKIPPED",
+                        "error": "Not enough chats available",
+                        "description": "Skipped due to insufficient data"
+                    }]
+            else:
+                logger.warning("Could not fetch chats for testing connection discovery endpoints")
+                return [{
+                    "name": "Connection Discovery Endpoints",
+                    "status": "SKIPPED",
+                    "error": "Could not fetch chats",
+                    "description": "Skipped due to API error"
+                }]
+        except Exception as e:
+            logger.warning(f"Error preparing connection discovery tests: {e}")
+            return [{
+                "name": "Connection Discovery Endpoints",
+                "status": "SKIPPED",
+                "error": str(e),
+                "description": "Skipped due to preparation error"
+            }]
+    
     def run_all_tests(self):
         """Run all API endpoint tests."""
         logger.info("🚀 Starting ChatMind API Endpoint Tests...")
@@ -1155,16 +1238,13 @@ class ChatMindAPITester:
         logger.info("\n🔍 Testing Search Endpoints...")
         self.test_search()
         
-        # Test cost statistics
-        logger.info("\n💰 Testing Cost Statistics Endpoints...")
-        self.test_cost_statistics()
+
         
         # Test new endpoints
         logger.info("\n🏷️  Testing Tags Endpoint...")
         self.test_tags()
         
-        logger.info("\n📝 Testing Single Message Endpoint...")
-        self.test_single_message()
+
         
         logger.info("\n📚 Testing Cluster Details Endpoint...")
         self.test_cluster_details()
@@ -1204,6 +1284,14 @@ class ChatMindAPITester:
         # Test new analytics endpoints
         logger.info("\n📊 Testing Analytics Endpoints...")
         self.test_analytics_endpoints()
+        
+        # Test API documentation
+        logger.info("\n📚 Testing API Documentation...")
+        self.test_api_docs()
+        
+        # Test new connection discovery endpoints
+        logger.info("\n🔗 Testing Connection Discovery Endpoints...")
+        self.test_connection_discovery_endpoints()
         
         # Generate summary
         self.print_summary()

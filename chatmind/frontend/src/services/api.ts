@@ -330,4 +330,107 @@ export interface DatabaseSchema {
 
 export const getDatabaseSchema = async (): Promise<DatabaseSchema> => {
   return apiGet<DatabaseSchema>('/api/debug/schema');
+};
+
+// ============================================================================
+// Discovery Flow API Functions
+// ============================================================================
+
+export interface ConnectionExplanation {
+  source_id: string;
+  target_id: string;
+  explanation: string;
+  connection_strength: number;
+  shared_topics: string[];
+  relationship_type: string;
+}
+
+export const explainConnection = async (params: {
+  source_id: string;
+  target_id: string;
+}): Promise<ConnectionExplanation> => {
+  return apiGet<ConnectionExplanation>(`/api/connections/explain?source_id=${params.source_id}&target_id=${params.target_id}`);
+};
+
+export interface CrossDomainResult {
+  content: string;
+  message_id: string;
+  chat_id: string;
+  domain: string;
+  similarity_score: number;
+  tags: string[];
+}
+
+export const searchCrossDomain = async (params: {
+  query: string;
+  limit?: number;
+}): Promise<CrossDomainResult[]> => {
+  return apiGet<CrossDomainResult[]>(`/api/search/cross-domain?query=${params.query}&limit=${params.limit || 10}`);
+};
+
+export interface DiscoverySuggestion {
+  type: 'connection' | 'topic' | 'pattern';
+  title: string;
+  description: string;
+  confidence: number;
+  related_ids: string[];
+}
+
+export const getDiscoverySuggestions = async (params?: {
+  limit?: number;
+}): Promise<DiscoverySuggestion[]> => {
+  return apiGet<DiscoverySuggestion[]>(`/api/discover/suggestions?limit=${params?.limit || 5}`);
+};
+
+export interface TimelineItem {
+  timestamp: number;
+  original_timestamp?: number;  // Original timestamp from ChatGPT
+  chat_id: string;
+  title: string;
+  topics: string[];
+  semantic_connections: string[];
+  insight: string;
+}
+
+export const getTimelineWithInsights = async (params?: {
+  start_date?: string;
+  end_date?: string;
+  limit?: number;
+}): Promise<TimelineItem[]> => {
+  const searchParams = new URLSearchParams();
+  if (params?.start_date) searchParams.append('start_date', params.start_date);
+  if (params?.end_date) searchParams.append('end_date', params.end_date);
+  if (params?.limit) searchParams.append('limit', params.limit.toString());
+  
+  return apiGet<TimelineItem[]>(`/api/timeline/semantic?${searchParams.toString()}`);
+};
+
+export interface ClusterData {
+  cluster_id: string;
+  name: string;
+  summary: string;
+  size: number;
+  x?: number;
+  y?: number;
+  chunk_contents: string[];
+  related_clusters: string[];
+}
+
+export const getClusterDetails = async (params: {
+  cluster_id: string;
+}): Promise<ClusterData> => {
+  return apiGet<ClusterData>(`/api/clusters/${params.cluster_id}`);
+};
+
+export const getAllClusters = async (params?: {
+  limit?: number;
+  min_size?: number;
+  include_positioning?: boolean;
+}): Promise<ClusterData[]> => {
+  const searchParams = new URLSearchParams();
+  if (params?.limit) searchParams.append('limit', params.limit.toString());
+  if (params?.min_size) searchParams.append('min_size', params.min_size.toString());
+  if (params?.include_positioning !== undefined) searchParams.append('include_positioning', params.include_positioning.toString());
+  
+  return apiGet<ClusterData[]>(`/api/discover/clusters?${searchParams.toString()}`);
 }; 

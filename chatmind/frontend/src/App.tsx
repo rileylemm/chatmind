@@ -4,6 +4,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Layout } from './components/layout/Layout';
 import Search from './pages/Search';
 import Discovery from './pages/Discovery';
+import ConnectionDiscovery from './pages/ConnectionDiscovery';
+import ClusterDiscovery from './pages/ClusterDiscovery';
+import TimelineDiscovery from './pages/TimelineDiscovery';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -24,6 +27,9 @@ function App() {
             <Route path="/" element={<Search />} />
             <Route path="/search" element={<Search />} />
             <Route path="/discovery" element={<Discovery />} />
+            <Route path="/connections" element={<ConnectionDiscovery />} />
+            <Route path="/clusters" element={<ClusterDiscovery />} />
+            <Route path="/timeline" element={<TimelineDiscovery />} />
           </Routes>
         </Layout>
       </Router>

@@ -2,7 +2,10 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
   Tag,
-  Search
+  Search,
+  Network,
+  Layers,
+  Clock
 } from 'lucide-react';
 import { useUIStore } from '../../stores/uiStore';
 
@@ -11,8 +14,11 @@ const Sidebar: React.FC = () => {
   const location = useLocation();
 
   const navigation = [
-    { name: 'Semantic Discovery', href: '/search', icon: Search },
-    { name: 'Tag-Based Discovery', href: '/discovery', icon: Tag },
+    { name: 'Semantic Search', href: '/search', icon: Search },
+    { name: 'Tag Discovery', href: '/discovery', icon: Tag },
+    { name: 'Connection Discovery', href: '/connections', icon: Network },
+    { name: 'Cluster Discovery', href: '/clusters', icon: Layers },
+    { name: 'Timeline Discovery', href: '/timeline', icon: Clock },
   ];
 
   if (!sidebarOpen) {

@@ -609,6 +609,46 @@ class HybridDatabaseTester:
             lambda: self._test_content_discovery_response_schema()
         )
     
+    def test_timestamp_validation_queries(self):
+        """Test timestamp validation and functionality across both databases."""
+        logger.info("\n⏰ Testing Timestamp Validation Queries...")
+        
+        # Test Neo4j timestamp formats and ranges
+        self.test_query(
+            "Timestamps - Neo4j timestamp formats",
+            lambda: self._test_neo4j_timestamp_formats()
+        )
+        
+        # Test Qdrant timestamp payloads
+        self.test_query(
+            "Timestamps - Qdrant timestamp payloads",
+            lambda: self._test_qdrant_timestamp_payloads()
+        )
+        
+        # Test timestamp consistency between databases
+        self.test_query(
+            "Timestamps - Cross-database consistency",
+            lambda: self._test_timestamp_cross_database_consistency()
+        )
+        
+        # Test timestamp-based queries
+        self.test_query(
+            "Timestamps - Time-based queries",
+            lambda: self._test_timestamp_based_queries()
+        )
+        
+        # Test timestamp ranges and ordering
+        self.test_query(
+            "Timestamps - Range and ordering",
+            lambda: self._test_timestamp_ranges_and_ordering()
+        )
+        
+        # Test timestamp data quality
+        self.test_query(
+            "Timestamps - Data quality validation",
+            lambda: self._test_timestamp_data_quality()
+        )
+    
     # Neo4j Query Methods
     def _get_neo4j_node_counts(self):
         """Get node counts from Neo4j."""
@@ -2183,6 +2223,310 @@ class HybridDatabaseTester:
             },
             "example_responses": discovery_examples
         }
+    
+    # Timestamp Validation Methods
+    def _test_neo4j_timestamp_formats(self):
+        """Test Neo4j timestamp formats and data types."""
+        with self.neo4j_driver.session() as session:
+            # Test chat timestamps
+            chat_timestamps_result = session.run("""
+                MATCH (c:Chat)
+                RETURN c.chat_id, c.create_time, c.update_time
+                ORDER BY c.create_time DESC
+                LIMIT 5
+            """)
+            chat_timestamps = [dict(record) for record in chat_timestamps_result]
+            
+            # Test message timestamps
+            message_timestamps_result = session.run("""
+                MATCH (m:Message)
+                RETURN m.message_id, m.timestamp, m.role
+                ORDER BY m.timestamp DESC
+                LIMIT 5
+            """)
+            message_timestamps = [dict(record) for record in message_timestamps_result]
+            
+            # Test chunk timestamps (if they exist)
+            chunk_timestamps_result = session.run("""
+                MATCH (ch:Chunk)
+                RETURN ch.chunk_id, ch.timestamp
+                ORDER BY ch.timestamp DESC
+                LIMIT 5
+            """)
+            chunk_timestamps = [dict(record) for record in chunk_timestamps_result]
+            
+            # Analyze timestamp formats
+            timestamp_analysis = {
+                "chat_timestamps": len(chat_timestamps),
+                "message_timestamps": len(message_timestamps),
+                "chunk_timestamps": len(chunk_timestamps),
+                "sample_chat_timestamp": chat_timestamps[0] if chat_timestamps else None,
+                "sample_message_timestamp": message_timestamps[0] if message_timestamps else None,
+                "timestamp_types": {
+                    "chat_create_time_type": type(chat_timestamps[0]["c.create_time"]).__name__ if chat_timestamps else None,
+                    "message_timestamp_type": type(message_timestamps[0]["m.timestamp"]).__name__ if message_timestamps else None
+                }
+            }
+            
+            return timestamp_analysis
+    
+    def _test_qdrant_timestamp_payloads(self):
+        """Test Qdrant timestamp payloads and formats."""
+        try:
+            # Get sample points with timestamps
+            points = self.qdrant_client.scroll(
+                collection_name=self.qdrant_collection,
+                limit=10,
+                with_payload=True,
+                with_vectors=False
+            )[0]
+            
+            timestamp_analysis = {
+                "total_points_checked": len(points),
+                "timestamp_fields_found": [],
+                "sample_timestamps": []
+            }
+            
+            for point in points:
+                payload = point.payload
+                
+                # Check for timestamp fields
+                timestamp_fields = []
+                for key, value in payload.items():
+                    if 'timestamp' in key.lower() or 'time' in key.lower():
+                        timestamp_fields.append(key)
+                
+                if timestamp_fields:
+                    timestamp_analysis["timestamp_fields_found"].extend(timestamp_fields)
+                    timestamp_analysis["sample_timestamps"].append({
+                        "point_id": point.id,
+                        "timestamp_fields": timestamp_fields,
+                        "sample_values": {field: payload.get(field) for field in timestamp_fields[:3]}
+                    })
+            
+            # Remove duplicates
+            timestamp_analysis["timestamp_fields_found"] = list(set(timestamp_analysis["timestamp_fields_found"]))
+            
+            return timestamp_analysis
+            
+        except Exception as e:
+            return {"error": f"Qdrant timestamp test failed: {str(e)}"}
+    
+    def _test_timestamp_cross_database_consistency(self):
+        """Test timestamp consistency between Neo4j and Qdrant."""
+        try:
+            # Get sample message from Neo4j
+            with self.neo4j_driver.session() as session:
+                neo4j_message_result = session.run("""
+                    MATCH (m:Message)
+                    RETURN m.message_id, m.timestamp, m.content
+                    ORDER BY m.timestamp DESC
+                    LIMIT 1
+                """)
+                neo4j_message = neo4j_message_result.single()
+            
+            if not neo4j_message:
+                return {"error": "No messages found in Neo4j"}
+            
+            message_id = neo4j_message["m.message_id"]
+            neo4j_timestamp = neo4j_message["m.timestamp"]
+            
+            # Find corresponding point in Qdrant
+            points = self.qdrant_client.scroll(
+                collection_name=self.qdrant_collection,
+                scroll_filter={"must": [{"key": "message_id", "match": {"value": message_id}}]},
+                limit=1,
+                with_payload=True,
+                with_vectors=False
+            )[0]
+            
+            if not points:
+                return {
+                    "error": f"Message {message_id} not found in Qdrant",
+                    "neo4j_timestamp": neo4j_timestamp
+                }
+            
+            qdrant_point = points[0]
+            qdrant_timestamp = qdrant_point.payload.get("original_timestamp")
+            
+            # Compare timestamps
+            timestamp_consistency = {
+                "message_id": message_id,
+                "neo4j_timestamp": neo4j_timestamp,
+                "qdrant_timestamp": qdrant_timestamp,
+                "timestamps_match": neo4j_timestamp == qdrant_timestamp,
+                "timestamp_difference_seconds": abs(neo4j_timestamp - qdrant_timestamp) if qdrant_timestamp else None
+            }
+            
+            return timestamp_consistency
+            
+        except Exception as e:
+            return {"error": f"Cross-database timestamp test failed: {str(e)}"}
+    
+    def _test_timestamp_based_queries(self):
+        """Test timestamp-based queries and filtering."""
+        try:
+            # Get current time for reference
+            current_time = time.time()
+            
+            # Test Neo4j time-based queries
+            with self.neo4j_driver.session() as session:
+                # Recent messages (last 30 days)
+                recent_messages_result = session.run("""
+                    MATCH (m:Message)
+                    WHERE m.timestamp > $cutoff_time
+                    RETURN count(m) as recent_message_count
+                """, cutoff_time=current_time - (30 * 24 * 3600))
+                recent_count = recent_messages_result.single()["recent_message_count"]
+                
+                # Old messages (older than 90 days)
+                old_messages_result = session.run("""
+                    MATCH (m:Message)
+                    WHERE m.timestamp < $cutoff_time
+                    RETURN count(m) as old_message_count
+                """, cutoff_time=current_time - (90 * 24 * 3600))
+                old_count = old_messages_result.single()["old_message_count"]
+                
+                # Messages by time range
+                time_range_result = session.run("""
+                    MATCH (m:Message)
+                    WHERE m.timestamp > $start_time AND m.timestamp < $end_time
+                    RETURN count(m) as range_message_count
+                """, start_time=current_time - (60 * 24 * 3600), end_time=current_time - (30 * 24 * 3600))
+                range_count = time_range_result.single()["range_message_count"]
+            
+            # Test Qdrant time-based filtering
+            qdrant_recent_points = self.qdrant_client.scroll(
+                collection_name=self.qdrant_collection,
+                scroll_filter={"must": [{"key": "original_timestamp", "range": {"gte": current_time - (30 * 24 * 3600)}}]},
+                limit=10,
+                with_payload=False
+            )[0]
+            
+            timestamp_query_results = {
+                "neo4j_recent_messages": recent_count,
+                "neo4j_old_messages": old_count,
+                "neo4j_range_messages": range_count,
+                "qdrant_recent_points": len(qdrant_recent_points),
+                "current_time_reference": current_time
+            }
+            
+            return timestamp_query_results
+            
+        except Exception as e:
+            return {"error": f"Timestamp-based query test failed: {str(e)}"}
+    
+    def _test_timestamp_ranges_and_ordering(self):
+        """Test timestamp ranges and ordering functionality."""
+        with self.neo4j_driver.session() as session:
+            # Test chronological ordering
+            chronological_result = session.run("""
+                MATCH (m:Message)
+                RETURN m.message_id, m.timestamp, m.role
+                ORDER BY m.timestamp ASC
+                LIMIT 5
+            """)
+            chronological_messages = [dict(record) for record in chronological_result]
+            
+            # Test reverse chronological ordering
+            reverse_chronological_result = session.run("""
+                MATCH (m:Message)
+                RETURN m.message_id, m.timestamp, m.role
+                ORDER BY m.timestamp DESC
+                LIMIT 5
+            """)
+            reverse_chronological_messages = [dict(record) for record in reverse_chronological_result]
+            
+            # Test chat creation time ordering
+            chat_ordering_result = session.run("""
+                MATCH (c:Chat)
+                RETURN c.chat_id, c.create_time, c.title
+                ORDER BY c.create_time DESC
+                LIMIT 5
+            """)
+            chat_ordering = [dict(record) for record in chat_ordering_result]
+            
+            # Verify ordering is correct
+            chronological_ordered = True
+            if len(chronological_messages) > 1:
+                for i in range(1, len(chronological_messages)):
+                    if chronological_messages[i]["m.timestamp"] < chronological_messages[i-1]["m.timestamp"]:
+                        chronological_ordered = False
+                        break
+            
+            reverse_ordered = True
+            if len(reverse_chronological_messages) > 1:
+                for i in range(1, len(reverse_chronological_messages)):
+                    if reverse_chronological_messages[i]["m.timestamp"] > reverse_chronological_messages[i-1]["m.timestamp"]:
+                        reverse_ordered = False
+                        break
+            
+            return {
+                "chronological_messages": len(chronological_messages),
+                "reverse_chronological_messages": len(reverse_chronological_messages),
+                "chat_ordering": len(chat_ordering),
+                "chronological_ordering_correct": chronological_ordered,
+                "reverse_ordering_correct": reverse_ordered,
+                "sample_chronological": chronological_messages[0] if chronological_messages else None,
+                "sample_reverse": reverse_chronological_messages[0] if reverse_chronological_messages else None
+            }
+    
+    def _test_timestamp_data_quality(self):
+        """Test timestamp data quality and validation."""
+        with self.neo4j_driver.session() as session:
+            # Check for null timestamps
+            null_timestamp_result = session.run("""
+                MATCH (m:Message)
+                WHERE m.timestamp IS NULL
+                RETURN count(m) as null_timestamp_count
+            """)
+            null_timestamp_count = null_timestamp_result.single()["null_timestamp_count"]
+            
+            # Check for invalid timestamps (negative or future)
+            current_time = time.time()
+            invalid_timestamp_result = session.run("""
+                MATCH (m:Message)
+                WHERE m.timestamp < 0 OR m.timestamp > $future_threshold
+                RETURN count(m) as invalid_timestamp_count
+            """, future_threshold=current_time + (365 * 24 * 3600))  # 1 year in future
+            invalid_timestamp_count = invalid_timestamp_result.single()["invalid_timestamp_count"]
+            
+            # Check timestamp range
+            timestamp_range_result = session.run("""
+                MATCH (m:Message)
+                RETURN min(m.timestamp) as min_timestamp, 
+                       max(m.timestamp) as max_timestamp,
+                       count(m) as total_messages
+            """)
+            timestamp_range = timestamp_range_result.single()
+            
+            # Check for duplicate timestamps (same exact time)
+            duplicate_timestamp_result = session.run("""
+                MATCH (m:Message)
+                WITH m.timestamp as ts, count(*) as count
+                WHERE count > 1
+                RETURN count(ts) as duplicate_timestamp_groups
+            """)
+            duplicate_timestamp_groups = duplicate_timestamp_result.single()["duplicate_timestamp_groups"]
+            
+            data_quality_report = {
+                "null_timestamps": null_timestamp_count,
+                "invalid_timestamps": invalid_timestamp_count,
+                "total_messages": timestamp_range["total_messages"],
+                "timestamp_range": {
+                    "min": timestamp_range["min_timestamp"],
+                    "max": timestamp_range["max_timestamp"],
+                    "span_days": (timestamp_range["max_timestamp"] - timestamp_range["min_timestamp"]) / (24 * 3600) if timestamp_range["min_timestamp"] and timestamp_range["max_timestamp"] else None
+                },
+                "duplicate_timestamp_groups": duplicate_timestamp_groups,
+                "data_quality_score": {
+                    "null_percentage": (null_timestamp_count / timestamp_range["total_messages"]) * 100 if timestamp_range["total_messages"] > 0 else 0,
+                    "invalid_percentage": (invalid_timestamp_count / timestamp_range["total_messages"]) * 100 if timestamp_range["total_messages"] > 0 else 0,
+                    "quality_score": 100 - ((null_timestamp_count + invalid_timestamp_count) / timestamp_range["total_messages"]) * 100 if timestamp_range["total_messages"] > 0 else 0
+                }
+            }
+            
+            return data_quality_report
 
     def run_all_tests(self):
         """Run all database tests."""
@@ -2209,7 +2553,8 @@ class HybridDatabaseTester:
                 self.test_quality_analysis_queries,
                 self.test_visualization_queries,
                 self.test_api_readiness_queries,
-                self.test_schema_snapshot_queries
+                self.test_schema_snapshot_queries,
+                self.test_timestamp_validation_queries
             ]
             
             for test_category in test_categories:

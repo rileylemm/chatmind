@@ -148,6 +148,7 @@ class ChatChunker:
                     'content': content,
                     'message_ids': [message.get('id', '')],
                     'role': message.get('role'),
+                    'timestamp': message.get('timestamp', ''),  # Preserve original timestamp
                     'char_count': message_chars,
                     'message_hash': message_hash,  # Add message hash
                     'chunk_hash': self._generate_chunk_hash({
@@ -189,6 +190,7 @@ class ChatChunker:
                         'content': current_chunk_content.strip(),
                         'message_ids': [message.get('id', '')],
                         'role': message.get('role'),
+                        'timestamp': message.get('timestamp', ''),  # Preserve original timestamp
                         'char_count': current_chunk_chars,
                         'message_hash': message_hash, # Add message hash to chunk
                         'chunk_hash': self._generate_chunk_hash({
@@ -221,6 +223,7 @@ class ChatChunker:
                     'content': current_chunk_content.strip(),
                     'message_ids': [message.get('id', '')],
                     'role': message.get('role'),
+                    'timestamp': message.get('timestamp', ''),  # Preserve original timestamp
                     'char_count': current_chunk_chars,
                     'message_hash': message_hash, # Add message hash to chunk
                     'chunk_hash': self._generate_chunk_hash({
