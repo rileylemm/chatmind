@@ -498,4 +498,27 @@ export const getSerendipity = async (params: {
   searchParams.append('novelty', String(novelty));
   searchParams.append('limit', String(limit));
   return apiGet<SerendipityResponse>(`/api/serendipity?${searchParams.toString()}`);
+};
+
+// Explain path between chats
+export interface ExplainPathResponse {
+  source_id: string;
+  target_id: string;
+  max_hops: number;
+  path_type: 'direct_similarity' | 'shared_cluster' | 'no_short_path' | string;
+  path: Array<Record<string, unknown>>;
+  evidence: Array<{ type: string; [key: string]: unknown }>;
+}
+
+export const explainPath = async (params: {
+  source_id: string;
+  target_id: string;
+  max_hops?: number;
+}): Promise<ExplainPathResponse> => {
+  const { source_id, target_id, max_hops = 2 } = params;
+  const searchParams = new URLSearchParams();
+  searchParams.append('source_id', source_id);
+  searchParams.append('target_id', target_id);
+  searchParams.append('max_hops', String(max_hops));
+  return apiGet<ExplainPathResponse>(`/api/explain/path?${searchParams.toString()}`);
 }; 

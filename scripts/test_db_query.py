@@ -106,10 +106,26 @@ class HybridDatabaseTester:
             # Log the result
             if isinstance(result, dict):
                 result_count = result.get('count', 0)
-                logger.info(f"✅ {name}: {result_count} results ({execution_time:.3f}s)")
+                # Prefer informative keys if present
+                if 'qdrant_present' in result:
+                    logger.info(f"✅ {name}: qdrant_present={result['qdrant_present']} of neo4j_count={result.get('neo4j_count', 0)} ({execution_time:.3f}s)")
+                elif 'intersection_count' in result and result_count == 0:
+                    logger.info(f"✅ {name}: intersection_count={result['intersection_count']} ({execution_time:.3f}s)")
+                else:
+                    counts_summary = self._summarize_counts(result)
+                    logger.info(f"✅ {name}: {counts_summary} ({execution_time:.3f}s)")
                 if result.get('data') and len(result['data']) <= 3:
                     for i, item in enumerate(result['data'][:3]):
                         logger.info(f"   Result {i+1}: {item}")
+                # Also wrap dict into a one-item list for downstream summary consistency if needed
+                self.test_results.append({
+                    "name": name,
+                    "status": "PASS",
+                    "result": result,
+                    "execution_time": execution_time
+                })
+                self.performance_metrics[name] = execution_time
+                return True
             elif isinstance(result, (list, tuple)):
                 result_count = len(result)
                 logger.info(f"✅ {name}: {result_count} results ({execution_time:.3f}s)")
@@ -755,146 +771,102 @@ class HybridDatabaseTester:
     # Cross-Database Connection Methods
     def _test_chunk_id_consistency(self):
         """Test chunk ID consistency between Neo4j and Qdrant."""
-        # Get chunk IDs from Neo4j
+        # Get a deterministic sample of chunk IDs from Neo4j then verify each in Qdrant
         with self.neo4j_driver.session() as session:
             neo4j_result = session.run("""
                 MATCH (ch:Chunk)
-                RETURN ch.chunk_id
-                LIMIT 10
+                RETURN ch.chunk_id AS chunk_id
+                ORDER BY ch.chunk_id
+                LIMIT 20
             """)
-            neo4j_chunk_ids = [record["ch.chunk_id"] for record in neo4j_result]
-        
-        # Get chunk IDs from Qdrant
-        try:
+            neo4j_chunk_ids = [record["chunk_id"] for record in neo4j_result]
+
+        if not neo4j_chunk_ids:
+            return {"neo4j_count": 0, "qdrant_present": 0, "consistent": False}
+
+        qdrant_present = 0
+        for cid in neo4j_chunk_ids:
             points = self.qdrant_client.scroll(
                 collection_name=self.qdrant_collection,
-                limit=10,
-                with_payload=True,
-                with_vectors=False
+                scroll_filter={"must": [{"key": "chunk_id", "match": {"value": cid}}]},
+                limit=1,
+                with_payload=False
             )[0]
-            
-            qdrant_chunk_ids = []
-            for point in points:
-                try:
-                    chunk_id = point.payload.get("chunk_id")
-                    if chunk_id:
-                        qdrant_chunk_ids.append(chunk_id)
-                except Exception as e:
-                    logger.error(f"Error accessing point payload: {e}")
-                    logger.error(f"Point type: {type(point)}")
-                    logger.error(f"Point payload type: {type(point.payload)}")
-                    continue
-            
-            # Check consistency
-            neo4j_set = set(neo4j_chunk_ids)
-            qdrant_set = set(qdrant_chunk_ids)
-            
-            result = {
-                "neo4j_count": len(neo4j_set),
-                "qdrant_count": len(qdrant_set),
-                "intersection_count": len(neo4j_set.intersection(qdrant_set)),
-                "consistent": len(neo4j_set.intersection(qdrant_set)) > 0
-            }
-            
-            logger.info(f"Debug - Chunk ID consistency result: {result}")
-            return result
-            
-        except Exception as e:
-            logger.error(f"Error in chunk ID consistency test: {e}")
-            return {
-                "error": f"Failed to get Qdrant data: {str(e)}",
-                "neo4j_count": len(neo4j_chunk_ids),
-                "qdrant_count": 0,
-                "consistent": False
-            }
+            if points:
+                qdrant_present += 1
+
+        return {
+            "neo4j_count": len(neo4j_chunk_ids),
+            "qdrant_present": qdrant_present,
+            "intersection_count": qdrant_present,
+            "consistent": qdrant_present > 0 and qdrant_present == len(neo4j_chunk_ids)
+        }
     
     def _test_message_id_consistency(self):
         """Test message ID consistency between Neo4j and Qdrant."""
-        # Get message IDs from Neo4j
+        # Get a deterministic sample of message IDs from Neo4j then verify in Qdrant
         with self.neo4j_driver.session() as session:
             neo4j_result = session.run("""
                 MATCH (m:Message)
-                RETURN m.message_id
-                LIMIT 10
+                RETURN m.message_id AS message_id
+                ORDER BY m.message_id
+                LIMIT 20
             """)
-            neo4j_message_ids = [record["m.message_id"] for record in neo4j_result]
-        
-        # Get message IDs from Qdrant
-        try:
+            neo4j_message_ids = [record["message_id"] for record in neo4j_result]
+
+        if not neo4j_message_ids:
+            return {"neo4j_count": 0, "qdrant_present": 0, "consistent": False}
+
+        qdrant_present = 0
+        for mid in neo4j_message_ids:
             points = self.qdrant_client.scroll(
                 collection_name=self.qdrant_collection,
-                limit=10,
-                with_payload=True,
-                with_vectors=False
+                scroll_filter={"must": [{"key": "message_id", "match": {"value": mid}}]},
+                limit=1,
+                with_payload=False
             )[0]
-            
-            qdrant_message_ids = []
-            for point in points:
-                message_id = point.payload.get("message_id")
-                if message_id:
-                    qdrant_message_ids.append(message_id)
-            
-            # Check consistency
-            neo4j_set = set(neo4j_message_ids)
-            qdrant_set = set(qdrant_message_ids)
-            
-            return {
-                "neo4j_count": len(neo4j_set),
-                "qdrant_count": len(qdrant_set),
-                "intersection_count": len(neo4j_set.intersection(qdrant_set)),
-                "consistent": len(neo4j_set.intersection(qdrant_set)) > 0
-            }
-        except Exception as e:
-            return {
-                "error": f"Failed to get Qdrant data: {str(e)}",
-                "neo4j_count": len(neo4j_message_ids),
-                "qdrant_count": 0,
-                "consistent": False
-            }
+            if points:
+                qdrant_present += 1
+
+        return {
+            "neo4j_count": len(neo4j_message_ids),
+            "qdrant_present": qdrant_present,
+            "intersection_count": qdrant_present,
+            "consistent": qdrant_present > 0 and qdrant_present == len(neo4j_message_ids)
+        }
     
     def _test_chat_id_consistency(self):
         """Test chat ID consistency between Neo4j and Qdrant."""
-        # Get chat IDs from Neo4j
+        # Get a deterministic sample of chat IDs from Neo4j then verify in Qdrant
         with self.neo4j_driver.session() as session:
             neo4j_result = session.run("""
                 MATCH (c:Chat)
-                RETURN c.chat_id
-                LIMIT 10
+                RETURN c.chat_id AS chat_id
+                ORDER BY c.chat_id
+                LIMIT 20
             """)
-            neo4j_chat_ids = [record["c.chat_id"] for record in neo4j_result]
-        
-        # Get chat IDs from Qdrant
-        try:
+            neo4j_chat_ids = [record["chat_id"] for record in neo4j_result]
+
+        if not neo4j_chat_ids:
+            return {"neo4j_count": 0, "qdrant_present": 0, "consistent": False}
+
+        qdrant_present = 0
+        for cid in neo4j_chat_ids:
             points = self.qdrant_client.scroll(
                 collection_name=self.qdrant_collection,
-                limit=10,
-                with_payload=True,
-                with_vectors=False
+                scroll_filter={"must": [{"key": "chat_id", "match": {"value": cid}}]},
+                limit=1,
+                with_payload=False
             )[0]
-            
-            qdrant_chat_ids = []
-            for point in points:
-                chat_id = point.payload.get("chat_id")
-                if chat_id:
-                    qdrant_chat_ids.append(chat_id)
-            
-            # Check consistency
-            neo4j_set = set(neo4j_chat_ids)
-            qdrant_set = set(qdrant_chat_ids)
-            
-            return {
-                "neo4j_count": len(neo4j_set),
-                "qdrant_count": len(qdrant_set),
-                "intersection_count": len(neo4j_set.intersection(qdrant_set)),
-                "consistent": len(neo4j_set.intersection(qdrant_set)) > 0
-            }
-        except Exception as e:
-            return {
-                "error": f"Failed to get Qdrant data: {str(e)}",
-                "neo4j_count": len(neo4j_chat_ids),
-                "qdrant_count": 0,
-                "consistent": False
-            }
+            if points:
+                qdrant_present += 1
+
+        return {
+            "neo4j_count": len(neo4j_chat_ids),
+            "qdrant_present": qdrant_present,
+            "intersection_count": qdrant_present,
+            "consistent": qdrant_present > 0 and qdrant_present == len(neo4j_chat_ids)
+        }
     
     def _test_embedding_hash_consistency(self):
         """Test embedding hash consistency between Neo4j and Qdrant."""
@@ -1074,7 +1046,7 @@ class HybridDatabaseTester:
                     OPTIONAL MATCH (ch)<-[:HAS_CHUNK]-(m:Message)
                     OPTIONAL MATCH (m)<-[:CONTAINS]-(c:Chat)
                     OPTIONAL MATCH (t:Tag)-[:TAGS]->(m)
-                    OPTIONAL MATCH (cl:Cluster)-[:CONTAINS_CHUNK]->(ch)
+                    OPTIONAL MATCH (cl:Cluster)-[:HAS_CHUNK|:CONTAINS_CHUNK]->(ch)
                     RETURN ch.content as chunk_content,
                            m.content as message_content,
                            c.title as chat_title,
@@ -1131,7 +1103,7 @@ class HybridDatabaseTester:
         # 2. Get chunks in this cluster
         with self.neo4j_driver.session() as session:
             chunks_result = session.run("""
-                MATCH (cl:Cluster {cluster_id: $cluster_id})-[:CONTAINS_CHUNK]->(ch:Chunk)
+                MATCH (cl:Cluster {cluster_id: $cluster_id})-[:HAS_CHUNK|:CONTAINS_CHUNK]->(ch:Chunk)
                 RETURN ch.chunk_id, ch.content
                 LIMIT 5
             """, cluster_id=cluster_id)
@@ -1478,7 +1450,7 @@ class HybridDatabaseTester:
         with self.neo4j_driver.session() as session:
             result = session.run("""
                 MATCH (cl:Cluster)
-                OPTIONAL MATCH (cl)-[:CONTAINS_CHUNK]->(ch:Chunk)
+                OPTIONAL MATCH (cl)-[:HAS_CHUNK|:CONTAINS_CHUNK]->(ch:Chunk)
                 OPTIONAL MATCH (s:Summary)-[:SUMMARIZES]->(cl)
                 RETURN cl.cluster_id,
                        count(ch) as chunk_count,
@@ -1600,7 +1572,7 @@ class HybridDatabaseTester:
         """Test cluster-chunk connectivity."""
         with self.neo4j_driver.session() as session:
             result = session.run("""
-                MATCH (cl:Cluster)-[:CONTAINS_CHUNK]->(ch:Chunk)
+                MATCH (cl:Cluster)-[:HAS_CHUNK|:CONTAINS_CHUNK]->(ch:Chunk)
                 RETURN cl.cluster_id, count(ch) as chunk_count
                 ORDER BY chunk_count DESC
                 LIMIT 10
@@ -1799,9 +1771,9 @@ class HybridDatabaseTester:
             # Multi-hop query: chunk -> cluster -> similar cluster -> related chunks
             multi_hop_result = session.run("""
                 MATCH (ch:Chunk {chunk_id: $chunk_id})
-                OPTIONAL MATCH (cl:Cluster)-[:CONTAINS_CHUNK]->(ch)
+                OPTIONAL MATCH (cl:Cluster)-[:HAS_CHUNK|:CONTAINS_CHUNK]->(ch)
                 OPTIONAL MATCH (cl)-[:SIMILAR_TO_CLUSTER_HIGH]->(cl2:Cluster)
-                OPTIONAL MATCH (cl2)-[:CONTAINS_CHUNK]->(ch2:Chunk)
+                OPTIONAL MATCH (cl2)-[:HAS_CHUNK|:CONTAINS_CHUNK]->(ch2:Chunk)
                 WHERE ch2.chunk_id <> $chunk_id
                 RETURN ch2.chunk_id, ch2.content, cl2.cluster_id
                 LIMIT 5
@@ -1898,9 +1870,10 @@ class HybridDatabaseTester:
                     OPTIONAL MATCH (m:Message)-[:HAS_CHUNK]->(ch)
                     OPTIONAL MATCH (c:Chat)-[:CONTAINS]->(m)
                     OPTIONAL MATCH (t:Tag)-[:TAGS]->(m)
+                    OPTIONAL MATCH (cl:Cluster)-[:HAS_CHUNK|:CONTAINS_CHUNK]->(ch)
                     RETURN m.message_id, c.title as chat_title, 
                            collect(DISTINCT t.tags) as tags,
-                           ch.cluster_id
+                           cl.cluster_id
                 """, chunk_id=chunk_id)
                 
                 context = context_result.single()
@@ -1913,7 +1886,7 @@ class HybridDatabaseTester:
                         "message_id": context["m.message_id"],
                         "chat_title": context["chat_title"],
                         "tags": context["tags"] if context["tags"] else [],
-                        "cluster_id": context["ch.cluster_id"]
+                        "cluster_id": context["cl.cluster_id"]
                     }
                     combined_responses.append(combined_response)
         
@@ -2319,7 +2292,8 @@ class HybridDatabaseTester:
             with self.neo4j_driver.session() as session:
                 neo4j_message_result = session.run("""
                     MATCH (m:Message)
-                    RETURN m.message_id, m.timestamp, m.content
+                    WHERE m.timestamp IS NOT NULL
+                    RETURN m.message_id, m.timestamp AS ts, m.content
                     ORDER BY m.timestamp DESC
                     LIMIT 1
                 """)
@@ -2328,8 +2302,18 @@ class HybridDatabaseTester:
             if not neo4j_message:
                 return {"error": "No messages found in Neo4j"}
             
-            message_id = neo4j_message["m.message_id"]
-            neo4j_timestamp = neo4j_message["m.timestamp"]
+            message_id = neo4j_message["message_id"]
+            neo4j_timestamp = neo4j_message["ts"]
+            
+            # Normalize Neo4j timestamp to seconds (float)
+            if isinstance(neo4j_timestamp, (int, float)):
+                neo4j_ts_sec = float(neo4j_timestamp)
+            else:
+                # Fallback: try to parse if string-like
+                try:
+                    neo4j_ts_sec = float(neo4j_timestamp)
+                except Exception:
+                    neo4j_ts_sec = None
             
             # Find corresponding point in Qdrant
             points = self.qdrant_client.scroll(
@@ -2349,13 +2333,34 @@ class HybridDatabaseTester:
             qdrant_point = points[0]
             qdrant_timestamp = qdrant_point.payload.get("original_timestamp")
             
+            # Normalize Qdrant timestamp: support int/float seconds, or ISO strings
+            qdrant_ts_sec = None
+            if isinstance(qdrant_timestamp, (int, float)):
+                qdrant_ts_sec = float(qdrant_timestamp)
+            elif isinstance(qdrant_timestamp, str):
+                # Try parse ISO8601
+                try:
+                    from datetime import datetime
+                    qdrant_ts_sec = datetime.fromisoformat(qdrant_timestamp.replace("Z", "+00:00")).timestamp()
+                except Exception:
+                    # Try cast
+                    try:
+                        qdrant_ts_sec = float(qdrant_timestamp)
+                    except Exception:
+                        qdrant_ts_sec = None
+            
             # Compare timestamps
+            if neo4j_ts_sec is not None and qdrant_ts_sec is not None:
+                diff = abs(neo4j_ts_sec - qdrant_ts_sec)
+            else:
+                diff = None
+
             timestamp_consistency = {
                 "message_id": message_id,
                 "neo4j_timestamp": neo4j_timestamp,
                 "qdrant_timestamp": qdrant_timestamp,
-                "timestamps_match": neo4j_timestamp == qdrant_timestamp,
-                "timestamp_difference_seconds": abs(neo4j_timestamp - qdrant_timestamp) if qdrant_timestamp else None
+                "timestamps_match": (diff is not None and diff < 1.0),
+                "timestamp_difference_seconds": diff
             }
             
             return timestamp_consistency
@@ -2396,12 +2401,26 @@ class HybridDatabaseTester:
                 range_count = time_range_result.single()["range_message_count"]
             
             # Test Qdrant time-based filtering
+            # Try numeric seconds range
             qdrant_recent_points = self.qdrant_client.scroll(
                 collection_name=self.qdrant_collection,
                 scroll_filter={"must": [{"key": "original_timestamp", "range": {"gte": current_time - (30 * 24 * 3600)}}]},
                 limit=10,
                 with_payload=False
             )[0]
+            # If zero, try ISO date string range (very coarse: last 30 days via iso prefix)
+            if len(qdrant_recent_points) == 0:
+                try:
+                    from datetime import datetime, timedelta
+                    iso_cutoff = (datetime.utcfromtimestamp(current_time) - timedelta(days=30)).isoformat()
+                    qdrant_recent_points = self.qdrant_client.scroll(
+                        collection_name=self.qdrant_collection,
+                        scroll_filter={"must": [{"key": "original_timestamp", "match": {"value": iso_cutoff[:10]}}]},
+                        limit=10,
+                        with_payload=False
+                    )[0]
+                except Exception:
+                    pass
             
             timestamp_query_results = {
                 "neo4j_recent_messages": recent_count,
@@ -2706,6 +2725,38 @@ class HybridDatabaseTester:
             json.dump(results, f, indent=2)
         
         logger.info(f"📄 Test results exported to {output_file}")
+
+    def _summarize_counts(self, result: dict) -> str:
+        """Build a concise counts summary from a result dict.
+        Picks common *_count keys and known numeric indicators.
+        """
+        if not isinstance(result, dict):
+            return ""
+        # Known keys to surface
+        preferred_keys = [
+            'count', 'results_count', 'neo4j_count', 'qdrant_count', 'qdrant_present',
+            'intersection_count', 'chat_count', 'cluster_count', 'embedding_count',
+            'recent_message_count', 'old_message_count', 'range_message_count',
+            'qdrant_recent_points', 'avg_chunks_per_message'
+        ]
+        # Auto-detect *_count keys
+        items = []
+        for key, val in result.items():
+            if isinstance(val, (int, float)) and (key in preferred_keys or key.endswith('_count')):
+                items.append((key, val))
+        # Ensure preferred keys order first
+        keyed = {k: v for k, v in items}
+        ordered = []
+        for k in preferred_keys:
+            if k in keyed:
+                ordered.append((k, keyed[k]))
+        # Add the rest deterministically
+        for k, v in sorted(items):
+            if (k, v) not in ordered:
+                ordered.append((k, v))
+        if not ordered:
+            return "no-counts"
+        return ", ".join(f"{k}={v}" for k, v in ordered)
 
 if __name__ == "__main__":
     import argparse
