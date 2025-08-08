@@ -38,8 +38,10 @@ cp env.example .env
 
 ### 2. Start Databases
 ```bash
-cd chatmind/pipeline
-docker-compose up -d
+# Start from repo root
+docker compose up -d neo4j qdrant
+# or
+make up
 ```
 
 ### 3. Install Dependencies
@@ -74,21 +76,19 @@ cp generic_tags_list.json tags_master_list.json
 ### 5. Process Your Data
 ```bash
 # Add your ChatGPT exports to data/raw/
-# Run the pipeline
-cd chatmind/pipeline
-source pipeline_env/bin/activate
-python run_pipeline.py
+# Run the pipeline (local models)
+chatmind --local
+# or
+cd chatmind/pipeline && source pipeline_env/bin/activate && python run_pipeline.py --local
 ```
 
 ### 6. Start the Application
 ```bash
-# Start API server
-cd chatmind/api
-python main.py
+# Start API server (from repo root)
+cd chatmind/api && python main.py
 
 # Start frontend (in another terminal)
-cd chatmind/frontend
-npm run dev
+cd chatmind/frontend && npm run dev
 ```
 
 ## 📁 Project Structure
