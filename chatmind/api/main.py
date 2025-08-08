@@ -20,6 +20,7 @@ from routes.data import router as data_router, set_global_connections as set_dat
 from routes.advanced import router as advanced_router, set_global_connections as set_advanced_connections
 from routes.analytics import router as analytics_router, set_global_connections as set_analytics_connections
 from routes.discovery import router as discovery_router, set_global_connections as set_discovery_connections
+from routes.insights import router as insights_router, set_global_connections as set_insights_connections
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -105,6 +106,7 @@ async def startup_event():
     set_advanced_connections(neo4j_driver, qdrant_client, embedding_model)
     set_analytics_connections(neo4j_driver, qdrant_client, embedding_model)
     set_discovery_connections(neo4j_driver, qdrant_client, embedding_model)
+    set_insights_connections(neo4j_driver, qdrant_client, embedding_model)
     
     logger.info("🎉 API startup complete!")
 
@@ -145,6 +147,7 @@ app.include_router(data_router)
 app.include_router(advanced_router)
 app.include_router(analytics_router)
 app.include_router(discovery_router)
+app.include_router(insights_router)
 
 
 

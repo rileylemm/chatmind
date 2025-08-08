@@ -1199,6 +1199,173 @@ class ChatMindAPITester:
                 "description": "Skipped due to preparation error"
             }]
     
+    def test_bridges(self):
+        """Test discovery bridges endpoint (serendipitous connectors)."""
+        tests = [
+            {
+                "name": "Discover Bridges (Default)",
+                "endpoint": "/api/discover/bridges",
+                "params": {"limit": 5},
+                "description": "Get bridge nodes connecting clusters"
+            },
+            {
+                "name": "Discover Bridges (Domain Pair)",
+                "endpoint": "/api/discover/bridges",
+                "params": {"domain_a": "technology", "domain_b": "health", "limit": 5},
+                "description": "Get bridges between technology and health"
+            }
+        ]
+        results = []
+        for test in tests:
+            result = self.test_endpoint(
+                name=test["name"],
+                method="GET",
+                endpoint=test["endpoint"],
+                params=test["params"],
+                description=test["description"],
+            )
+            results.append(result)
+        return results
+
+    def test_explain_path(self):
+        """Test explainability endpoint between two chats."""
+        try:
+            # Fetch two chats to explain a path between
+            resp = self.session.get(f"{self.base_url}/api/chats?limit=2", timeout=10)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("data") and len(data["data"]) >= 2:
+                    chat1 = data["data"][0]["id"]
+                    chat2 = data["data"][1]["id"]
+                    return self.test_endpoint(
+                        name="Explain Path (Chat→Chat)",
+                        method="GET",
+                        endpoint=f"/api/explain/path",
+                        params={"source_id": chat1, "target_id": chat2, "max_hops": 2},
+                        description=f"Explain connection between chats {chat1} and {chat2}",
+                    )
+                else:
+                    logger.warning("Not enough chats for explain path test")
+                    return {"name": "Explain Path (Chat→Chat)", "status": "SKIPPED", "error": "Insufficient chats", "description": "Skipped"}
+            else:
+                return {"name": "Explain Path (Chat→Chat)", "status": "SKIPPED", "error": "Chats endpoint unavailable", "description": "Skipped"}
+        except Exception as e:
+            return {"name": "Explain Path (Chat→Chat)", "status": "SKIPPED", "error": str(e), "description": "Skipped due to prep error"}
+
+    def test_evolution_cluster(self):
+        """Test cluster evolution endpoint (timeline lens)."""
+        try:
+            # Fetch a cluster/topic id
+            resp = self.session.get(f"{self.base_url}/api/discover/clusters?limit=1", timeout=10)
+            if resp.status_code == 200:
+                data = resp.json()
+                items = data.get("data") or []
+                if items:
+                    cluster_id = items[0].get("cluster_id") or items[0].get("id") or items[0].get("topic_id")
+                    return self.test_endpoint(
+                        name="Cluster Evolution",
+                        method="GET",
+                        endpoint=f"/api/evolution/cluster/{cluster_id}",
+                        params={"granularity": "week"},
+                        description=f"Evolution timeline for cluster {cluster_id}",
+                    )
+                else:
+                    return {"name": "Cluster Evolution", "status": "SKIPPED", "error": "No clusters available", "description": "Skipped"}
+            else:
+                return {"name": "Cluster Evolution", "status": "SKIPPED", "error": "Clusters endpoint unavailable", "description": "Skipped"}
+        except Exception as e:
+            return {"name": "Cluster Evolution", "status": "SKIPPED", "error": str(e), "description": "Skipped due to prep error"}
+
+    def test_serendipity(self):
+        """Test serendipity endpoint (novel but relevant recommendations)."""
+        try:
+            # Use a chat id as seed
+            resp = self.session.get(f"{self.base_url}/api/chats?limit=1", timeout=10)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("data"):
+                    chat_id = data["data"][0]["id"]
+                    return self.test_endpoint(
+                        name="Serendipity Recommendations",
+                        method="GET",
+                        endpoint=f"/api/serendipity",
+                        params={"seed_id": chat_id, "type": "chat", "novelty": 0.7, "limit": 5},
+                        description=f"Serendipity items seeded by chat {chat_id}",
+                    )
+                else:
+                    return {"name": "Serendipity Recommendations", "status": "SKIPPED", "error": "No chats available", "description": "Skipped"}
+            else:
+                return {"name": "Serendipity Recommendations", "status": "SKIPPED", "error": "Chats endpoint unavailable", "description": "Skipped"}
+        except Exception as e:
+            return {"name": "Serendipity Recommendations", "status": "SKIPPED", "error": str(e), "description": "Skipped due to prep error"}
+
+    def test_compare(self):
+        """Test compare endpoint (side-by-side)."""
+        try:
+            # Get two chats
+            resp = self.session.get(f"{self.base_url}/api/chats?limit=2", timeout=10)
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("data") and len(data["data"]) >= 2:
+                    ids = [data["data"][0]["id"], data["data"][1]["id"]]
+                    # POST /api/compare
+                    try:
+                        response = self.session.post(
+                            f"{self.base_url}/api/compare",
+                            json={"type": "chat", "ids": ids},
+                            headers={"Content-Type": "application/json"},
+                            timeout=10,
+                        )
+                        status = "PASSED" if response.status_code == 200 else "FAILED"
+                        error = None if status == "PASSED" else f"Expected 200, got {response.status_code}"
+                        try:
+                            data = response.json()
+                            response_size = len(json.dumps(data))
+                        except json.JSONDecodeError:
+                            data = {"raw_response": response.text[:200]}
+                            response_size = len(response.text)
+                        result = {
+                            "name": "Compare (Chats)",
+                            "method": "POST",
+                            "url": f"{self.base_url}/api/compare",
+                            "status": status,
+                            "status_code": response.status_code,
+                            "expected_status": 200,
+                            "response_size": response_size,
+                            "error": error,
+                            "description": f"Compare chats {ids}",
+                            "data_keys": list(data.keys()) if isinstance(data, dict) else None,
+                        }
+                        self.results.append(result)
+                        if status == "PASSED":
+                            logger.info("✅ Compare (Chats): PASSED")
+                        else:
+                            logger.error(f"❌ Compare (Chats): FAILED - {error}")
+                        return result
+                    except requests.exceptions.RequestException as e:
+                        err = f"Request failed: {str(e)}"
+                        logger.error(f"❌ Compare (Chats): FAILED - {err}")
+                        result = {
+                            "name": "Compare (Chats)",
+                            "method": "POST",
+                            "url": f"{self.base_url}/api/compare",
+                            "status": "FAILED",
+                            "status_code": None,
+                            "expected_status": 200,
+                            "response_size": 0,
+                            "error": err,
+                            "description": f"Compare chats {ids}",
+                            "data_keys": None,
+                        }
+                        self.results.append(result)
+                        return result
+                else:
+                    return {"name": "Compare (Chats)", "status": "SKIPPED", "error": "Insufficient chats", "description": "Skipped"}
+            else:
+                return {"name": "Compare (Chats)", "status": "SKIPPED", "error": "Chats endpoint unavailable", "description": "Skipped"}
+        except Exception as e:
+            return {"name": "Compare (Chats)", "status": "SKIPPED", "error": str(e), "description": "Skipped due to prep error"}
+    
     def run_all_tests(self):
         """Run all API endpoint tests."""
         logger.info("🚀 Starting ChatMind API Endpoint Tests...")
@@ -1292,6 +1459,14 @@ class ChatMindAPITester:
         # Test new connection discovery endpoints
         logger.info("\n🔗 Testing Connection Discovery Endpoints...")
         self.test_connection_discovery_endpoints()
+
+        # Test new discovery/insight endpoints
+        logger.info("\n🔗 Testing New Discovery/Insight Endpoints...")
+        self.test_bridges()
+        self.test_explain_path()
+        self.test_evolution_cluster()
+        self.test_serendipity()
+        self.test_compare()
         
         # Generate summary
         self.print_summary()
