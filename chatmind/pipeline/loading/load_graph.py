@@ -156,6 +156,10 @@ class HybridNeo4jGraphLoader:
                 self.processed_dir / "chunking" / "chunks.jsonl", 
                 "chunks"
             ),
+            'cluster_assignments': self._load_data_file(
+                self.processed_dir / "clustering" / "clustered_embeddings.jsonl",
+                "cluster assignments"
+            ),
             'cluster_positions': self._load_data_file(
                 self.processed_dir / "positioning" / "cluster_positions.jsonl", 
                 "cluster positions"
@@ -215,7 +219,8 @@ class HybridNeo4jGraphLoader:
             # Create Chat node with enhanced properties
             query = """
             MERGE (c:Chat {chat_hash: $chat_hash})
-            SET c.chat_id = $chat_id,
+            SET c.chat_id = $chat_hash,
+                c.external_chat_id = $external_chat_id,
                 c.title = $title,
                 c.create_time = $create_time,
                 c.source_file = $source_file,
@@ -226,7 +231,7 @@ class HybridNeo4jGraphLoader:
             
             result = session.run(query, {
                 'chat_hash': chat_hash,
-                'chat_id': chat_id,
+                'external_chat_id': chat_id,
                 'title': title,
                 'create_time': create_time,
                 'source_file': source_file,
@@ -271,7 +276,7 @@ class HybridNeo4jGraphLoader:
                     m.role = $role,
                     m.timestamp = $timestamp,
                     m.parent_id = $parent_id,
-                    m.chat_id = $chat_id,
+                    m.chat_id = $chat_hash,
                     m.content_length = $content_length,
                     m.loaded_at = datetime()
                 WITH m
@@ -287,9 +292,8 @@ class HybridNeo4jGraphLoader:
                     'role': role,
                     'timestamp': timestamp,
                     'parent_id': parent_id,
-                    'chat_id': chat_id,
-                    'content_length': len(content),
-                    'chat_hash': chat_hash
+                    'chat_hash': chat_hash,
+                    'content_length': len(content)
                 })
                 
                 message_mapping[message_id] = message_id  # Use message_id as key
@@ -318,7 +322,7 @@ class HybridNeo4jGraphLoader:
                 ch.content = $content,
                 ch.role = $role,
                 ch.token_count = $token_count,
-                ch.chat_id = $chat_id,
+                ch.chat_id = $chat_hash,
                 ch.message_id = $message_id,
                 ch.message_hash = $message_hash,
                 ch.content_length = $content_length,
@@ -332,7 +336,7 @@ class HybridNeo4jGraphLoader:
                 'content': content,
                 'role': role,
                 'token_count': token_count,
-                'chat_id': chat_id,
+                'chat_hash': chat_id,
                 'message_id': message_id,
                 'message_hash': message_hash,
                 'content_length': len(content)
@@ -371,6 +375,10 @@ class HybridNeo4jGraphLoader:
             MERGE (cl:Cluster {cluster_id: $cluster_id})
             SET cl.x = $x,
                 cl.y = $y,
+                cl.umap_x = $x,
+                cl.umap_y = $y,
+                cl.position_x = $x,
+                cl.position_y = $y,
                 cl.cluster_hash = $cluster_hash,
                 cl.summary_hash = $summary_hash,
                 cl.loaded_at = datetime()
@@ -564,7 +572,9 @@ class HybridNeo4jGraphLoader:
             query = """
             MATCH (c:Chat {chat_hash: $chat_id})
             SET c.position_x = $umap_x,
-                c.position_y = $umap_y
+                c.position_y = $umap_y,
+                c.umap_x = $umap_x,
+                c.umap_y = $umap_y
             """
             
             session.run(query, {
@@ -582,7 +592,9 @@ class HybridNeo4jGraphLoader:
             query = """
             MATCH (cl:Cluster {cluster_id: $cluster_id})
             SET cl.position_x = $umap_x,
-                cl.position_y = $umap_y
+                cl.position_y = $umap_y,
+                cl.umap_x = $umap_x,
+                cl.umap_y = $umap_y
             """
             
             session.run(query, {
@@ -692,6 +704,24 @@ class HybridNeo4jGraphLoader:
         logger.info(f"  🎯 Cluster High Similarities: {cluster_high_similarities}")
         logger.info(f"  🎯 Cluster Medium Similarities: {cluster_medium_similarities}")
         logger.info(f"  📊 Total relationships created: {high_similarities + medium_similarities + cluster_high_similarities + cluster_medium_similarities}")
+
+    def _link_clusters_to_chunks(self, session, cluster_assignments: List[Dict]) -> None:
+        """Create Cluster->Chunk relationships from clustered embeddings assignments."""
+        created = 0
+        for assignment in tqdm(cluster_assignments, desc="Linking clusters to chunks"):
+            cluster_id = str(assignment.get('cluster_id', ''))
+            chunk_id = assignment.get('chunk_id', '')
+            if not cluster_id or not chunk_id:
+                continue
+            query = """
+            MERGE (cl:Cluster {cluster_id: $cluster_id})
+            WITH cl
+            MATCH (ch:Chunk {chunk_id: $chunk_id})
+            MERGE (cl)-[:HAS_CHUNK]->(ch)
+            """
+            session.run(query, {'cluster_id': cluster_id, 'chunk_id': chunk_id})
+            created += 1
+        logger.info(f"Linked {created} cluster-chunk relationships")
     
     def _create_constraints(self, session) -> None:
         """Create Neo4j constraints and indexes for better performance."""
@@ -717,10 +747,13 @@ class HybridNeo4jGraphLoader:
             indexes = [
                 "CREATE INDEX chat_id_index IF NOT EXISTS FOR (c:Chat) ON (c.chat_id)",
                 "CREATE INDEX message_chat_id_index IF NOT EXISTS FOR (m:Message) ON (m.chat_id)",
+                "CREATE INDEX message_message_hash_index IF NOT EXISTS FOR (m:Message) ON (m.message_hash)",
                 "CREATE INDEX chunk_chat_id_index IF NOT EXISTS FOR (ch:Chunk) ON (ch.chat_id)",
                 "CREATE INDEX chunk_message_id_index IF NOT EXISTS FOR (ch:Chunk) ON (ch.message_id)",
                 "CREATE INDEX chunk_message_hash_index IF NOT EXISTS FOR (ch:Chunk) ON (ch.message_hash)",
+                "CREATE INDEX cluster_position_index IF NOT EXISTS FOR (cl:Cluster) ON (cl.position_x, cl.position_y)",
                 "CREATE INDEX cluster_umap_index IF NOT EXISTS FOR (cl:Cluster) ON (cl.umap_x, cl.umap_y)",
+                "CREATE INDEX chat_position_index IF NOT EXISTS FOR (c:Chat) ON (c.position_x, c.position_y)",
                 "CREATE INDEX chat_umap_index IF NOT EXISTS FOR (c:Chat) ON (c.umap_x, c.umap_y)"
             ]
             
@@ -870,6 +903,8 @@ class HybridNeo4jGraphLoader:
             message_mapping = self._create_message_nodes(session, data['chats'], chat_mapping)
             chunk_mapping = self._create_chunk_nodes(session, data['chunks'], message_mapping)
             cluster_mapping = self._create_cluster_nodes(session, data['cluster_positions'], chunk_mapping)
+            # Link clusters to chunks using cluster assignments
+            self._link_clusters_to_chunks(session, data['cluster_assignments'])
             tag_mapping = self._create_tag_nodes(session, data['processed_tags'], message_mapping)
             summary_mapping = self._create_summary_nodes(session, data['cluster_summaries'], cluster_mapping)
             chat_summary_mapping = self._create_chat_summary_nodes(session, data['chat_summaries'], chat_mapping)
