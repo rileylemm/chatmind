@@ -1,189 +1,198 @@
 # Database Query Guide for ChatMind - Hybrid Architecture
 
-This guide provides comprehensive information about querying the ChatMind knowledge graph using the **hybrid Neo4j + Qdrant architecture**. It covers both graph database operations (Neo4j) and vector database operations (Qdrant), along with hybrid queries that combine both systems.
+This guide explains how to query the ChatMind knowledge graph using the hybrid Neo4j + Qdrant architecture, reflecting the current, canonical schema produced by the pipeline.
 
 ## 🏗️ Architecture Overview
 
 ChatMind uses a hybrid database architecture:
 
-- **Neo4j**: Graph database for relationships, metadata, and complex queries
-- **Qdrant**: Vector database for semantic search and similarity operations
-- **Hybrid Queries**: Combine both databases for rich semantic exploration
+- Neo4j: Graph database for relationships, metadata, and complex queries
+- Qdrant: Vector database for semantic search and similarity operations
+- Hybrid Queries: Combine both databases for rich semantic exploration
 
-## 📊 Database Schema
+## 📊 Database Schema (Canonical)
 
 ### Neo4j Graph Schema
 
-#### **Core Node Types**
+#### Chat Node
+Represents a single conversation.
 
-#### **Chat** Node
-Represents individual ChatGPT conversations.
-
-**Properties:**
-- `chat_id` (String, Unique): Unique identifier for the chat
-- `title` (String): Title of the conversation
-- `create_time` (DateTime): When the chat was created
-- `update_time` (DateTime): When the chat was last updated
-- `position_x`, `position_y` (Float, Optional): Semantic positioning coordinates
+Properties:
+- `chat_id` (String, Unique): Canonical ID in graph (equal to chat hash)
+- `external_chat_id` (String, Optional): Original/raw chat ID if available
+- `title` (String): Conversation title
+- `create_time` (Float seconds): Epoch seconds when chat was created
+- `position_x`, `position_y` (Float): 2D layout positions
+- `umap_x`, `umap_y` (Float): UMAP coordinates (duplicated for compatibility)
 - `loaded_at` (DateTime): When loaded into Neo4j
 
-**Example:**
+Example:
 ```cypher
 MATCH (c:Chat)
 RETURN c.chat_id, c.title, c.create_time
 LIMIT 5
 ```
 
-#### **Message** Node
-Represents individual messages within chats.
+#### Message Node
+Represents an individual message in a chat.
 
-**Properties:**
-- `message_id` (String, Unique): Unique identifier for the message
-- `content` (String): The message content
-- `role` (String): "user" or "assistant"
-- `timestamp` (DateTime): When the message was sent
-- `chat_id` (String): Associated chat ID
-- `loaded_at` (DateTime): When loaded into Neo4j
+Properties:
+- `message_id` (String, Unique): Canonical message ID
+- `message_hash` (String): Hash of message content/metadata
+- `content` (String)
+- `role` (String): "user" | "assistant"
+- `timestamp` (Float seconds): Epoch seconds when the message was sent
+- `chat_id` (String): Associated chat ID (equals `Chat.chat_id`)
+- `loaded_at` (DateTime)
 
-**Example:**
+Example:
 ```cypher
 MATCH (m:Message)
 RETURN m.message_id, m.content, m.role
 LIMIT 5
 ```
 
-#### **Chunk** Node
-Represents semantic chunks of messages.
+#### Chunk Node
+Represents a semantic chunk of a message.
 
-**Properties:**
-- `chunk_id` (String, Unique): Unique identifier for the chunk
-- `content` (String): The chunk text content
-- `role` (String): "user" or "assistant"
-- `message_id` (String): Associated message ID
-- `chat_id` (String): Associated chat ID
-- `loaded_at` (DateTime): When loaded into Neo4j
+Properties:
+- `chunk_id` (String, Unique)
+- `chunk_hash` (String)
+- `content` (String)
+- `content_length` (Integer)
+- `role` (String)
+- `token_count` (Integer)
+- `message_id` (String)
+- `message_hash` (String)
+- `chat_id` (String)
+- `loaded_at` (DateTime)
 
-**Example:**
+Example:
 ```cypher
 MATCH (ch:Chunk)
 RETURN ch.chunk_id, ch.content
 LIMIT 5
 ```
 
-#### **Cluster** Node
-Represents semantic clusters of related chunks.
+#### Cluster Node
+Represents a semantic cluster of related chunks.
 
-**Properties:**
-- `cluster_id` (Integer, Unique): Unique cluster identifier
-- `umap_x`, `umap_y` (Float): UMAP positioning coordinates
-- `loaded_at` (DateTime): When loaded into Neo4j
+Properties:
+- `cluster_id` (Integer, Unique)
+- `x`, `y` (Float): Legacy position fields (present for compatibility)
+- `position_x`, `position_y` (Float): Canonical positions
+- `umap_x`, `umap_y` (Float): UMAP coordinates
+- `cluster_hash` (String)
+- `summary_hash` (String)
+- `loaded_at` (DateTime)
 
-**Example:**
+Example:
 ```cypher
 MATCH (cl:Cluster)
-RETURN cl.cluster_id, cl.umap_x, cl.umap_y
+RETURN cl.cluster_id, cl.position_x, cl.position_y, cl.umap_x, cl.umap_y
 LIMIT 5
 ```
 
-#### **Tag** Node
+#### Tag Node
 Represents semantic tags/categories applied to messages.
 
-**Properties:**
-- `tag_hash` (String, Unique): Unique hash for the tag
-- `tags` (List[String]): List of tag names (e.g., ["#technology", "#python", "#api"])
-- `domain` (String): Domain classification (e.g., "technology", "health", "business")
-- `sentiment` (String): Sentiment classification
-- `complexity` (String): Complexity classification
-- `loaded_at` (DateTime): When loaded into Neo4j
+Properties:
+- `tag_hash` (String, Unique)
+- `tags` (List[String])
+- `domain` (String)
+- `sentiment` (String)
+- `complexity` (String)
+- `loaded_at` (DateTime)
 
-**Example:**
+Example:
 ```cypher
 MATCH (t:Tag)
 RETURN t.tags, t.domain, t.sentiment
 LIMIT 5
 ```
 
-#### **Summary** Node
-Represents cluster summaries.
+#### Summary Node
+Represents a summary for a cluster.
 
-**Properties:**
-- `summary_hash` (String, Unique): Unique hash for the summary
-- `summary` (String): Summary text
-- `key_points` (List[String]): Key points from the summary
-- `common_tags` (List[String]): Common tags in the cluster
-- `loaded_at` (DateTime): When loaded into Neo4j
+Properties:
+- `summary_hash` (String, Unique)
+- `summary` (String)
+- `key_points` (List[String])
+- `common_tags` (List[String])
+- `loaded_at` (DateTime)
 
-**Example:**
+Example:
 ```cypher
 MATCH (s:Summary)
 RETURN s.summary, s.key_points
 LIMIT 5
 ```
 
-### Neo4j Relationship Types
+### Neo4j Relationship Types (Canonical)
 
-#### **Core Relationships**
-- **CONTAINS**: `(Chat)-[:CONTAINS]->(Message)` - Chat contains this message
-- **HAS_CHUNK**: `(Message)-[:HAS_CHUNK]->(Chunk)` - Message has been chunked into semantic pieces
-- **CONTAINS_CHUNK**: `(Cluster)-[:CONTAINS_CHUNK]->(Chunk)` - Cluster contains this chunk
-- **TAGS**: `(Tag)-[:TAGS]->(Message)` - Tag is applied to this message
-- **SUMMARIZES**: `(Summary)-[:SUMMARIZES]->(Cluster)` - Summary summarizes this cluster
+Core relationships:
+- `(:Chat)-[:CONTAINS]->(:Message)`
+- `(:Message)-[:HAS_CHUNK]->(:Chunk)`
+- `(:Cluster)-[:HAS_CHUNK]->(:Chunk)`  // Canonical (older data may contain `:CONTAINS_CHUNK`; queries should allow both)
+- `(:Tag)-[:TAGS]->(:Message)`
+- `(:Summary)-[:SUMMARIZES]->(:Cluster)`
 
-#### **Similarity Relationships**
-- **SIMILAR_TO_CHAT_HIGH**: `(Chat)-[:SIMILAR_TO_CHAT_HIGH]->(Chat)` - Chats are highly similar
-- **SIMILAR_TO_CHAT_MEDIUM**: `(Chat)-[:SIMILAR_TO_CHAT_MEDIUM]->(Chat)` - Chats are moderately similar
+Similarity relationships:
+- `(:Chat)-[:SIMILAR_TO_CHAT_HIGH]->(:Chat)`
+- `(:Chat)-[:SIMILAR_TO_CHAT_MEDIUM]->(:Chat)`
 
 ### Qdrant Vector Schema
 
-#### **Collection: `chatmind_embeddings`**
+Collection: `chatmind_embeddings`
 
-**Point Structure:**
-- **ID**: `chunk_id` (String)
-- **Vector**: 384-dimensional embedding vector
-- **Payload**:
-  - `chunk_id` (String): Unique chunk identifier
-  - `message_id` (String): Associated message ID
-  - `chat_id` (String): Associated chat ID
-  - `content` (String): Chunk text content
-  - `role` (String): "user" or "assistant"
-  - `tags` (List[String]): Semantic tags
-  - `domain` (String): Domain classification
-  - `complexity` (String): Complexity level
-  - `embedding_hash` (String): Hash of the embedding
-  - `message_hash` (String): Hash of the source message
-  - `vector_dimension` (Integer): Vector dimension (384)
-  - `embedding_method` (String): Method used ("sentence-transformers")
-  - `loaded_at` (DateTime): When loaded into Qdrant
+Point structure:
+- ID: `chunk_id` (String)
+- Vector: 384-dimensional embedding vector
+- Payload:
+  - `chunk_id` (String)
+  - `message_id` (String)
+  - `chat_id` (String)
+  - `content` (String)
+  - `role` (String)
+  - `tags` (List[String])
+  - `domain` (String)
+  - `complexity` (String)
+  - `embedding_hash` (String)
+  - `message_hash` (String)
+  - `vector_dimension` (Integer) = 384
+  - `embedding_method` (String)
+  - `original_timestamp` (Float seconds): Epoch timestamp sourced from raw message
+  - `loaded_at` (DateTime)
 
 ## 🔍 Query Patterns by Database
 
 ### Neo4j Graph Queries
 
-#### 1. Basic Data Exploration
+1) Basic data exploration
 
-**Get All Chats with Message Counts:**
+Get all chats with message counts:
 ```cypher
 MATCH (c:Chat)-[:CONTAINS]->(m:Message)
 RETURN c.title, c.create_time, c.chat_id, count(m) as message_count
 ORDER BY c.create_time DESC
 ```
 
-**Get Messages in a Chat:**
+Get messages in a chat:
 ```cypher
-MATCH (c:Chat {chat_id: "your_chat_id"})-[:CONTAINS]->(m:Message)
+MATCH (c:Chat {chat_id: $chat_id})-[:CONTAINS]->(m:Message)
 RETURN m.content, m.role, m.timestamp
 ORDER BY m.timestamp
 ```
 
-**Get Chunks for a Message:**
+Get chunks for a message:
 ```cypher
-MATCH (m:Message {message_id: "your_message_id"})-[:HAS_CHUNK]->(ch:Chunk)
+MATCH (m:Message {message_id: $message_id})-[:HAS_CHUNK]->(ch:Chunk)
 RETURN ch.content, ch.chunk_id
 ```
 
-#### 2. Semantic Analysis Queries
+2) Semantic analysis queries
 
-**Get Messages with Tags:**
+Get messages with tags:
 ```cypher
 MATCH (t:Tag)-[:TAGS]->(m:Message)
 RETURN m.content, m.role, t.tags, t.domain, t.sentiment
@@ -191,99 +200,104 @@ ORDER BY m.timestamp DESC
 LIMIT 20
 ```
 
-**Find Messages by Domain:**
+Find messages by domain:
 ```cypher
 MATCH (t:Tag)-[:TAGS]->(m:Message)
-WHERE t.domain = "technology"
+WHERE t.domain = $domain
 RETURN m.content, m.role, t.tags
 ORDER BY m.timestamp DESC
 ```
 
-**Get Cluster Summaries:**
+Get cluster summaries:
 ```cypher
 MATCH (s:Summary)-[:SUMMARIZES]->(cl:Cluster)
 RETURN cl.cluster_id, s.summary, s.key_points, s.common_tags
 ORDER BY cl.cluster_id
 ```
 
-#### 3. Similarity Queries
+3) Similarity queries
 
-**Find Similar Chats:**
+Find similar chats:
 ```cypher
-MATCH (c1:Chat {chat_id: "your_chat_id"})-[:SIMILAR_TO_CHAT_HIGH]->(c2:Chat)
+MATCH (c1:Chat {chat_id: $chat_id})-[:SIMILAR_TO_CHAT_HIGH]->(c2:Chat)
 RETURN c2.title, c2.chat_id
 ORDER BY c2.create_time DESC
 ```
 
-#### 4. Content Discovery Queries
+4) Content discovery queries
 
-**Search Messages by Content:**
+Search messages by content:
 ```cypher
 MATCH (m:Message)
-WHERE toLower(m.content) CONTAINS toLower("python")
+WHERE toLower(m.content) CONTAINS toLower($query)
 RETURN m.content, m.role, m.timestamp
 ORDER BY m.timestamp DESC
 ```
 
-**Find Messages by Tags:**
+Find messages by tags:
 ```cypher
 MATCH (t:Tag)-[:TAGS]->(m:Message)
-WHERE ANY(tag IN t.tags WHERE tag CONTAINS "programming")
+WHERE ANY(tag IN t.tags WHERE toLower(tag) CONTAINS toLower($needle))
 RETURN m.content, m.role, t.tags
 ORDER BY m.timestamp DESC
 ```
 
-**Get Messages by Sentiment:**
+Get complete message context:
 ```cypher
-MATCH (t:Tag)-[:TAGS]->(m:Message)
-WHERE t.sentiment = "positive"
-RETURN m.content, m.role, t.sentiment
-ORDER BY m.timestamp DESC
-```
-
-#### 5. Advanced Analysis Queries
-
-**Get Complete Message Context:**
-```cypher
-MATCH (m:Message {message_id: "your_message_id"})
+MATCH (m:Message {message_id: $message_id})
 OPTIONAL MATCH (m)-[:HAS_CHUNK]->(ch:Chunk)
 OPTIONAL MATCH (t:Tag)-[:TAGS]->(m)
 OPTIONAL MATCH (c:Chat)-[:CONTAINS]->(m)
+OPTIONAL MATCH (cl:Cluster)-[:HAS_CHUNK|:CONTAINS_CHUNK]->(ch)
 RETURN m.content as message_content,
        m.role as message_role,
        c.title as chat_title,
        collect(DISTINCT ch.content) as chunks,
-       collect(DISTINCT t.tags) as tags
+       collect(DISTINCT t.tags) as tags,
+       collect(DISTINCT cl.cluster_id) as cluster_ids
 ```
 
-**Get Chat with Full Analysis:**
+5) Time-based queries (epoch seconds)
+
+Last 30 days of messages:
 ```cypher
-MATCH (c:Chat {chat_id: "your_chat_id"})-[:CONTAINS]->(m:Message)
-OPTIONAL MATCH (m)-[:HAS_CHUNK]->(ch:Chunk)
-OPTIONAL MATCH (t:Tag)-[:TAGS]->(m)
-RETURN c.title,
-       count(DISTINCT m) as message_count,
-       count(DISTINCT ch) as chunk_count,
-       collect(DISTINCT t.domain) as domains
+MATCH (m:Message)
+WHERE m.timestamp > timestamp()/1000 - 30*24*3600
+RETURN count(m)
 ```
 
-#### 6. Statistics and Analytics
+Range query (messages):
+```cypher
+MATCH (m:Message)
+WHERE m.timestamp >= $start AND m.timestamp < $end
+RETURN count(m)
+```
 
-**Node Counts:**
+Recent chats by creation time:
+```cypher
+MATCH (c:Chat)
+WHERE c.create_time > timestamp()/1000 - 7*24*3600
+RETURN c.chat_id, c.title
+ORDER BY c.create_time DESC
+```
+
+6) Statistics and analytics
+
+Node counts:
 ```cypher
 MATCH (n)
 RETURN labels(n)[0] as node_type, count(n) as count
 ORDER BY count DESC
 ```
 
-**Relationship Counts:**
+Relationship counts:
 ```cypher
 MATCH ()-[r]->()
 RETURN type(r) as relationship_type, count(r) as count
 ORDER BY count DESC
 ```
 
-**Average Chunks per Message:**
+Average chunks per message:
 ```cypher
 MATCH (m:Message)
 OPTIONAL MATCH (m)-[:HAS_CHUNK]->(ch:Chunk)
@@ -291,36 +305,16 @@ WITH count(m) as message_count, count(ch) as chunk_count
 RETURN round(chunk_count * 100.0 / message_count, 2) as avg_chunks_per_message
 ```
 
-**Tag Distribution:**
-```cypher
-MATCH (t:Tag)-[:TAGS]->(m:Message)
-UNWIND t.tags as tag
-RETURN tag, count(*) as usage_count
-ORDER BY usage_count DESC
-LIMIT 20
-```
+### Qdrant Vector Queries (host: http://localhost:6335)
 
-**Domain Distribution:**
-```cypher
-MATCH (t:Tag)-[:TAGS]->(m:Message)
-RETURN t.domain, count(*) as message_count
-ORDER BY message_count DESC
-```
-
-### Qdrant Vector Queries
-
-#### 1. Semantic Search
-
-**Basic Semantic Search:**
+1) Basic semantic search:
 ```python
 from qdrant_client import QdrantClient
 from sentence_transformers import SentenceTransformer
 
-# Initialize
-client = QdrantClient("localhost", port=6333)
+client = QdrantClient(url="http://localhost:6335")
 model = SentenceTransformer('all-MiniLM-L6-v2')
 
-# Search
 query = "python programming"
 query_vector = model.encode(query).tolist()
 
@@ -334,12 +328,11 @@ results = client.search(
 for result in results:
     print(f"Score: {result.score}")
     print(f"Content: {result.payload['content']}")
-    print(f"Tags: {result.payload['tags']}")
+    print(f"Tags: {result.payload.get('tags', [])}")
 ```
 
-**Search with Filters:**
+2) Search with filters:
 ```python
-# Search only technology domain
 results = client.search(
     collection_name="chatmind_embeddings",
     query_vector=query_vector,
@@ -353,9 +346,8 @@ results = client.search(
 )
 ```
 
-**Search by Tags:**
+3) Search by tags:
 ```python
-# Search for content with specific tags
 results = client.search(
     collection_name="chatmind_embeddings",
     query_vector=query_vector,
@@ -369,60 +361,35 @@ results = client.search(
 )
 ```
 
-#### 2. Similarity Search
-
-**Find Similar Content:**
+4) Time-based filtering:
 ```python
-# Get a reference chunk
-reference_chunk = client.scroll(
+import time
+cutoff = time.time() - 30*24*3600
+recent_points, _ = client.scroll(
     collection_name="chatmind_embeddings",
-    limit=1,
-    with_payload=True
-)[0][0]
-
-# Find similar chunks
-similar_results = client.search(
-    collection_name="chatmind_embeddings",
-    query_vector=reference_chunk.vector,
+    scroll_filter={"must": [{"key": "original_timestamp", "range": {"gte": cutoff}}]},
     limit=10,
-    with_payload=True
+    with_payload=False
 )
+print("Recent points:", len(recent_points))
 ```
 
-#### 3. Batch Operations
-
-**Get All Embeddings:**
+5) Collection statistics:
 ```python
-# Scroll through all points
-all_points = client.scroll(
-    collection_name="chatmind_embeddings",
-    limit=1000,
-    with_payload=True,
-    with_vectors=True
-)[0]
-
-for point in all_points:
-    print(f"ID: {point.id}")
-    print(f"Content: {point.payload['content']}")
-    print(f"Vector dimension: {len(point.vector)}")
-```
-
-**Get Collection Statistics:**
-```python
-# Get collection info
 collection_info = client.get_collection("chatmind_embeddings")
-print(f"Total points: {collection_info.points_count}")
-print(f"Vector size: {collection_info.config.params.vectors.size}")
+print("Total points:", collection_info.points_count)
+print("Vector size:", collection_info.config.params.vectors.size)
 ```
 
 ## 🔗 Hybrid Queries
 
-### 1. Semantic Search with Graph Context
+1) Semantic search with graph context
 
-**Python Implementation:**
 ```python
 def semantic_search_with_context(query: str, limit: int = 5):
-    # 1. Semantic search in Qdrant
+    # 1) Qdrant semantic search
+    client = QdrantClient(url="http://localhost:6335")
+    model = SentenceTransformer('all-MiniLM-L6-v2')
     query_vector = model.encode(query).tolist()
     search_results = client.search(
         collection_name="chatmind_embeddings",
@@ -430,343 +397,205 @@ def semantic_search_with_context(query: str, limit: int = 5):
         limit=limit,
         with_payload=True
     )
-    
-    # 2. Get graph context from Neo4j
-    with neo4j_driver.session() as session:
+
+    # 2) Neo4j graph context
+    from neo4j import GraphDatabase
+    driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "chatmind123"))
+
+    with driver.session() as session:
         for result in search_results:
             chunk_id = result.payload['chunk_id']
-            
-            # Get additional context
-            context_result = session.run("""
+            context_result = session.run(
+                """
                 MATCH (ch:Chunk {chunk_id: $chunk_id})
                 OPTIONAL MATCH (m:Message)-[:HAS_CHUNK]->(ch)
                 OPTIONAL MATCH (c:Chat)-[:CONTAINS]->(m)
                 OPTIONAL MATCH (t:Tag)-[:TAGS]->(m)
-                RETURN m.message_id, c.title as chat_title, 
+                OPTIONAL MATCH (cl:Cluster)-[:HAS_CHUNK|:CONTAINS_CHUNK]->(ch)
+                RETURN m.message_id as message_id,
+                       c.title as chat_title,
                        collect(DISTINCT t.tags) as tags,
-                       ch.cluster_id
-            """, chunk_id=chunk_id)
-            
-            context = context_result.single()
-            if context:
+                       cl.cluster_id as cluster_id
+                """,
+                chunk_id=chunk_id,
+            )
+            ctx = context_result.single()
+            if ctx:
                 yield {
                     "chunk_id": chunk_id,
                     "content": result.payload['content'],
                     "similarity": result.score,
-                    "message_id": context["m.message_id"],
-                    "chat_title": context["chat_title"],
-                    "tags": context["tags"],
-                    "cluster_id": context["ch.cluster_id"]
+                    "message_id": ctx["message_id"],
+                    "chat_title": ctx["chat_title"],
+                    "tags": ctx["tags"],
+                    "cluster_id": ctx["cluster_id"],
                 }
 ```
 
-### 2. Graph Query with Vector Similarity
+2) Graph query with vector similarity
 
-**Python Implementation:**
 ```python
 def graph_query_with_similarity(chat_id: str, limit: int = 5):
-    # 1. Get chat from Neo4j
-    with neo4j_driver.session() as session:
-        chat_result = session.run("""
+    # 1) Get chat chunk IDs from Neo4j
+    from neo4j import GraphDatabase
+    driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "chatmind123"))
+
+    with driver.session() as session:
+        chat_result = session.run(
+            """
             MATCH (c:Chat {chat_id: $chat_id})-[:CONTAINS]->(m:Message)
             OPTIONAL MATCH (m)-[:HAS_CHUNK]->(ch:Chunk)
-            RETURN c.title, collect(DISTINCT ch.chunk_id) as chunk_ids
-        """, chat_id=chat_id)
-        
-        chat_data = chat_result.single()
-        if not chat_data:
+            RETURN c.title as title, collect(DISTINCT ch.chunk_id) as chunk_ids
+            """,
+            chat_id=chat_id,
+        )
+        record = chat_result.single()
+        if not record:
             return []
-        
-        # 2. Find similar content in Qdrant
-        similar_results = []
-        for chunk_id in chat_data["chunk_ids"][:3]:  # Use first 3 chunks
-            # Get chunk vector
-            chunk_result = client.scroll(
-                collection_name="chatmind_embeddings",
-                scroll_filter={"must": [{"key": "chunk_id", "match": {"value": chunk_id}}]},
-                limit=1,
-                with_vectors=True
-            )[0]
-            
-            if chunk_result:
-                chunk_vector = chunk_result[0].vector
-                
-                # Find similar chunks
-                similar = client.search(
-                    collection_name="chatmind_embeddings",
-                    query_vector=chunk_vector,
-                    limit=limit,
-                    with_payload=True
-                )
-                
-                similar_results.extend(similar)
-        
-        return similar_results
+        chunk_ids = [cid for cid in record["chunk_ids"] if cid]
+
+    # 2) For a few chunk vectors, find similar chunks in Qdrant
+    client = QdrantClient(url="http://localhost:6335")
+    similar_results = []
+    for cid in chunk_ids[:3]:
+        points, _ = client.scroll(
+            collection_name="chatmind_embeddings",
+            scroll_filter={"must": [{"key": "chunk_id", "match": {"value": cid}}]},
+            limit=1,
+            with_vectors=True,
+        )
+        if not points:
+            continue
+        vector = points[0].vector
+        similar = client.search(
+            collection_name="chatmind_embeddings",
+            query_vector=vector,
+            limit=limit,
+            with_payload=True,
+        )
+        similar_results.extend(similar)
+    return similar_results
 ```
 
-### 3. Content Discovery Workflow
+3) Content discovery workflow
 
-**Python Implementation:**
 ```python
-def content_discovery_workflow(query: str, domain_filter: str = None):
-    # 1. Semantic search
+def content_discovery_workflow(query: str, domain_filter: str | None = None):
+    client = QdrantClient(url="http://localhost:6335")
+    model = SentenceTransformer('all-MiniLM-L6-v2')
+
     query_vector = model.encode(query).tolist()
-    search_filter = None
+    q_filter = None
     if domain_filter:
-        search_filter = {"must": [{"key": "domain", "match": {"value": domain_filter}}]}
-    
+        q_filter = {"must": [{"key": "domain", "match": {"value": domain_filter}}]}
+
     semantic_results = client.search(
         collection_name="chatmind_embeddings",
         query_vector=query_vector,
-        query_filter=search_filter,
+        query_filter=q_filter,
         limit=10,
-        with_payload=True
+        with_payload=True,
     )
-    
-    # 2. Get related chats from Neo4j
-    with neo4j_driver.session() as session:
-        chat_ids = set()
-        for result in semantic_results:
-            chat_ids.add(result.payload['chat_id'])
-        
-        # Get chat details
-        chat_details = session.run("""
+
+    from neo4j import GraphDatabase
+    driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "chatmind123"))
+
+    with driver.session() as session:
+        chat_ids = list({res.payload['chat_id'] for res in semantic_results})
+        details = session.run(
+            """
             MATCH (c:Chat)
             WHERE c.chat_id IN $chat_ids
             OPTIONAL MATCH (c)-[:CONTAINS]->(m:Message)
             OPTIONAL MATCH (t:Tag)-[:TAGS]->(m)
-            RETURN c.title, c.chat_id, 
+            RETURN c.title as title,
+                   c.chat_id as chat_id,
                    count(DISTINCT m) as message_count,
+                   count(DISTINCT (m)-[:HAS_CHUNK]->(:Chunk)) as chunk_edges,
                    collect(DISTINCT t.domain) as domains
-        """, chat_ids=list(chat_ids))
-        
+            """,
+            chat_ids=chat_ids,
+        )
         return {
             "semantic_results": semantic_results,
-            "related_chats": [dict(record) for record in chat_details]
+            "related_chats": [dict(r) for r in details],
         }
 ```
 
-## 🎯 Practical Use Cases
+## ⏱️ Time Fields: Source of Truth
 
-### 1. Content Discovery
-
-**Find all content about Python programming:**
-```python
-# Qdrant semantic search
-query = "python programming"
-results = semantic_search_with_context(query, limit=10)
-
-# Neo4j tag-based search
-with neo4j_driver.session() as session:
-    tag_results = session.run("""
-        MATCH (t:Tag)-[:TAGS]->(m:Message)
-        WHERE ANY(tag IN t.tags WHERE tag CONTAINS "python")
-        RETURN m.content, m.role, t.tags
-        ORDER BY m.timestamp DESC
-        LIMIT 10
-    """)
-```
-
-### 2. Semantic Analysis
-
-**Get semantic breakdown of a conversation:**
-```cypher
-MATCH (c:Chat {chat_id: "your_chat_id"})-[:CONTAINS]->(m:Message)
-OPTIONAL MATCH (m)-[:HAS_CHUNK]->(ch:Chunk)
-OPTIONAL MATCH (t:Tag)-[:TAGS]->(m)
-RETURN c.title,
-       count(DISTINCT m) as messages,
-       count(DISTINCT ch) as chunks,
-       collect(DISTINCT t.domain) as domains
-```
-
-**Find semantically similar conversations:**
-```python
-# Get chat embedding
-chat_vector = get_chat_embedding(chat_id)
-
-# Find similar chats
-similar_chats = client.search(
-    collection_name="chatmind_embeddings",
-    query_vector=chat_vector,
-    query_filter={"must": [{"key": "chat_id", "match": {"any": other_chat_ids}}]},
-    limit=5,
-    with_payload=True
-)
-```
-
-### 3. Quality Analysis
-
-**Find conversations with rich semantic content:**
-```cypher
-MATCH (c:Chat)-[:CONTAINS]->(m:Message)
-OPTIONAL MATCH (m)-[:HAS_CHUNK]->(ch:Chunk)
-OPTIONAL MATCH (t:Tag)-[:TAGS]->(m)
-WITH c, count(DISTINCT m) as message_count, 
-     count(DISTINCT ch) as chunk_count, 
-     count(DISTINCT t) as tag_count
-WHERE chunk_count > 10 AND tag_count > 5
-RETURN c.title, message_count, chunk_count, tag_count
-ORDER BY tag_count DESC
-```
+- Message timestamps come from raw data (message.create_time) as epoch seconds
+- Carried through pipeline to:
+  - Neo4j: `Message.timestamp`
+  - Qdrant: `original_timestamp` (payload)
+- Chat creation time stored in Neo4j as `Chat.create_time` (epoch seconds)
 
 ## 🔧 Performance Tips
 
-### Neo4j Performance
+Neo4j
+- Use indexes (the loader creates indexes on frequently used properties)
+- Limit results for large scans
+- Use PROFILE to analyze performance
 
-1. **Use Indexes**: The system creates indexes on key properties
-2. **Limit Results**: Always use `LIMIT` for large result sets
-3. **Use Specific Node Types**: Query specific node types for better performance
-4. **Profile Queries**: Use `PROFILE` to analyze query performance
+Qdrant
+- Filter early (query_filter) when possible
+- Keep vectors consistent (384 dim)
+- Use scroll for batch retrieval
 
-### Qdrant Performance
-
-1. **Batch Operations**: Use batch operations for multiple queries
-2. **Filter Early**: Apply filters before search for better performance
-3. **Vector Dimensions**: Ensure consistent vector dimensions (384 for this setup)
-4. **Collection Management**: Monitor collection size and optimize as needed
-
-### Hybrid Performance
-
-1. **Parallel Queries**: Run Neo4j and Qdrant queries in parallel when possible
-2. **Caching**: Cache frequently accessed data
-3. **Connection Pooling**: Use connection pools for database connections
-4. **Result Limiting**: Limit results from both databases
+Hybrid
+- Run Neo4j and Qdrant operations in parallel where appropriate
+- Cache frequently accessed results
 
 ## 📊 Database Statistics
 
-### Neo4j Statistics
-
-**Node Counts:**
+Neo4j node counts:
 ```cypher
 MATCH (n)
 RETURN labels(n)[0] as node_type, count(n) as count
 ORDER BY count DESC
 ```
 
-**Relationship Counts:**
+Neo4j relationship counts:
 ```cypher
 MATCH ()-[r]->()
 RETURN type(r) as relationship_type, count(r) as count
 ORDER BY count DESC
 ```
 
-### Qdrant Statistics
-
-**Collection Information:**
+Qdrant collection info:
 ```python
 collection_info = client.get_collection("chatmind_embeddings")
-print(f"Total points: {collection_info.points_count}")
-print(f"Vector size: {collection_info.config.params.vectors.size}")
+print("Total points:", collection_info.points_count)
+print("Vector size:", collection_info.config.params.vectors.size)
 ```
 
-**Payload Statistics:**
-```python
-# Get sample points for analysis
-sample_points = client.scroll(
-    collection_name="chatmind_embeddings",
-    limit=1000,
-    with_payload=True
-)[0]
+## 🚀 API Integration (touchpoints)
 
-# Analyze payload distribution
-domains = {}
-tags = {}
-for point in sample_points:
-    domain = point.payload.get('domain', 'unknown')
-    domains[domain] = domains.get(domain, 0) + 1
-    
-    for tag in point.payload.get('tags', []):
-        tags[tag] = tags.get(tag, 0) + 1
+Endpoints that leverage both databases:
+- `GET /api/search/semantic` — Semantic search with graph context
+- `GET /api/graph` — Graph data (Neo4j)
+- `GET /api/conversations` — Chats + messages
+- `GET /api/chunks` — Semantic chunks
+- `GET /api/similar` — Similarity via hybrid
 
-print("Domain distribution:", domains)
-print("Top tags:", sorted(tags.items(), key=lambda x: x[1], reverse=True)[:10])
-```
-
-## 🚀 API Integration
-
-The ChatMind API provides these endpoints that use both databases:
-
-- `GET /api/search/semantic` - Semantic search using Qdrant + Neo4j context
-- `GET /api/graph` - Graph data from Neo4j
-- `GET /api/conversations` - Raw conversations from Neo4j
-- `GET /api/chunks` - Semantic chunks with embeddings
-- `GET /api/similar` - Similarity search using both databases
-
-### Example API Usage
-
-**Semantic Search:**
+Examples:
 ```bash
-curl "http://localhost:8000/api/search/semantic?query=python programming&limit=5"
-```
-
-**Graph Data:**
-```bash
+curl "http://localhost:8000/api/search/semantic?query=python%20programming&limit=5"
 curl "http://localhost:8000/api/graph?limit=100"
-```
-
-**Similar Content:**
-```bash
-curl "http://localhost:8000/api/similar?chunk_id=your_chunk_id&limit=5"
 ```
 
 ## 🔍 Debugging and Monitoring
 
-### Neo4j Debugging
+Neo4j
+- Connection test: `RETURN 1 AS test`
+- Verify structure: `MATCH (n) RETURN labels(n)[0] as type, count(n) as count`
+- Profile: `PROFILE MATCH (c:Chat)-[:CONTAINS]->(m:Message) RETURN c.title, count(m)`
 
-**Check Database Connection:**
-```cypher
-RETURN 1 as test
-```
-
-**Verify Data Structure:**
-```cypher
-MATCH (n)
-RETURN labels(n)[0] as type, count(n) as count
-```
-
-**Profile Query Performance:**
-```cypher
-PROFILE MATCH (c:Chat)-[:CONTAINS]->(m:Message)
-RETURN c.title, count(m) as message_count
-```
-
-### Qdrant Debugging
-
-**Check Collection Status:**
-```python
-collections = client.get_collections()
-print("Available collections:", [c.name for c in collections.collections])
-```
-
-**Verify Collection Data:**
-```python
-collection_info = client.get_collection("chatmind_embeddings")
-print(f"Collection status: {collection_info.status}")
-print(f"Total points: {collection_info.points_count}")
-```
-
-**Test Vector Search:**
-```python
-# Test with a simple query
-test_vector = [0.1] * 384  # 384-dimensional vector
-results = client.search(
-    collection_name="chatmind_embeddings",
-    query_vector=test_vector,
-    limit=1
-)
-print(f"Search test successful: {len(results) > 0}")
-```
-
-## 📚 Additional Resources
-
-- [Neo4j Cypher Manual](https://neo4j.com/docs/cypher-manual/current/)
-- [Qdrant Python Client](https://qdrant.tech/documentation/guides/python/)
-- [Sentence Transformers](https://www.sbert.net/)
-- [Neo4j Browser](http://localhost:7474) - Web interface for Neo4j
-- [ChatMind API Documentation](http://localhost:8000/docs) - API endpoints
-- [Pipeline Overview Documentation](docs/PIPELINE_OVERVIEW_AND_INCREMENTAL.md)
+Qdrant
+- Collections: `client.get_collections()`
+- Collection info: `client.get_collection("chatmind_embeddings")`
+- Search smoke test: use a trivial vector `[0.1] * 384` and `limit=1`
 
 ---
 
-*This guide covers the hybrid database architecture for ChatMind. For advanced queries or specific use cases, refer to the individual database documentation or explore the data interactively through the web interfaces.* 
+This guide reflects the current schema, property names, relationship types, time field semantics, and host/ports (Neo4j bolt://localhost:7687, Qdrant http://localhost:6335) produced by the default pipeline. After running the pipeline, you can copy/paste these queries to explore your data. 
