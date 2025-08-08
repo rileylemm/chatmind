@@ -102,6 +102,15 @@ docs/
 2. Review **[Local Model Setup](LOCAL_MODEL_SETUP.md)**
 3. Explore **[Local Documentation](local/)** for project details
 
+## 🗺️ Roadmap
+
+- Add `.md` ingestion to pipeline (docs + implementation)
+- Batch pipeline controls and scheduler docs
+- API pagination and query ergonomics
+- Frontend usability passes on minimal UI
+
+Open-source readiness: This docs set avoids project-specific data. See `docs/local/` for internal references not included in releases.
+
 ---
 
 *This documentation provides comprehensive coverage of ChatMind's architecture, usage, and development. The separation between open-source and local documentation ensures clean releases while maintaining detailed project information.* 

@@ -87,7 +87,7 @@ cd chatmind/pipeline && source pipeline_env/bin/activate && python run_pipeline.
 # Start API server (from repo root)
 cd chatmind/api && python main.py
 
-# Start frontend (in another terminal)
+# Start minimal frontend (in another terminal)
 cd chatmind/frontend && npm run dev
 ```
 
@@ -260,4 +260,13 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 ---
 
-**ChatMind** - Transform your ChatGPT conversations into actionable insights! 🚀 
+**ChatMind** - Transform your ChatGPT conversations into actionable insights! 🚀
+
+## 🗺️ Roadmap (Initial Open Source)
+
+- Minimal CLI-inspired frontend MVP (done)
+- Add ingestion for Markdown files (.md) to pipeline
+- Batch processing controls for pipeline runs
+- Expand data sources (Slack export, Notion export)
+- Improve API ergonomics and pagination
+- Iterative UI improvements on tags/search/cluster flows 
