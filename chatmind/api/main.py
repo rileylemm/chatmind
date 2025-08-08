@@ -16,6 +16,10 @@ from routes.health import router as health_router, set_global_connections
 from routes.search import router as search_router, set_global_connections as set_search_connections
 from routes.graph import router as graph_router, set_global_connections as set_graph_connections
 from routes.debug import router as debug_router, set_global_connections as set_debug_connections
+from routes.data import router as data_router, set_global_connections as set_data_connections
+from routes.advanced import router as advanced_router, set_global_connections as set_advanced_connections
+from routes.analytics import router as analytics_router, set_global_connections as set_analytics_connections
+from routes.discovery import router as discovery_router, set_global_connections as set_discovery_connections
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -97,6 +101,10 @@ async def startup_event():
     set_search_connections(neo4j_driver, qdrant_client, embedding_model)
     set_graph_connections(neo4j_driver, qdrant_client, embedding_model)
     set_debug_connections(neo4j_driver, qdrant_client, embedding_model)
+    set_data_connections(neo4j_driver, qdrant_client, embedding_model)
+    set_advanced_connections(neo4j_driver, qdrant_client, embedding_model)
+    set_analytics_connections(neo4j_driver, qdrant_client, embedding_model)
+    set_discovery_connections(neo4j_driver, qdrant_client, embedding_model)
     
     logger.info("🎉 API startup complete!")
 
@@ -133,6 +141,10 @@ app.include_router(health_router)
 app.include_router(search_router)
 app.include_router(graph_router)
 app.include_router(debug_router)
+app.include_router(data_router)
+app.include_router(advanced_router)
+app.include_router(analytics_router)
+app.include_router(discovery_router)
 
 
 

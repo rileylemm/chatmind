@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Sun, Moon, Search, Command, Bell, User, Tag } from 'lucide-react';
+import { Sun, Moon, Search, Command, Bell, User, Tag, Network, Layers, Clock } from 'lucide-react';
 import { useUIStore } from '../../stores/uiStore';
 
 const Header: React.FC = () => {
@@ -8,8 +8,11 @@ const Header: React.FC = () => {
   const location = useLocation();
 
   const navigation = [
-    { name: 'Semantic Discovery', href: '/search', icon: Search },
-    { name: 'Tag-Based Discovery', href: '/discovery', icon: Tag },
+    { name: 'Semantic Search', href: '/search', icon: Search },
+    { name: 'Tag Discovery', href: '/discovery', icon: Tag },
+    { name: 'Connections', href: '/connections', icon: Network },
+    { name: 'Clusters', href: '/clusters', icon: Layers },
+    { name: 'Timeline', href: '/timeline', icon: Clock },
   ];
 
   return (

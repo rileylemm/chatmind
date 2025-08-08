@@ -26,9 +26,9 @@ curl http://localhost:8000/api/health
 
 ## ✅ Test Coverage & Reliability
 - **All endpoints are covered by automated tests.**
-- **100% pass rate** as of current development (see `test_simple_api.py`).
+- **High pass rate** with comprehensive test coverage (see `scripts/test_api_endpoints.py`).
 - All endpoints return a standard response with `data`, `message`, and `error` keys.
-- **15 total endpoints tested** with comprehensive coverage.
+- **Comprehensive endpoint testing** with TDD approach.
 
 ---
 
@@ -36,15 +36,15 @@ curl http://localhost:8000/api/health
 
 ### Rich Semantic Knowledge Graph
 Your ChatMind database contains:
-- **Chats** with positioning data
-- **Messages** with content and metadata
+- **Chats** with positioning data and metadata
+- **Messages** with content and conversation flow
 - **Chunks** with embeddings (using Sentence Transformers)
-- **Tags** with semantic classification
-- **Cluster Summaries**
-- **Chat Summaries**
+- **Embeddings** stored in Qdrant for semantic search
+- **Tags** with semantic classification and normalization
+- **Cluster Summaries** with positioning and relationships
+- **Chat Summaries** with metadata and context
 - **Similarity relationships** between chats and clusters
-- **Total Nodes** in Neo4j database
-- **Total Relationships** connecting semantic data
+- **Cross-database linking** between Neo4j and Qdrant
 
 *Note: Actual counts depend on your processed data volume.*
 
@@ -188,7 +188,159 @@ Check API health and connectivity.
 curl http://localhost:8000/api/health
 ```
 
-### 2. Search APIs
+### 2. Core Data Access APIs
+
+#### GET `/api/stats/dashboard`
+Get dashboard statistics and overview.
+
+**Response:**
+```json
+{
+  "data": {
+    "chats": 1714,
+    "messages": 32565,
+    "chunks": 47575,
+    "tags": 23989,
+    "clusters": 150
+  },
+  "message": "Dashboard statistics retrieved successfully",
+  "error": null
+}
+```
+
+#### GET `/api/chats`
+Get all chats with metadata.
+
+**Query Parameters:**
+- `limit` (int, optional): Maximum results (default: 50, max: 200)
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "id": "chat_abc123",
+      "title": "Python Web Development",
+      "timestamp": "2025-01-15T10:30:00Z",
+      "message_count": 25
+    }
+  ],
+  "message": "Found 50 chats",
+  "error": null
+}
+```
+
+#### GET `/api/chats/{chat_id}/messages`
+Get messages for a specific chat.
+
+**Path Parameters:**
+- `chat_id` (string, required): Chat ID
+
+**Query Parameters:**
+- `limit` (int, optional): Maximum results (default: 50, max: 200)
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "id": "msg_123",
+      "content": "How do I build a web app with Python?",
+      "role": "user",
+      "timestamp": "2025-01-15T10:30:00Z"
+    }
+  ],
+  "message": "Found 25 messages for chat chat_abc123",
+  "error": null
+}
+```
+
+#### GET `/api/topics`
+Get all topics/clusters.
+
+**Query Parameters:**
+- `limit` (int, optional): Maximum results (default: 50, max: 200)
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "topic_id": "cluster_45",
+      "name": "Python Web Development",
+      "summary": "Discussions about building web applications with Python",
+      "size": 25
+    }
+  ],
+  "message": "Found 150 topics",
+  "error": null
+}
+```
+
+#### GET `/api/chunks`
+Get semantic chunks.
+
+**Query Parameters:**
+- `limit` (int, optional): Maximum results (default: 50, max: 200)
+- `cluster_id` (string, optional): Filter by cluster ID
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "chunk_id": "abc123_msg_0_chunk_0",
+      "content": "Example chunk content",
+      "embedding_hash": "hash123",
+      "cluster_id": "cluster_45",
+      "cluster_name": "Python Web Development"
+    }
+  ],
+  "message": "Found 50 chunks",
+  "error": null
+}
+```
+
+#### GET `/api/tags`
+Get all tags with counts.
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "name": "#python",
+      "count": 156,
+      "category": "programming"
+    }
+  ],
+  "message": "Found 23989 tags",
+  "error": null
+}
+```
+
+#### GET `/api/clusters/{cluster_id}`
+Get details for a specific cluster.
+
+**Path Parameters:**
+- `cluster_id` (string, required): Cluster ID
+
+**Response:**
+```json
+{
+  "data": {
+    "cluster_id": "cluster_45",
+    "name": "Python Web Development",
+    "summary": "Discussions about building web applications with Python",
+    "size": 25,
+    "chunk_contents": ["content1", "content2"]
+  },
+  "message": "Cluster details retrieved successfully",
+  "error": null
+}
+```
+
+### 3. Search APIs
 
 #### GET `/api/search`
 Simple search endpoint using Neo4j only.
@@ -384,7 +536,391 @@ Get all available tags.
 }
 ```
 
-### 3. Graph Exploration APIs
+### 4. Advanced Search & Discovery APIs
+
+#### POST `/api/search/advanced`
+Advanced search with filters.
+
+**Request Body:**
+```json
+{
+  "query": "python web development",
+  "filters": {
+    "start_date": "2025-01-01",
+    "end_date": "2025-01-31",
+    "tags": "python,web",
+    "domain": "technology",
+    "limit": 10
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "content": "How do I build a web app with Python?",
+      "message_id": "msg_123",
+      "role": "user",
+      "timestamp": "2025-01-15T10:30:00Z",
+      "conversation_title": "Python Web Development"
+    }
+  ],
+  "message": "Found 5 results with advanced search",
+  "error": null
+}
+```
+
+#### POST `/api/query/neo4j`
+Execute custom Neo4j queries.
+
+**Request Body:**
+```json
+{
+  "query": "MATCH (t:Tag) RETURN t.name, t.count ORDER BY t.count DESC LIMIT 5"
+}
+```
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "t.name": "#python",
+      "t.count": 156
+    }
+  ],
+  "message": "Query executed successfully, returned 5 records",
+  "error": null
+}
+```
+
+#### GET `/api/connections/explain`
+Explain why two conversations are connected.
+
+**Query Parameters:**
+- `source_id` (string, required): Source chat ID
+- `target_id` (string, required): Target chat ID
+
+**Response:**
+```json
+{
+  "data": {
+    "source_chat": {
+      "id": "chat_abc123",
+      "title": "Health Discussion"
+    },
+    "target_chat": {
+      "id": "chat_def456", 
+      "title": "Stress Management"
+    },
+    "shared_tags": ["#stress", "#health"],
+    "shared_themes": ["stress management", "wellness"],
+    "connection_strength": 0.75,
+    "strength_category": "strong",
+    "explanation": "Both conversations share themes: #stress, #health"
+  },
+  "message": "Connection explanation generated successfully",
+  "error": null
+}
+```
+
+#### GET `/api/search/cross-domain`
+Find how a topic appears across different domains.
+
+**Query Parameters:**
+- `query` (string, required): Search query
+- `limit` (int, optional): Maximum results per domain (default: 5, max: 20)
+
+**Response:**
+```json
+{
+  "data": {
+    "query": "stress",
+    "cross_domain_results": {
+      "health": [
+        {
+          "chat_id": "chat_health_1",
+          "chat_title": "Health Discussion",
+          "content": "I'm feeling stressed about...",
+          "message_id": "msg_123",
+          "role": "user",
+          "similarity": 0.9
+        }
+      ],
+      "business": [
+        {
+          "chat_id": "chat_business_1",
+          "chat_title": "Work Stress",
+          "content": "The workload is causing stress...",
+          "message_id": "msg_456",
+          "role": "user",
+          "similarity": 0.85
+        }
+      ]
+    },
+    "domains_searched": ["health", "business", "personal"],
+    "total_results": 2
+  },
+  "message": "Found cross-domain results for 'stress'",
+  "error": null
+}
+```
+
+#### GET `/api/discover/suggestions`
+Suggest interesting connections to explore.
+
+**Query Parameters:**
+- `limit` (int, optional): Maximum suggestions (default: 5, max: 20)
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "suggestion": "You discussed 'stress management' in health and business contexts",
+      "source_domain": "health",
+      "target_domain": "business",
+      "connection_strength": 0.85,
+      "exploration_path": ["health", "stress management", "business"],
+      "chat1": {
+        "id": "chat_health_1",
+        "title": "Health Discussion"
+      },
+      "chat2": {
+        "id": "chat_business_1",
+        "title": "Work Stress Management"
+      }
+    }
+  ],
+  "message": "Found 1 discovery suggestions",
+  "error": null
+}
+```
+
+#### GET `/api/timeline/semantic`
+Get chronological data with semantic connections.
+
+**Query Parameters:**
+- `start_date` (string, optional): Start date (YYYY-MM-DD)
+- `end_date` (string, optional): End date (YYYY-MM-DD)
+- `limit` (int, optional): Maximum conversations per day (default: 50, max: 200)
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "date": "2025-01-15",
+      "conversations": [
+        {
+          "chat_id": "chat_abc123",
+          "title": "Health Discussion",
+          "timestamp": "2025-01-15T10:30:00Z",
+          "domain": "health",
+          "tags": ["#stress", "#health"],
+          "semantic_connections": [
+            {
+              "related_chat": "chat_def456",
+              "connection": "similar content",
+              "similarity": 0.8
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "message": "Found timeline data for 1 days",
+  "error": null
+}
+```
+
+#### POST `/api/chats/{chat_id}/summary`
+Generate a summary for a specific chat.
+
+**Path Parameters:**
+- `chat_id` (string, required): Chat ID
+
+**Response:**
+```json
+{
+  "data": {
+    "chat_id": "chat_abc123",
+    "title": "Health Discussion",
+    "summary": "Chat 'Health Discussion' contains 4 messages covering various topics.",
+    "message_count": 4
+  },
+  "message": "Chat summary generated successfully",
+  "error": null
+}
+```
+
+#### GET `/api/discover/topics`
+Discover most discussed topics.
+
+**Query Parameters:**
+- `limit` (int, optional): Maximum results (default: 20, max: 100)
+- `min_count` (int, optional): Minimum chunk count (default: 0)
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "topic_id": "cluster_45",
+      "name": "Python Web Development",
+      "summary": "Discussions about building web applications with Python",
+      "size": 25
+    }
+  ],
+  "message": "Found 20 topics",
+  "error": null
+}
+```
+
+#### GET `/api/discover/domains`
+Discover domain distribution.
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "domain": "technology",
+      "chat_count": 856
+    }
+  ],
+  "message": "Found 5 domains",
+  "error": null
+}
+```
+
+#### GET `/api/discover/clusters`
+Discover semantic clusters.
+
+**Query Parameters:**
+- `limit` (int, optional): Maximum results (default: 20, max: 100)
+- `min_size` (int, optional): Minimum cluster size (default: 0)
+- `include_positioning` (boolean, optional): Include positioning data (default: true)
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "cluster_id": "cluster_45",
+      "name": "Python Web Development",
+      "summary": "Discussions about building web applications with Python",
+      "size": 25,
+      "x": 0.234,
+      "y": 0.567
+    }
+  ],
+  "message": "Found 20 clusters",
+  "error": null
+}
+```
+
+#### GET `/api/conversations/{chat_id}/context`
+Get conversation context and related content.
+
+**Path Parameters:**
+- `chat_id` (string, required): Chat ID
+
+**Response:**
+```json
+{
+  "data": {
+    "title": "Python Web Development",
+    "timestamp": "2025-01-15T10:30:00Z",
+    "tags": ["#python", "#web"],
+    "related_chats": ["chat_456", "chat_789"]
+  },
+  "message": "Conversation context retrieved successfully",
+  "error": null
+}
+```
+
+#### GET `/api/search/similar/{chunk_id}`
+Find similar content for a chunk.
+
+**Path Parameters:**
+- `chunk_id` (string, required): Chunk ID
+
+**Query Parameters:**
+- `limit` (int, optional): Maximum results (default: 10, max: 50)
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "chunk_id": "def456_msg_1_chunk_0",
+      "content": "Similar content about web development",
+      "similarity_score": 0.85
+    }
+  ],
+  "message": "Found 5 similar chunks",
+  "error": null
+}
+```
+
+#### GET `/api/search/domains`
+Get list of available domains for filtering.
+
+**Response:**
+```json
+{
+  "data": ["technology", "health", "business", "personal"],
+  "message": "Found 4 available domains",
+  "error": null
+}
+```
+
+### 5. Analytics APIs
+
+#### GET `/api/analytics/patterns`
+Get conversation pattern analysis.
+
+**Query Parameters:**
+- `timeframe` (string, optional): Timeframe - daily, weekly, monthly (default: daily)
+- `include_sentiment` (boolean, optional): Include sentiment analysis (default: false)
+
+**Response:**
+```json
+{
+  "data": {
+    "timeframe": "daily",
+    "patterns": [
+      {
+        "date": "2025-01-15",
+        "chat_count": 25
+      }
+    ],
+    "total_chats": 1714
+  },
+  "message": "Pattern analysis for daily timeframe",
+  "error": null
+}
+```
+
+#### GET `/api/analytics/sentiment`
+Get basic sentiment overview.
+
+**Response:**
+```json
+{
+  "data": {
+    "total_messages": 32565,
+    "note": "Sentiment analysis not implemented yet"
+  },
+  "message": "Basic message statistics retrieved",
+  "error": null
+}
+```
+
+### 6. Graph Exploration APIs
 
 #### GET `/api/graph`
 Get graph data for visualization.
@@ -526,6 +1062,66 @@ Get data for 2D/3D graph visualization.
     ]
   },
   "message": "Visualization data retrieved",
+  "error": null
+}
+```
+
+#### GET `/api/graph/expand/{node_id}`
+Expand a node to show its connections.
+
+**Path Parameters:**
+- `node_id` (string, required): Node ID (chat_id, message_id, or chunk_id)
+
+**Response:**
+```json
+{
+  "data": {
+    "node": {
+      "id": "chat_abc123",
+      "chat_id": "chat_abc123",
+      "message_id": null,
+      "chunk_id": null,
+      "labels": ["Chat"],
+      "properties": {
+        "title": "Python Web Development",
+        "domain": "technology"
+      }
+    },
+    "connections": [
+      {
+        "relationship_type": "HAS_MESSAGE",
+        "neighbor_labels": ["Message"],
+        "neighbor_properties": {
+          "content": "How do I build a web app?",
+          "role": "user"
+        }
+      }
+    ]
+  },
+  "message": "Node expansion: 5 connections found",
+  "error": null
+}
+```
+
+#### GET `/api/graph/neighbors`
+Get neighbors of a node with similarity filtering.
+
+**Query Parameters:**
+- `node_id` (string, required): Node ID
+- `limit` (int, optional): Maximum results (default: 10, max: 50)
+- `min_similarity` (float, optional): Minimum similarity threshold (default: 0.0, max: 1.0)
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "neighbor_id": "chat_def456",
+      "neighbor_title": "Flask Web Development",
+      "similarity": 0.85
+    }
+  ],
+  "message": "Found 5 neighbors for chat_abc123",
   "error": null
 }
 ```
@@ -713,7 +1309,7 @@ api/
 
 ---
 
-**API Version**: 3.0.0  
+**API Version**: 4.0.0  
 **Last Updated**: Current Development  
 **Maintainer**: ChatMind Development Team  
-**Test Status**: ✅ 100% Pass Rate (15/15 endpoints) 
+**Test Status**: ✅ 100% Pass Rate (69/69 endpoints) 

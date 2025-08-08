@@ -391,7 +391,7 @@ class HybridNeo4jGraphLoader:
         return cluster_mapping
     
     def _create_tag_nodes(self, session, processed_tags: List[Dict], message_mapping: Dict[str, str]) -> Dict[str, str]:
-        """Create Tag nodes and link them to both Messages and Chunks."""
+        """Create Tag nodes and link them to Messages."""
         tag_mapping = {}
         
         for tag_entry in tqdm(processed_tags, desc="Creating Tag nodes"):
@@ -426,9 +426,6 @@ class HybridNeo4jGraphLoader:
             WITH t
             MATCH (m:Message {message_hash: $message_hash})
             MERGE (t)-[:TAGS]->(m)
-            WITH t, m
-            MATCH (m)-[:CONTAINS]->(c:Chunk)
-            MERGE (t)-[:TAGS_CHUNK]->(c)
             RETURN t
             """
             
@@ -446,7 +443,7 @@ class HybridNeo4jGraphLoader:
             
             tag_mapping[message_hash] = tag_hash
         
-        logger.info(f"Created {len(tag_mapping)} Tag nodes with chunk relationships")
+        logger.info(f"Created {len(tag_mapping)} Tag nodes")
         return tag_mapping
     
     def _create_summary_nodes(self, session, summaries: Dict, cluster_mapping: Dict[str, str]) -> Dict[str, str]:

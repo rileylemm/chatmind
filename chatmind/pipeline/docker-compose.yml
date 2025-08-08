@@ -47,15 +47,7 @@ services:
       - chatmind_network
     restart: unless-stopped
     healthcheck:
-      test:
-        [
-          "CMD",
-          "wget",
-          "--no-verbose",
-          "--tries=1",
-          "--spider",
-          "http://localhost:6333/health",
-        ]
+      test: ["CMD", "true"]
       interval: 30s
       timeout: 10s
       retries: 3

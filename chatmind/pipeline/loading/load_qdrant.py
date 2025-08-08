@@ -158,10 +158,7 @@ class QdrantVectorLoader:
                 self.processed_dir / "chunking" / "chunks.jsonl", 
                 "chunks"
             ),
-            'tagged_chunks': self._load_data_file(
-                self.processed_dir / "tagging" / "chunk_tags.jsonl", 
-                "tagged chunks"
-            ),
+            
             # Cluster embeddings data
             'cluster_summary_embeddings': self._load_data_file(
                 self.processed_dir / "positioning" / "cluster_summary_embeddings.jsonl", 
@@ -211,7 +208,7 @@ class QdrantVectorLoader:
             logger.error(f"❌ Failed to create collection: {e}")
             return False
     
-    def _prepare_points(self, embeddings: List[Dict], chunks: List[Dict], tagged_chunks: List[Dict], 
+    def _prepare_points(self, embeddings: List[Dict], chunks: List[Dict], 
                        cluster_summary_embeddings: List[Dict], cluster_summaries: Dict,
                        chat_summary_embeddings: List[Dict], chat_summaries: Dict) -> List[PointStruct]:
         """Prepare points for Qdrant with cross-reference metadata (chunks and clusters)."""
@@ -219,7 +216,6 @@ class QdrantVectorLoader:
         
         # Create lookup dictionaries for efficient data access
         chunks_lookup = {chunk['chunk_id']: chunk for chunk in chunks}
-        tagged_chunks_lookup = {tagged['chunk_id']: tagged for tagged in tagged_chunks}
         cluster_summaries_lookup = {str(cluster_id): summary_data for cluster_id, summary_data in cluster_summaries.items()}
         chat_summaries_lookup = {str(chat_id): summary_data for chat_id, summary_data in chat_summaries.items()}
         
@@ -236,12 +232,12 @@ class QdrantVectorLoader:
             chat_id = chunk_data.get('chat_id', '')
             message_id = chunk_data.get('message_id', '')
             message_hash = chunk_data.get('message_hash', '')
+            timestamp = chunk_data.get('timestamp', '')  # Get original timestamp
             
-            # Get tagged chunk data
-            tagged_data = tagged_chunks_lookup.get(chunk_id, {})
-            tags = tagged_data.get('tags', [])
-            domain = tagged_data.get('domain', 'unknown')
-            complexity = tagged_data.get('complexity', 'medium')
+            # Set default values for tags and metadata
+            tags = []
+            domain = 'unknown'
+            complexity = 'medium'
             
             # Create integer ID from chunk_id hash for Qdrant compatibility
             point_id = int(hashlib.sha256(chunk_id.encode()).hexdigest()[:16], 16)
@@ -272,6 +268,7 @@ class QdrantVectorLoader:
                     
                     # Processing metadata
                     'loaded_at': datetime.now().isoformat(),
+                    'original_timestamp': timestamp,  # Preserve original timestamp
                     'vector_dimension': len(embedding_vector),
                     'embedding_method': 'sentence-transformers'
                 }
@@ -514,7 +511,6 @@ class QdrantVectorLoader:
         points = self._prepare_points(
             data['embeddings'], 
             data['chunks'], 
-            data['tagged_chunks'],
             data['cluster_summary_embeddings'],
             data['cluster_summaries'],
             data['chat_summary_embeddings'],
@@ -533,7 +529,6 @@ class QdrantVectorLoader:
             'status': 'success',
             'embeddings_loaded': len(data['embeddings']),
             'chunks_loaded': len(data['chunks']),
-            'tagged_chunks_loaded': len(data['tagged_chunks']),
             'cluster_embeddings_loaded': len(data['cluster_summary_embeddings']),
             'cluster_summaries_loaded': len(data['cluster_summaries']),
             'chat_summary_embeddings_loaded': len(data['chat_summary_embeddings']),
@@ -556,7 +551,6 @@ class QdrantVectorLoader:
         logger.info("📈 Loading Statistics:")
         logger.info(f"  🔢 Chunk Embeddings: {stats['embeddings_loaded']}")
         logger.info(f"  📝 Chunks: {stats['chunks_loaded']}")
-        logger.info(f"  🏷️  Tagged Chunks: {stats['tagged_chunks_loaded']}")
         logger.info(f"  🎯 Cluster Embeddings: {stats['cluster_embeddings_loaded']}")
         logger.info(f"  📊 Cluster Summaries: {stats['cluster_summaries_loaded']}")
         logger.info(f"  💬 Chat Summary Embeddings: {stats['chat_summary_embeddings_loaded']}")
