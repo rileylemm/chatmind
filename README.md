@@ -6,6 +6,9 @@ ChatMind is a powerful AI memory system that transforms your ChatGPT conversatio
 
 > Authoritative setup & usage: see [docs/UserGuide.md](docs/UserGuide.md). This is the single source of truth. The README is a high‑level overview.
 
+[![CI](https://img.shields.io/github/actions/workflow/status/your-username/ai_memory/ci.yml?branch=main)](../../actions)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+
 ### ✨ Key Features
 
 - **🔍 Semantic Search**: Find conversations by meaning, not just keywords
@@ -73,6 +76,9 @@ ai_memory/
 3. Make your changes with tests
 4. Submit a pull request
 
+- See `CONTRIBUTING.md` for dev setup and `CODE_OF_CONDUCT.md` for community standards.
+- Security issues: follow `SECURITY.md`.
+
 ## 📄 License
 
 This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
@@ -86,6 +92,10 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 - Improve API ergonomics and pagination
 - Iterative UI improvements on tags/search/cluster flows
 
----
+## ✅ Open‑Source Readiness Checklist
 
-**ChatMind** - Transform your ChatGPT conversations into actionable insights! 🚀 
+- **CI**: Lint + typecheck for backend/frontend via GitHub Actions
+- **Security**: No secrets checked in; placeholders in `.env.example` and `docker-compose.yml`
+- **Docs**: Clear `README.md`, `docs/` with User Guide and API docs
+- **Community**: `CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`, issue/PR templates
+- **License**: Apache-2.0 

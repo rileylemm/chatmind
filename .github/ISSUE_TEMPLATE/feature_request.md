@@ -14,4 +14,4 @@ What would you like to see added/changed?
 What alternatives have you considered?
 
 ### Additional Context
-Any extra details, mockups, or references. 
+Links, screenshots, or references. 

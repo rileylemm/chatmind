@@ -10,4 +10,6 @@ nav:
     - Overview: docs/README.md
     - Dual Layer Graph: docs/DUAL_LAYER_GRAPH_STRATEGY_AND_IMPLEMENTATION.md
     - Pipeline Overview: docs/PIPELINE_OVERVIEW_AND_INCREMENTAL.md
-repo_url: https://github.com/your-org/chatmind 
+    - User Guide: docs/UserGuide.md
+    - API Reference: docs/API_DOCUMENTATION.md
+repo_url: https://github.com/your-username/ai_memory 
