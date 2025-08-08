@@ -91,6 +91,7 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 - Expand data sources (Slack export, Notion export)
 - Improve API ergonomics and pagination
 - Iterative UI improvements on tags/search/cluster flows
+- Dockerize API and frontend services (compose) — run only DBs via compose for now
 
 ## ✅ Open‑Source Readiness Checklist
 
