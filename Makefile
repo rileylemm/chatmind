@@ -16,7 +16,7 @@ pipeline:
 	python3 chatmind/pipeline/run_pipeline.py --local
 
 sample:
-	python3 scripts/verify_data_directories.py
+	python3 scripts/generate_sample_data.py
 
 api:
 	cd chatmind/api && python run.py
