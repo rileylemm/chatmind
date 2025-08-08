@@ -107,7 +107,7 @@ ai_memory/ # Project Root
 - **✅ Status:** Ready to apply semantic tags
 
 ### 6. Tag Post-Processing
-- **Input:** `data/processed/tagging/tags.jsonl`, `data/tags_masterlist/tags_master_list.json`
+- **Input:** `data/processed/tagging/tags.jsonl`, master list (defaults to `data/tags_masterlist/comprehensive_generic_tags.json`)
 - **Process:** Map tags to master list, normalize, deduplicate, clean variations
 - **Output:** `data/processed/tagging/processed_tags.jsonl`
 - **Smart:** Ensures tags are mapped and normalized, handles variations like "japan", "Japan", "#japan", "#Japanese"
@@ -218,7 +218,7 @@ ChatMind uses a **hybrid database architecture** that combines the strengths of 
 
 #### Semantic Data:
 - **Tags** → Tag nodes with tags list, topics, domain, complexity
-- **Clusters** → Cluster nodes with x,y coordinates, cluster_hash
+- **Clusters** → Cluster nodes with position_x, position_y (UMAP), cluster_hash
 
 #### Relationships:
 - `(Chat)-[:CONTAINS]->(Message)`
@@ -454,7 +454,7 @@ Each hash file contains:
 - `data/processed/clustering/clustered_embeddings.jsonl` - Clustered embeddings
 - `data/processed/tagging/chunk_tags.jsonl` - Tagged chunks (local models)
 - `data/processed/tagging/tagged_chunks.jsonl` - Tagged chunks (cloud API)
-- `data/processed/tagging/processed_tagged_chunks.jsonl` - Post-processed tags
+- `data/processed/tagging/processed_tags.jsonl` - Post-processed tags (normalized)
 
 ### Summarization Files
 - `data/processed/cluster_summarization/cluster_summaries.json` - Enhanced cluster summaries (cloud API)
@@ -467,6 +467,7 @@ Each hash file contains:
 - `data/processed/positioning/cluster_positions.jsonl` - Cluster coordinates
 - `data/processed/positioning/chat_summary_embeddings.jsonl` - Chat embeddings (reused for similarity)
 - `data/processed/positioning/cluster_summary_embeddings.jsonl` - Cluster embeddings (reused for similarity)
+Note: `chat_positions.jsonl` and `cluster_positions.jsonl` include `umap_x` and `umap_y` fields.
 
 ### Similarity Files
 - `data/processed/similarity/chat_similarities.jsonl` - Chat similarity relationships
@@ -481,15 +482,17 @@ Each hash file contains:
 
 ## 🚀 Running the Pipeline
 
+### Start Databases (root compose)
+```bash
+docker compose up -d neo4j qdrant
+```
+
 ### Full Pipeline (Local Models)
 ```bash
-# Activate pipeline environment
-source chatmind_env/bin/activate
+# Preferred: CLI entrypoint
+chatmind --local
 
-# Run full pipeline with local models (default)
-python3 chatmind/pipeline/run_pipeline.py
-
-# Run full pipeline with local models (explicit)
+# Or run the orchestrator directly
 python3 chatmind/pipeline/run_pipeline.py --local
 ```
 
@@ -526,14 +529,10 @@ cp env.example .env
 # Navigate to tags directory
 cd data/tags_masterlist/
 
-# Start with generic tags template
-cp generic_tags_list.json tags_master_list.json
-
-# Add your personal tags to tags_master_list.json
-# All tags should be pre-normalized (lowercase, single # prefix)
-
-# Optional: Use comprehensive template for maximum coverage
-# cp comprehensive_generic_tags.json tags_master_list.json
+# Default behavior: pipeline uses comprehensive_generic_tags.json automatically
+# To customize, create your own master list:
+cp comprehensive_generic_tags.json tags_master_list.json
+# Edit tags_master_list.json and point the post-processor to it with --master-list-path if needed
 ```
 
 ### Tag Optimization Workflow

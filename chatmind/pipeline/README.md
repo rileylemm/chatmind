@@ -31,18 +31,13 @@ nano chatmind/pipeline/.env
 2. Root `.env` (fallback)
 3. Default values (lowest priority)
 
-### 3. Start Databases
+### 3. Start Databases (root-level Compose)
 
 ```bash
-# Option 1: Use Docker Compose (recommended)
-cd chatmind/pipeline
-./manage_databases.sh start
-
-# Option 2: Use setup script
-./chatmind/pipeline/setup_hybrid.sh
-
-# Option 3: Manual Docker commands
-docker-compose -f chatmind/pipeline/docker-compose.yml up -d
+# Recommended: start only Neo4j + Qdrant from root compose
+docker compose up -d neo4j qdrant
+# or
+make up
 ```
 
 ### 4. Verify Setup
@@ -65,11 +60,12 @@ chatmind/pipeline/
 ├── __init__.py
 ├── config.py              # Environment configuration
 ├── requirements.txt       # Pipeline dependencies
-├── run_pipeline.py       # Main orchestrator
+├── run_pipeline.py       # Main orchestrator (CLI via `chatmind`)
 ├── env.example          # Environment template
 ├── .env                 # Your environment (gitignored)
 ├── activate_pipeline.sh # Environment activation
 ├── activate_pipeline.bat
+├── manage_databases.sh  # Controls root compose services
 ├── README.md
 └── pipeline_env/        # Virtual environment
 ```
@@ -149,7 +145,7 @@ Neo4j (Graph Relationships) + Qdrant (Vector Embeddings)
 
 ## 📊 Usage Examples
 
-### Database Management
+### Database Management (root compose)
 ```bash
 # Start databases
 ./manage_databases.sh start
@@ -169,6 +165,10 @@ Neo4j (Graph Relationships) + Qdrant (Vector Embeddings)
 
 ### Run Full Pipeline
 ```bash
+# Via CLI entrypoint
+chatmind --local
+
+# Or directly
 python run_pipeline.py --local
 ```
 
@@ -267,11 +267,4 @@ python run_pipeline.py --local --force
 
 - **Pipeline Overview**: `docs/PIPELINE_OVERVIEW_AND_INCREMENTAL.md`
 - **User Guide**: `docs/UserGuide.md`
-- **API Documentation**: `docs/API_DOCUMENTATION.md`
-
-## 🤝 Contributing
-
-1. Follow the modular architecture pattern
-2. Implement hash-based tracking for new steps
-3. Update documentation and examples
-4. Test with different environment configurations 
+- **API Documentation**: `docs/API_DOCUMENTATION.md` 

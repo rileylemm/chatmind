@@ -1,9 +1,10 @@
 #!/bin/bash
 
 # ChatMind Database Management Script
-# Manages Neo4j and Qdrant Docker containers
+# Manages Neo4j and Qdrant Docker containers (root-level compose)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Colors for output
 RED='\033[0;31m'
@@ -37,11 +38,12 @@ check_docker() {
     fi
 }
 
-# Function to check if Docker Compose is available
-check_docker_compose() {
-    if ! command -v docker-compose &> /dev/null; then
-        print_error "Docker Compose is not available. Please install Docker Compose and try again."
-        exit 1
+# Detect docker compose command
+compose_cmd() {
+    if command -v docker-compose >/dev/null 2>&1; then
+        echo "docker-compose"
+    else
+        echo "docker compose"
     fi
 }
 
@@ -53,16 +55,16 @@ show_usage() {
     echo "Usage: $0 [COMMAND]"
     echo ""
     echo "Commands:"
-    echo "  start     - Start both Neo4j and Qdrant databases"
-    echo "  stop      - Stop both databases"
-    echo "  restart   - Restart both databases"
-    echo "  status    - Show status of both databases"
-    echo "  logs      - Show logs from both databases"
+    echo "  start     - Start Neo4j and Qdrant"
+    echo "  stop      - Stop Neo4j and Qdrant"
+    echo "  restart   - Restart Neo4j and Qdrant"
+    echo "  status    - Show status of services"
+    echo "  logs      - Show logs (follow)"
     echo "  clean     - Stop and remove containers (data preserved)"
     echo "  reset     - Stop, remove containers and volumes (data lost)"
     echo "  backup    - Create backup of database volumes"
     echo "  restore   - Restore from backup (requires backup file)"
-    echo "  health    - Check health of both databases"
+    echo "  health    - Check service health"
     echo ""
     echo "Examples:"
     echo "  $0 start"
@@ -72,27 +74,27 @@ show_usage() {
 
 # Function to start databases
 start_databases() {
-    print_info "Starting ChatMind databases..."
-    cd "$SCRIPT_DIR"
-    docker-compose up -d
+    print_info "Starting ChatMind databases (root compose)..."
+    cd "$REPO_ROOT"
+    $(compose_cmd) up -d neo4j qdrant
     print_status "Databases started successfully!"
-            print_info "Neo4j: http://localhost:7474"
-        print_info "Qdrant: http://localhost:6335"
+    print_info "Neo4j: http://localhost:7474"
+    print_info "Qdrant: http://localhost:6335"
 }
 
 # Function to stop databases
 stop_databases() {
     print_info "Stopping ChatMind databases..."
-    cd "$SCRIPT_DIR"
-    docker-compose down
+    cd "$REPO_ROOT"
+    $(compose_cmd) stop neo4j qdrant
     print_status "Databases stopped successfully!"
 }
 
 # Function to restart databases
 restart_databases() {
     print_info "Restarting ChatMind databases..."
-    cd "$SCRIPT_DIR"
-    docker-compose restart
+    cd "$REPO_ROOT"
+    $(compose_cmd) restart neo4j qdrant
     print_status "Databases restarted successfully!"
 }
 
@@ -100,8 +102,8 @@ restart_databases() {
 show_status() {
     print_info "Database Status:"
     echo ""
-    cd "$SCRIPT_DIR"
-    docker-compose ps
+    cd "$REPO_ROOT"
+    $(compose_cmd) ps
     echo ""
     
     # Check if services are responding
@@ -125,8 +127,8 @@ show_status() {
 # Function to show logs
 show_logs() {
     print_info "Database Logs:"
-    cd "$SCRIPT_DIR"
-    docker-compose logs -f
+    cd "$REPO_ROOT"
+    $(compose_cmd) logs -f neo4j qdrant
 }
 
 # Function to clean containers
@@ -135,8 +137,8 @@ clean_containers() {
     read -p "Are you sure? (y/N): " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        cd "$SCRIPT_DIR"
-        docker-compose down
+        cd "$REPO_ROOT"
+        $(compose_cmd) rm -sf neo4j qdrant
         print_status "Containers cleaned successfully!"
     else
         print_info "Operation cancelled."
@@ -149,8 +151,8 @@ reset_databases() {
     read -p "Are you absolutely sure? This cannot be undone! (y/N): " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        cd "$SCRIPT_DIR"
-        docker-compose down -v
+        cd "$REPO_ROOT"
+        $(compose_cmd) down -v
         print_status "Databases reset successfully!"
         print_warning "All data has been removed."
     else
@@ -161,14 +163,14 @@ reset_databases() {
 # Function to create backup
 create_backup() {
     print_info "Creating database backup..."
-    BACKUP_DIR="$SCRIPT_DIR/backups"
+    BACKUP_DIR="$REPO_ROOT/chatmind/pipeline/backups"
     BACKUP_FILE="chatmind_backup_$(date +%Y%m%d_%H%M%S).tar.gz"
     
     mkdir -p "$BACKUP_DIR"
-    cd "$SCRIPT_DIR"
+    cd "$REPO_ROOT"
     
     # Create backup of volumes
-    docker run --rm -v "$(pwd)":/backup -v neo4j_data:/neo4j_data -v qdrant_storage:/qdrant_storage alpine tar czf /backup/"$BACKUP_FILE" neo4j_data qdrant_storage
+    docker run --rm -v "$(pwd)":/backup -v neo4j_data:/neo4j_data -v qdrant_storage:/qdrant_storage alpine tar czf /backup/chatmind/pipeline/backups/"$BACKUP_FILE" neo4j_data qdrant_storage
     
     print_status "Backup created: $BACKUP_DIR/$BACKUP_FILE"
 }
@@ -192,16 +194,16 @@ restore_backup() {
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         print_info "Restoring from backup: $BACKUP_FILE"
-        cd "$SCRIPT_DIR"
+        cd "$REPO_ROOT"
         
         # Stop containers first
-        docker-compose down
+        $(compose_cmd) stop neo4j qdrant
         
         # Restore volumes
         docker run --rm -v "$(pwd)":/backup -v neo4j_data:/neo4j_data -v qdrant_storage:/qdrant_storage alpine sh -c "cd / && tar xzf /backup/$BACKUP_FILE"
         
         # Start containers
-        docker-compose up -d
+        $(compose_cmd) up -d neo4j qdrant
         
         print_status "Backup restored successfully!"
     else
@@ -233,15 +235,13 @@ check_health() {
     # Show container status
     echo ""
     print_info "Container Status:"
-    cd "$SCRIPT_DIR"
-    docker-compose ps
+    cd "$REPO_ROOT"
+    $(compose_cmd) ps
 }
 
 # Main script logic
 main() {
     check_docker
-    check_docker_compose
-    
     case "${1:-}" in
         start)
             start_databases
