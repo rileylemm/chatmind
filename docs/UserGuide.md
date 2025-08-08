@@ -1,283 +1,378 @@
 # ChatMind User Guide
 
-This comprehensive guide covers installation, configuration, usage, and advanced features of ChatMind.
+## 🚀 Quick Start
 
-## Table of Contents
-1. [Prerequisites](#1-prerequisites)
-2. [Setup & Installation](#2-setup--installation)
-3. [Data Processing Pipeline](#3-data-processing-pipeline)
-4. [Starting Services](#4-starting-services)
-5. [API Usage](#5-api-usage)
-6. [Configuration](#6-configuration)
-7. [Testing](#7-testing)
-8. [Advanced Features](#8-advanced-features)
-9. [Troubleshooting](#9-troubleshooting)
+### Prerequisites
+- Python 3.8+
+- Docker (for Neo4j)
+- Ollama (for local models)
 
-## 1. Prerequisites
-1. Python 3.8 or higher
-2. Node.js & npm (for frontend)
-3. Neo4j (Desktop or Docker)
-4. OpenAI API key (optional, for auto-tagging)
-
-## 2. Setup & Installation
+### Installation
 ```bash
-# Clone repository
-git clone <your-repo-url>
-cd <your-repo>
+# Clone the repository
+git clone <repository-url>
+cd ai_memory
 
-# Python dependencies
-pip install -r requirements.txt
+# Create virtual environment
+python3 -m venv chatmind_env
+source chatmind_env/bin/activate
 
-# Copy and configure environment variables
-cp env.example .env  # edit: NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD, OPENAI_API_KEY
+# Install dependencies
+pip install -r chatmind/pipeline/requirements.txt
 
-# Frontend dependencies
-cd chatmind/frontend
-npm install
-cd ../..
+# Set up environment
+cp env.example .env
+# Edit .env with your API keys and Neo4j credentials
 ```
 
-## 3. Data Processing Pipeline
-The unified pipeline automatically handles both first-time processing and incremental updates.
-
-### 3.1 Smart Pipeline (Recommended)
+### Local Model Setup
 ```bash
-# Run complete pipeline (automatically handles incremental)
-python run_pipeline.py
+# Install Ollama
+curl -fsSL https://ollama.ai/install.sh | sh
 
-# Check what needs processing
-python run_pipeline.py --check-only
+# Pull Gemma 2B model
+ollama pull gemma:2b
 
-# Force reprocess everything
-python run_pipeline.py --force-reprocess
+# Start Ollama service
+ollama serve
 ```
 
-### 3.2 Individual Steps (Advanced)
+### Neo4j Setup
 ```bash
-# Data ingestion (already incremental)
-python chatmind/data_ingestion/extract_and_flatten.py \
-  --raw-dir data/raw \
-  --processed-dir data/processed
+# Start Neo4j with Docker
+docker run -d \
+  --name neo4j \
+  -p 7474:7474 -p 7687:7687 \
+  -e NEO4J_AUTH=neo4j/your_neo4j_password_here \
+  neo4j:latest
 
-# Embedding & clustering (incremental)
-python chatmind/embedding/embed_and_cluster_direct_incremental.py
-
-# Auto-tagging (incremental)
-python chatmind/tagger/run_tagging_incremental.py
-
-# Neo4j loading
-python chatmind/neo4j_loader/load_graph.py \
-  --clear \
-  --chat-similarity \
-  --similarity-threshold 0.8
-```
-
-### 3.3 Pipeline Options
-```bash
-# Skip expensive steps during development
-python run_pipeline.py --skip-tagging --skip-embedding
-
-# Clear all state and start fresh
-python run_pipeline.py --clear-state
-
-# Only check what needs processing
-python run_pipeline.py --check-only
-```
-
-## 4. Starting Services
-```bash
-# All-in-one
-python scripts/start_services.py
-
-# Or separately
-python chatmind/api/main.py       # API at http://localhost:8000
-cd chatmind/frontend && npm start # UI at http://localhost:3000
-```
-
-## 5. API Usage
-
-### Core Endpoints
-- **`GET /api/health`** - Health check endpoint
-- **`GET /api/stats/dashboard`** - Real-time dashboard statistics
-- **`GET /api/graph`** - Knowledge graph data (multiple variants)
-- **`GET /api/topics`** - Semantic topic clusters
-- **`GET /api/chats`** - Chat listings with filtering
-- **`GET /api/search`** - Content search across all data
-
-### Advanced Endpoints
-- **`GET /api/tags`** - Tag management and categorization
-- **`GET /api/messages/{message_id}`** - Individual message details
-- **`GET /api/clusters/{cluster_id}`** - Cluster-specific data
-- **`GET /api/graph/expand/{node_id}`** - Expand graph nodes
-- **`POST /api/search/advanced`** - Advanced search with filters
-- **`POST /api/query/neo4j`** - Direct Neo4j query execution
-- **`POST /api/chats/{chat_id}/summary`** - Generate chat summaries
-
-### API Development
-```bash
-# Start API server with auto-reload
-cd chatmind/api
-python3 -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
-
-# Test API endpoints
-python3 scripts/test_api_endpoints.py
-```
-
-### Real Data Sources
-The backend connects to your actual processed data:
-- **Chat Statistics**: Reads from `data/processed/chats.jsonl`
-- **Tag Information**: Reads from `data/tags/tags_master_list.json`
-- **Cost Tracking**: Reads from `data/cost_tracker.db`
-- **Cluster Data**: Reads from `data/embeddings/cluster_summaries.json`
-
-## 6. Configuration
-
-### Tag Master List Setup
-
-The system uses a master list of tags for consistent categorization.
-
-#### Quick Setup:
-```bash
-# Option 1: Use the setup script (recommended)
-python scripts/setup_tags.py
-
-# Option 2: Manual copy
-cp data/tags/tags_master_list_generic.json data/tags/tags_master_list.json
-```
-
-#### Customization Options:
-- **Start with generic tags** - Use the provided 500-tag list as a starting point
-- **Edit your personal list** - Modify `data/tags/tags_master_list.json` to match your interests
-- **Let the system auto-expand** - The pipeline will suggest new tags based on your content
-- **Review missing tags** - Check `data/interim/missing_tags_report.json` after processing
-
-#### Privacy Note:
-Your personal tag list (`data/tags/tags_master_list.json`) is excluded from git to keep your custom tags private. The generic list is included for new users.
-
-#### Check Your Setup:
-```bash
-# See current tag list status
-python scripts/setup_tags.py --info
-```
-
-### Processing Options
-- **Incremental processing**: Only processes new data
-- **Force reprocess**: `python run_pipeline.py --force-reprocess`
-- **Skip specific steps**: `python run_pipeline.py --skip-tagging`
-
-## 7. Testing
-
-### Test Coverage
-- **✅ API Endpoints**: 25 endpoints tested with 100% pass rate
-- **✅ Dual Layer Graph**: 7 comprehensive tests covering all layers
-- **✅ Neo4j Queries**: All documented queries tested and verified
-- **✅ Pipeline Processing**: Incremental processing and data integrity
-
-### Test Scripts
-- **[API Endpoint Tests](scripts/test_api_endpoints.py)** - Test all API endpoints from the documentation
-- **[Dual Layer Tests](scripts/test_dual_layer.py)** - Test dual layer graph strategy implementation
-- **[Neo4j Query Tests](scripts/test_neo4j_queries.py)** - Test all Neo4j queries from the guide
-
-### Running Tests
-```bash
-# Test API endpoints
-python3 scripts/test_api_endpoints.py
-
-# Test dual layer implementation
-python3 scripts/test_dual_layer.py
-
-# Test Neo4j queries
-python3 scripts/test_neo4j_queries.py
-```
-
-## 8. Advanced Features
-
-### Real-time Statistics
-The dashboard displays live data from your processed content:
-- **Total Chats**: Number of conversations processed
-- **Total Messages**: Count of all messages across all chats
-- **Active Tags**: Number of tags in your master list
-- **Total Cost**: Actual API costs from your usage
-- **Total Clusters**: Number of semantic clusters created
-- **Total Calls**: Number of API calls made during processing
-
-### Iterative Development
-The unified pipeline makes development much easier:
-
-```bash
-# Add new ZIP files
-cp new_export.zip data/raw/
-
-# Run pipeline (automatically processes only new data)
-python run_pipeline.py
-
-# Check what was processed
-python run_pipeline.py --check-only
-```
-
-## 7. Inspecting Data
-```bash
-# View tagged chunks
-jq -c '{chat_id, message_id, tags, category}' data/processed/tagged_chunks.jsonl | head -n 10
-
-# View embeddings
-jq -c '{chat_id, content, cluster_id}' data/embeddings/chunks_with_clusters.jsonl | head -n 10
-
-# Check state files
-ls -la data/processed/*.pkl
-```
-
-## 8. Troubleshooting
-
-### **Pipeline Issues:**
-- **No tags?** Ensure `OPENAI_API_KEY` is set
-- **Processing everything?** Check if state files exist: `ls data/processed/*.pkl`
-- **Force reprocess:** Use `--force-reprocess` flag
-
-### **Neo4j Issues:**
-- **Connection errors?** Verify `.env` and Neo4j status
-- **Clear database:** Use `--clear` flag with loader
-
-### **Frontend Issues:**
-- **CORS errors?** Check FastAPI CORS settings for `localhost:3000`
-- **Build errors?** Run `npm install` in `chatmind/frontend/`
-
-### **State Management:**
-```bash
-# Clear specific state
-rm data/processed/message_embedding_state.pkl  # Clear embedding state
-rm data/processed/chunk_tagging_state.pkl     # Clear tagging state
-
-# Clear all state
-python run_pipeline.py --clear-state
-```
-
-## 9. Advanced Usage
-
-### **Development Workflow:**
-```bash
-# Quick iteration (skip expensive steps)
-python run_pipeline.py --skip-tagging --skip-embedding
-
-# Test specific step
-python chatmind/tagger/run_tagging_incremental.py --force
-
-# Check processing status
-python run_pipeline.py --check-only
-```
-
-### **Production Workflow:**
-```bash
-# Add new data
-cp new_export.zip data/raw/
-
-# Run full pipeline (smart incremental)
-python run_pipeline.py
-
-# Start services
-python scripts/start_services.py
+# Or use the provided script
+python3 scripts/start_services.py
 ```
 
 ---
 
-**🎉 Your pipeline is now unified and smart - one command handles everything!**
+## 🔄 Pipeline Usage
+
+### Full Pipeline (Recommended)
+```bash
+# Activate environment
+source chatmind_env/bin/activate
+
+# Run full pipeline with local models (free)
+python3 chatmind/pipeline/run_pipeline.py
+
+# Run with cloud API (faster, costs money)
+python3 chatmind/pipeline/run_pipeline.py --embedding-method cloud --tagging-method cloud --summarization-method cloud
+```
+
+### Individual Steps
+```bash
+# Run specific steps
+python3 chatmind/pipeline/run_pipeline.py --steps ingestion,chunking,embedding
+
+# Force reprocess specific step
+python3 chatmind/pipeline/run_pipeline.py --steps similarity --force
+
+# Check what needs processing
+python3 chatmind/pipeline/run_pipeline.py --check-only
+```
+
+### Step-by-Step Processing
+```bash
+# 1. Data ingestion
+python3 chatmind/pipeline/run_pipeline.py --steps ingestion
+
+# 2. Semantic chunking
+python3 chatmind/pipeline/run_pipeline.py --steps chunking
+
+# 3. Embedding generation
+python3 chatmind/pipeline/run_pipeline.py --steps embedding
+
+# 4. Clustering
+python3 chatmind/pipeline/run_pipeline.py --steps clustering
+
+# 5. Tagging
+python3 chatmind/pipeline/run_pipeline.py --steps tagging
+
+# 6. Tag post-processing
+python3 chatmind/pipeline/run_pipeline.py --steps tag_post_processing
+
+# 7. Cluster summarization
+python3 chatmind/pipeline/run_pipeline.py --steps cluster_summarization
+
+# 8. Chat summarization
+python3 chatmind/pipeline/run_pipeline.py --steps chat_summarization
+
+# 9. Positioning (generates embeddings for reuse)
+python3 chatmind/pipeline/run_pipeline.py --steps positioning
+
+# 10. Similarity calculation (uses saved embeddings)
+python3 chatmind/pipeline/run_pipeline.py --steps similarity
+
+# 11. Neo4j loading
+python3 chatmind/pipeline/run_pipeline.py --steps loading
+```
+
+---
+
+## 📊 Current Status
+
+### ✅ Successfully Implemented
+- **Complete pipeline** with all steps working
+- **Incremental processing** with hash-based tracking
+- **Dual layer graph** architecture
+- **Local and cloud processing** options
+- **Embedding reuse optimization** for performance
+- **Recent fixes applied** for data consistency
+
+### 🔧 Recent Fixes Applied
+- **Data Lake Structure**: Fixed duplicate data lake creation
+- **Chat ID Consistency**: All chats now have unique IDs
+- **Neo4j Authentication**: Proper credential handling
+- **File References**: Correct tagged chunks file reference
+- **Hash Synchronization**: Fixed similarity calculation tracking
+
+---
+
+## 🗂️ Data Structure
+
+### Input Data
+Place your ChatGPT exports (ZIP files) in `data/raw/`:
+```
+data/raw/
+├── chatgpt_export_2024_01_01.zip
+├── chatgpt_export_2024_01_15.zip
+└── ...
+```
+
+### Processed Data
+Pipeline creates organized data in `data/processed/`:
+```
+data/processed/
+├── ingestion/chats.jsonl          # Flattened chat data
+├── chunking/chunks.jsonl          # Semantic chunks
+├── embedding/embeddings.jsonl     # Chunk embeddings
+├── clustering/clustered_embeddings.jsonl  # Semantic clusters
+├── tagging/chunk_tags.jsonl       # Tagged chunks
+├── cluster_summarization/local_enhanced_cluster_summaries.json  # Cluster summaries
+├── chat_summarization/local_enhanced_chat_summaries.json       # Chat summaries
+├── positioning/
+│   ├── chat_positions.jsonl       # Chat coordinates
+│   ├── cluster_positions.jsonl    # Cluster coordinates
+│   ├── chat_summary_embeddings.jsonl  # Reused for similarity
+│   └── cluster_summary_embeddings.jsonl  # Reused for similarity
+└── similarity/
+    ├── chat_similarities.jsonl    # Chat similarity relationships
+    └── cluster_similarities.jsonl # Cluster similarity relationships
+```
+
+---
+
+## 🔧 Configuration
+
+### Environment Variables (.env)
+```bash
+# OpenAI API (for cloud processing)
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Neo4j Database
+NEO4J_URI=bolt://localhost:7687
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=your_neo4j_password_here
+
+# Pipeline Settings
+EMBEDDING_METHOD=local  # or cloud
+TAGGING_METHOD=local    # or cloud
+SUMMARIZATION_METHOD=local  # or cloud
+```
+
+### Local Model Configuration
+```bash
+# Ollama model to use
+OLLAMA_MODEL=gemma:2b
+
+# Ollama API endpoint
+OLLAMA_API_URL=http://localhost:11434
+```
+
+---
+
+## 🚀 Advanced Usage
+
+### Incremental Processing
+The pipeline uses hash-based tracking to only process new data:
+```bash
+# Add new ZIP files to data/raw/
+# Run pipeline - only new data will be processed
+python3 chatmind/pipeline/run_pipeline.py
+```
+
+### Force Reprocessing
+```bash
+# Force reprocess everything
+python3 chatmind/pipeline/run_pipeline.py --force
+
+# Force specific step
+python3 chatmind/pipeline/run_pipeline.py --steps similarity --force
+```
+
+### Mixed Processing
+```bash
+# Use cloud for expensive operations, local for others
+python3 chatmind/pipeline/run_pipeline.py \
+  --embedding-method cloud \
+  --tagging-method local \
+  --summarization-method local
+```
+
+### Development Workflow
+```bash
+# Check what will be processed
+python3 chatmind/pipeline/run_pipeline.py --check-only
+
+# Run only specific steps for testing
+python3 chatmind/pipeline/run_pipeline.py --steps ingestion,chunking
+
+# Test individual components
+python3 chatmind/pipeline/ingestion/extract_and_flatten.py
+python3 chatmind/pipeline/chunking/chunker.py
+```
+
+---
+
+## 🎯 Best Practices
+
+### Performance Optimization
+- **Embedding Reuse**: Positioning step generates embeddings reused by similarity calculation
+- **Incremental Processing**: Only process new data using hash tracking
+- **Local Models**: Use local models for development and testing
+- **Cloud API**: Use cloud API for production when speed is critical
+
+### Data Management
+- **Backup Strategy**: Keep hash files unless you want to reprocess everything
+- **File Organization**: Use consistent naming conventions
+- **Error Recovery**: Use `--force` to reprocess failed steps
+- **Monitoring**: Check metadata files for processing statistics
+
+### Development Tips
+- Start with small datasets for testing
+- Use `--check-only` before running expensive operations
+- Monitor hash files to understand incremental behavior
+- Test individual steps before running full pipeline
+- Keep environment variables updated
+
+---
+
+## 🔍 Troubleshooting
+
+### Common Issues
+
+#### Neo4j Connection Error
+```bash
+# Check Neo4j is running
+docker ps | grep neo4j
+
+# Verify credentials in .env
+cat .env | grep NEO4J
+
+# Test connection
+python3 -c "from neo4j import GraphDatabase; driver = GraphDatabase.driver('bolt://localhost:7687', auth=('neo4j', 'chatmind123')); driver.verify_connectivity()"
+```
+
+#### Ollama Connection Error
+```bash
+# Check Ollama is running
+curl http://localhost:11434/api/tags
+
+# Restart Ollama
+ollama serve
+```
+
+#### Missing Dependencies
+```bash
+# Reinstall dependencies
+pip install -r chatmind/pipeline/requirements.txt
+
+# Check Python version
+python3 --version
+```
+
+#### Data Lake Issues
+```bash
+# Verify data directories exist
+python3 scripts/verify_data_directories.py
+
+# Check data lake structure
+ls -la data/lake/
+```
+
+### Debug Mode
+```bash
+# Run with verbose output
+python3 chatmind/pipeline/run_pipeline.py --verbose
+
+# Check individual step logs
+tail -f data/processed/*/metadata.json
+```
+
+---
+
+## 📈 Performance Metrics
+
+### Processing Times (Local Models)
+- **Ingestion**: ~2-5 minutes for typical datasets
+- **Chunking**: ~5-10 minutes for message processing
+- **Embedding**: ~15-30 minutes for chunk embeddings
+- **Clustering**: ~10-20 minutes for semantic clustering
+- **Tagging**: ~1-3 hours for comprehensive tagging
+- **Summarization**: ~30-60 minutes for summaries
+- **Positioning**: ~5-10 minutes for coordinates
+- **Similarity**: ~10-20 minutes for similarity calculations
+- **Loading**: ~5-15 minutes for Neo4j import
+
+### Resource Usage
+- **Memory**: ~4GB peak during clustering
+- **CPU**: Multi-threaded processing
+- **Storage**: ~500MB for processed data
+- **Network**: Local processing (no external calls)
+
+### Cost Comparison
+- **Local Models**: $0 (free processing)
+- **Cloud API**: ~$57-100 for full pipeline
+- **Mixed**: Varies based on method selection
+
+---
+
+## 🔮 Next Steps
+
+### After Pipeline Completion
+1. **Start Services**: `python3 scripts/start_services.py`
+2. **Access Frontend**: Open http://localhost:3000
+3. **Explore Graph**: Navigate to Graph Explorer
+4. **Analyze Data**: Use Analytics dashboard
+
+### Adding New Data
+1. Add new ZIP files to `data/raw/`
+2. Run pipeline: `python3 chatmind/pipeline/run_pipeline.py`
+3. Only new data will be processed automatically
+
+### Customization
+- Modify tags in `data/tags_masterlist/tags_master_list.json`
+- Adjust similarity thresholds in similarity scripts
+- Customize prompts in local model scripts
+- Extend pipeline with new steps
+
+---
+
+## 📚 Additional Resources
+
+- [Pipeline Overview](PIPELINE_OVERVIEW_AND_INCREMENTAL.md)
+- [API Documentation](API_DOCUMENTATION.md)
+- [Dual Layer Graph Strategy](DUAL_LAYER_GRAPH_STRATEGY_AND_IMPLEMENTATION.md)
+- [Enhanced Tagging System](ENHANCED_TAGGING_SYSTEM.md)
+- [Local Model Setup](LOCAL_MODEL_SETUP.md)
+
+---
+
+*This user guide provides everything needed to run the ChatMind pipeline successfully. The system is designed to be robust, efficient, and easy to use with both local and cloud processing options.*

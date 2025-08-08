@@ -1,0 +1,3263 @@
+{
+  "timestamp": 1754655787.0106618,
+  "summary": {
+    "total_tests": 73,
+    "passed": 73,
+    "failed": 0,
+    "success_rate": 100.0
+  },
+  "performance_metrics": {
+    "Neo4j - Node counts": 0.0257720947265625,
+    "Neo4j - Relationship counts": 0.07316374778747559,
+    "Neo4j - Chat data": 0.001779794692993164,
+    "Neo4j - Message data": 0.009676933288574219,
+    "Neo4j - Chunk data": 0.01548314094543457,
+    "Qdrant - Collection info": 0.003484010696411133,
+    "Qdrant - Point count": 0.001714944839477539,
+    "Qdrant - Sample points": 0.0023360252380371094,
+    "Cross-DB - Chunk ID consistency": 0.8011729717254639,
+    "Cross-DB - Message ID consistency": 0.7074282169342041,
+    "Cross-DB - Chat ID consistency": 0.5452890396118164,
+    "Cross-DB - Embedding hash consistency": 0.0013570785522460938,
+    "Cross-DB - Content verification": 0.002366781234741211,
+    "Cross-DB - Basic semantic search": 0.004923820495605469,
+    "Semantic Search - Qdrant search": 0.26703691482543945,
+    "Semantic Search - Cross-reference lookup": 0.00401616096496582,
+    "Semantic Search - Full workflow": 0.025851011276245117,
+    "Hybrid - Semantic search with graph context": 0.0246121883392334,
+    "Hybrid - Graph query with vector similarity": 0.0014150142669677734,
+    "Hybrid - Content discovery workflow": 0.020411014556884766,
+    "Performance - Neo4j query speed": 0.03301405906677246,
+    "Performance - Qdrant search speed": 0.01941823959350586,
+    "Performance - Cross-database lookup speed": 0.002788066864013672,
+    "Semantic - Messages with tags": 0.00977778434753418,
+    "Semantic - Messages by domain": 0.028962135314941406,
+    "Semantic - Messages by sentiment": 0.009980916976928711,
+    "Semantic - Tag distribution": 0.030460834503173828,
+    "Semantic - Domain distribution": 0.01766204833984375,
+    "Similarity - Similar chats": 0.0011551380157470703,
+    "Similarity - Similar clusters": 0.0008590221405029297,
+    "Similarity - Chat similarity stats": 0.012540102005004883,
+    "Discovery - Search by content": 0.1727440357208252,
+    "Discovery - Search by tags": 0.014030933380126953,
+    "Discovery - Search by domain": 0.028748035430908203,
+    "Discovery - Complex content discovery": 0.03239607810974121,
+    "Analysis - Complete message context": 0.20378994941711426,
+    "Analysis - Chat with full analysis": 0.07185935974121094,
+    "Analysis - Cluster analysis": 0.015074968338012695,
+    "Analysis - Summary queries": 0.002187013626098633,
+    "Stats - Node counts by type": 0.02788710594177246,
+    "Stats - Relationship counts by type": 0.06441783905029297,
+    "Stats - Average chunks per message": 0.014352083206176758,
+    "Stats - Tag usage statistics": 0.030367136001586914,
+    "Stats - Domain distribution stats": 0.017366886138916016,
+    "Graph - Chat-message connectivity": 0.006525993347167969,
+    "Graph - Message-chunk connectivity": 0.03493309020996094,
+    "Graph - Message-tag connectivity": 0.03461718559265137,
+    "Graph - Cluster-chunk connectivity": 0.009505987167358398,
+    "Graph - Complete semantic path": 0.0008637905120849609,
+    "Quality - Orphaned messages": 0.014985084533691406,
+    "Quality - Orphaned chunks": 0.020943164825439453,
+    "Quality - Duplicate detection": 0.018697023391723633,
+    "Quality - Data completeness": 0.008605003356933594,
+    "Quality - Rich semantic content": 0.03185105323791504,
+    "Viz - Chats with positions": 0.0018291473388671875,
+    "Viz - Clusters with positions": 0.0014028549194335938,
+    "Viz - Embeddings for visualization": 0.0008399486541748047,
+    "Viz - Graph overview data": 0.22025585174560547,
+    "API - ID coverage report": 0.040103912353515625,
+    "API - Multi-hop semantic context": 0.0017251968383789062,
+    "API - Embedding drift test": 0.22461581230163574,
+    "API - Combined endpoint shape": 0.060388803482055664,
+    "API - Fresh data embedding test": 0.10260891914367676,
+    "API - Neo4j to Qdrant sync drift": 0.038214921951293945,
+    "Schema - Semantic search response": 0.021873950958251953,
+    "Schema - Graph exploration response": 0.1461622714996338,
+    "Schema - Content discovery response": 0.05438494682312012,
+    "Timestamps - Neo4j timestamp formats": 0.024999380111694336,
+    "Timestamps - Qdrant timestamp payloads": 0.0025429725646972656,
+    "Timestamps - Cross-database consistency": 0.010862112045288086,
+    "Timestamps - Time-based queries": 0.03227090835571289,
+    "Timestamps - Range and ordering": 0.01927471160888672,
+    "Timestamps - Data quality validation": 0.04257798194885254
+  },
+  "detailed_results": [
+    {
+      "name": "Neo4j - Node counts",
+      "status": "PASS",
+      "result": {
+        "count": 7,
+        "data": [
+          {
+            "node_type": "Chunk",
+            "count": 47697
+          },
+          {
+            "node_type": "Message",
+            "count": 33991
+          },
+          {
+            "node_type": "Tag",
+            "count": 32516
+          },
+          {
+            "node_type": "Summary",
+            "count": 2581
+          },
+          {
+            "node_type": "Cluster",
+            "count": 1835
+          },
+          {
+            "node_type": "Chat",
+            "count": 1714
+          },
+          {
+            "node_type": "ChatSummary",
+            "count": 1714
+          }
+        ]
+      },
+      "execution_time": 0.0257720947265625
+    },
+    {
+      "name": "Neo4j - Relationship counts",
+      "status": "PASS",
+      "result": {
+        "count": 7,
+        "data": [
+          {
+            "relationship_type": "SIMILAR_TO_CLUSTER_HIGH",
+            "count": 305013
+          },
+          {
+            "relationship_type": "HAS_CHUNK",
+            "count": 95272
+          },
+          {
+            "relationship_type": "SIMILAR_TO_CHAT_HIGH",
+            "count": 86588
+          },
+          {
+            "relationship_type": "CONTAINS",
+            "count": 33991
+          },
+          {
+            "relationship_type": "TAGS",
+            "count": 32516
+          },
+          {
+            "relationship_type": "SUMMARIZES",
+            "count": 2581
+          },
+          {
+            "relationship_type": "SUMMARIZES_CHAT",
+            "count": 1714
+          }
+        ]
+      },
+      "execution_time": 0.07316374778747559
+    },
+    {
+      "name": "Neo4j - Chat data",
+      "status": "PASS",
+      "result": {
+        "count": 5,
+        "data": [
+          {
+            "c.chat_id": "d5bffa6d680deac36fc2021478aa7ff80a6a47f82deb03c7e45d571bdf3b1f9a",
+            "c.title": "Mono auf Deutsch",
+            "c.create_time": 1753379267.517822
+          },
+          {
+            "c.chat_id": "7afca8236f4ed715796fdf388923b288311e4d4dc0e91397ef62b9fa5ff79989",
+            "c.title": "Plastic cap threading issue",
+            "c.create_time": 1753363546.479985
+          },
+          {
+            "c.chat_id": "2fb8331325894a05dbc04332e27b127613b2da7546057d6e9c2d58cc2ba16b1c",
+            "c.title": "Rude in German",
+            "c.create_time": 1753360362.47442
+          },
+          {
+            "c.chat_id": "961244469df6a8aab63fd9fcad286e3b3907fa4c890751316582e3ce1e0cbf5f",
+            "c.title": "Sticker backing paper printing",
+            "c.create_time": 1753355131.43823
+          },
+          {
+            "c.chat_id": "27763fa4c382b3b1ddafef4751fd1b22e66a390d36879e05fecb61fbd33fcb00",
+            "c.title": "Making gyoza from frozen wrappers",
+            "c.create_time": 1753354257.092292
+          }
+        ]
+      },
+      "execution_time": 0.001779794692993164
+    },
+    {
+      "name": "Neo4j - Message data",
+      "status": "PASS",
+      "result": {
+        "count": 5,
+        "data": [
+          {
+            "m.message_id": "1db0067b-5ce1-4ab0-bb0b-7f3bae27eb1d",
+            "m.role": "assistant",
+            "content_preview": "Thanks \u2014 that helps a lot. Based on your answers, here\u2019s a summary and some possibilities: --- ### \ud83e\udde9"
+          },
+          {
+            "m.message_id": "76c2e4b5-a67f-48b7-a24c-23529c6ac304",
+            "m.role": "user",
+            "content_preview": "1 no 2 no 3 sometimes 4 maybe sweaty but its been warm, maybe some chills, 5 no 6 no 7 no 8 abdomina"
+          },
+          {
+            "m.message_id": "af7b37ae-eb35-47a4-b481-88e14261a73f",
+            "m.role": "assistant",
+            "content_preview": "What you're describing sounds like **low-grade systemic symptoms** \u2014 not necessarily full-blown feve"
+          },
+          {
+            "m.message_id": "28208448-68e5-4274-89f2-2d26bdbecddf",
+            "m.role": "user",
+            "content_preview": "In the last time, I've been feeling more fatigued and almost having like rushes of fever, but I'm no"
+          },
+          {
+            "m.message_id": "6ebac52f-1d55-4ca7-8600-b78dac85598b",
+            "m.role": "assistant",
+            "content_preview": "Yes, it\u2019s absolutely possible that your wife could have **Pfeiffersches Dr\u00fcsenfieber (mononucleosis)"
+          }
+        ]
+      },
+      "execution_time": 0.009676933288574219
+    },
+    {
+      "name": "Neo4j - Chunk data",
+      "status": "PASS",
+      "result": {
+        "count": 5,
+        "data": [
+          {
+            "ch.chunk_id": "d5bffa6d680deac36fc2021478aa7ff80a6a47f82deb03c7e45d571bdf3b1f9a_msg_1_chunk_0",
+            "content_preview": "The sickness \"mono\" is short for **mononucleosis**, also known as the **kissing disease** in English",
+            "ch.token_count": 0
+          },
+          {
+            "ch.chunk_id": "d5bffa6d680deac36fc2021478aa7ff80a6a47f82deb03c7e45d571bdf3b1f9a_msg_2_chunk_0",
+            "content_preview": "Would it make sense that my wife could potentially have it? What are the symptoms of it?",
+            "ch.token_count": 0
+          },
+          {
+            "ch.chunk_id": "d5bffa6d680deac36fc2021478aa7ff80a6a47f82deb03c7e45d571bdf3b1f9a_msg_3_chunk_0",
+            "content_preview": "Yes, it\u2019s absolutely possible that your wife could have **Pfeiffersches Dr\u00fcsenfieber (mononucleosis)",
+            "ch.token_count": 0
+          },
+          {
+            "ch.chunk_id": "d5bffa6d680deac36fc2021478aa7ff80a6a47f82deb03c7e45d571bdf3b1f9a_msg_4_chunk_0",
+            "content_preview": "In the last time, I've been feeling more fatigued and almost having like rushes of fever, but I'm no",
+            "ch.token_count": 0
+          },
+          {
+            "ch.chunk_id": "d5bffa6d680deac36fc2021478aa7ff80a6a47f82deb03c7e45d571bdf3b1f9a_msg_0_chunk_0",
+            "content_preview": "What is the sickness mono in German?",
+            "ch.token_count": 0
+          }
+        ]
+      },
+      "execution_time": 0.01548314094543457
+    },
+    {
+      "name": "Qdrant - Collection info",
+      "status": "PASS",
+      "result": {
+        "collection_name": "chatmind_embeddings",
+        "vector_size": 384,
+        "distance": "Cosine",
+        "points_count": 50897
+      },
+      "execution_time": 0.003484010696411133
+    },
+    {
+      "name": "Qdrant - Point count",
+      "status": "PASS",
+      "result": {
+        "count": 50897
+      },
+      "execution_time": 0.001714944839477539
+    },
+    {
+      "name": "Qdrant - Sample points",
+      "status": "PASS",
+      "result": {
+        "count": 5,
+        "data": [
+          {
+            "id": 140325950597476,
+            "payload": {
+              "chunk_id": "7e1709352ce53fe780f733be7d574484f9525e5a72625264c0353e24dba3271a_msg_283_chunk_1",
+              "message_id": "23f4c0f7-fcde-4920-b1d5-7b0c7f663dc5",
+              "chat_id": "7e1709352ce53fe780f733be7d574484f9525e5a72625264c0353e24dba3271a",
+              "content_preview": "use(server. xrpc. router) app. use(wellKnown(appContext)) return feedGen } registerFeed(feed: { shor"
+            }
+          },
+          {
+            "id": 259744269742668,
+            "payload": {
+              "chunk_id": "9d7858f86d11b10c7236ac129466815206f25d84004b6c756710a500ef1d2050_msg_235_chunk_0",
+              "message_id": "375a98c1-5893-4e1a-8427-223e05a77cb3",
+              "chat_id": "9d7858f86d11b10c7236ac129466815206f25d84004b6c756710a500ef1d2050",
+              "content_preview": "lets move onto the next steps"
+            }
+          },
+          {
+            "id": 520415398129437,
+            "payload": {
+              "chunk_id": "0208e97b8dcc8e1edc2fab4b95a011329c3356f74bf3c7a090fd221dec44046e_msg_5_chunk_0",
+              "message_id": "c2fad74d-c3f3-442b-980e-1d1a696f779e",
+              "chat_id": "0208e97b8dcc8e1edc2fab4b95a011329c3356f74bf3c7a090fd221dec44046e",
+              "content_preview": "Apologies for the earlier confusion. \ue203For guidance on replacing the fuel pump in your 2002 Fiat Pand"
+            }
+          },
+          {
+            "id": 1189525410949802,
+            "payload": {
+              "chunk_id": "7d856d824057c128e40a128073173e9495e1e9d1a84df7f7069ab51fd322e8de_msg_146_chunk_0",
+              "message_id": "7cf0b154-0f95-4fd4-961d-cab40515c79d",
+              "chat_id": "7d856d824057c128e40a128073173e9495e1e9d1a84df7f7069ab51fd322e8de",
+              "content_preview": "I\u2019d love to keep exploring. Here are a few creative ideas for training your interactive, ChatGPT-lik"
+            }
+          },
+          {
+            "id": 1720514572200455,
+            "payload": {
+              "chunk_id": "8cfa5b01d525a35fde33181326ebd6a09b88e12161faf643aeb18e99c895905b_msg_49_chunk_0",
+              "message_id": "de52d0f7-0573-4906-996d-97f4b8b82bcb",
+              "chat_id": "8cfa5b01d525a35fde33181326ebd6a09b88e12161faf643aeb18e99c895905b",
+              "content_preview": "Absolutely. Let's create the **Landing Page** (`src/app/page. tsx`) for your \"Today Feels Like\" appl"
+            }
+          }
+        ]
+      },
+      "execution_time": 0.0023360252380371094
+    },
+    {
+      "name": "Cross-DB - Chunk ID consistency",
+      "status": "PASS",
+      "result": {
+        "neo4j_count": 20,
+        "qdrant_present": 20,
+        "intersection_count": 20,
+        "consistent": true
+      },
+      "execution_time": 0.8011729717254639
+    },
+    {
+      "name": "Cross-DB - Message ID consistency",
+      "status": "PASS",
+      "result": {
+        "neo4j_count": 20,
+        "qdrant_present": 20,
+        "intersection_count": 20,
+        "consistent": true
+      },
+      "execution_time": 0.7074282169342041
+    },
+    {
+      "name": "Cross-DB - Chat ID consistency",
+      "status": "PASS",
+      "result": {
+        "neo4j_count": 20,
+        "qdrant_present": 20,
+        "intersection_count": 20,
+        "consistent": true
+      },
+      "execution_time": 0.5452890396118164
+    },
+    {
+      "name": "Cross-DB - Embedding hash consistency",
+      "status": "PASS",
+      "result": {
+        "neo4j_count": 0,
+        "qdrant_count": 0,
+        "intersection_count": 0,
+        "consistent": true,
+        "note": "No Embedding nodes in Neo4j (expected in hybrid architecture)"
+      },
+      "execution_time": 0.0013570785522460938
+    },
+    {
+      "name": "Cross-DB - Content verification",
+      "status": "PASS",
+      "result": {
+        "status": "failed",
+        "reason": "qdrant_retrieve_error: Unexpected Response: 400 (Bad Request)\nRaw response content:\nb'{\"status\":{\"error\":\"Format error in JSON body: value d5bffa6d680deac36fc2021478aa7ff80a6a47f82deb03c7e45d571bdf3b1f9a_msg_0_chunk_0 is not a valid point ID, valid values are either an unsigned inte ...'",
+        "chunk_id": "d5bffa6d680deac36fc2021478aa7ff80a6a47f82deb03c7e45d571bdf3b1f9a_msg_0_chunk_0"
+      },
+      "execution_time": 0.002366781234741211
+    },
+    {
+      "name": "Cross-DB - Basic semantic search",
+      "status": "PASS",
+      "result": {
+        "status": "success",
+        "search_results_count": 5,
+        "first_result_score": 0.062347665,
+        "first_result_id": 3763788741657341730,
+        "collection_points": 50897
+      },
+      "execution_time": 0.004923820495605469
+    },
+    {
+      "name": "Semantic Search - Qdrant search",
+      "status": "PASS",
+      "result": {
+        "count": 5,
+        "data": [
+          {
+            "score": 0.7435601,
+            "chunk_id": "c6d77dc25d3e75f246e53e6e809685bb7e00aa6e184db6c5ca77af7f7ab356ec_msg_51_chunk_0",
+            "content": "User is a beginner in Python.",
+            "tags": []
+          },
+          {
+            "score": 0.72898924,
+            "chunk_id": null,
+            "content": "",
+            "tags": []
+          },
+          {
+            "score": 0.6484519,
+            "chunk_id": "c6d77dc25d3e75f246e53e6e809685bb7e00aa6e184db6c5ca77af7f7ab356ec_msg_50_chunk_0",
+            "content": "okay so this is a script right? i am a noob with python",
+            "tags": []
+          },
+          {
+            "score": 0.6256456,
+            "chunk_id": null,
+            "content": "",
+            "tags": []
+          },
+          {
+            "score": 0.61284405,
+            "chunk_id": "9d7858f86d11b10c7236ac129466815206f25d84004b6c756710a500ef1d2050_msg_63_chunk_0",
+            "content": "I want to keep it all python",
+            "tags": []
+          }
+        ]
+      },
+      "execution_time": 0.26703691482543945
+    },
+    {
+      "name": "Semantic Search - Cross-reference lookup",
+      "status": "PASS",
+      "result": {
+        "count": 1,
+        "data": [
+          {
+            "chunk_content": "use(server. xrpc. router) app. use(wellKnown(appContext)) return feedGen } registerFeed(feed: { shortname: string; handler: (ctx: AppContext, params: any) => Promise<any> }) { console. log(`Registering feed: ${feed. shortname}`) this. customFeeds. set(feed. shortname, feed. handler) } async start(): Promise<http. Server> { this. server = this. app. listen(this. cfg. port, this. cfg. listenhost) await events. once(this. server, 'listening') return this. server } private setupErrorHandling() { this. app. use((err: any, req: express. Request, res: express. Response, next: express. NextFunction) => { console. error('Global error handler caught an error:') console. error('Error name:', err. name) console. error('Error message:', err. message) console. error('Error stack:', err. stack) console. error('Request URL:', req. url) console. error('Request method:', req. method) console. error('Request headers:', req. headers) console. error('Request body:', req. body) if (err. code) console. error('Error code:', err. code) if (err. type) console. error('Error type:', err. type) if (err. cause) console. error('Error cause:', err. cause) console. log('Database connection state:', this. db. getConnectionState()) if (. res. headersSent) { if (process. env. NODE_ENV === 'development') { res. status(500). json({ error: 'InternalServerError', message: err. message, stack: err. stack, name: err. name, code: err. code, type: err. type, cause: err. cause }) } else { res. status(500). json({ error: 'InternalServerError', message: 'An unexpected error occurred' }) } } }) } } export default FeedGenerator",
+            "message_content": "please update my server.js import http from 'http' import events from 'events' import express from 'express' import { DidResolver, MemoryCache } from '@atproto/identity' import { createServer } from './lexicon' import feedGeneration from './methods/feed-generation' import describeGenerator from './methods/describe-generator' import { Database } from './db' import { FirehoseSubscription } from './subscription' import { AppContext, Config } from './config' import wellKnown from './well-known' import * as aiFeed from './algos/ai-feed' // Import the ai-feed export class FeedGenerator { public app: express.Application public server?: http.Server public db: Database public firehose: FirehoseSubscription public cfg: Config private customFeeds: Map<string, (ctx: AppContext, params: any) => Promise<any>> constructor( app: express.Application, db: Database, firehose: FirehoseSubscription, cfg: Config, ) { this.app = app this.db = db this.firehose = firehose this.cfg = cfg this.customFeeds = new Map() this.setupErrorHandling() } static create(cfg: Config) { const app = express() const db = cfg.db const didCache = new MemoryCache() const didResolver = new DidResolver({ plcUrl: 'https://plc.directory', didCache, }) const server = createServer({ validateResponse: false, payload: { jsonLimit: 100 * 1024, textLimit: 100 * 1024, blobLimit: 5 * 1024 * 1024, }, }) // Create the FeedGenerator instance const feedGen = new FeedGenerator(app, db, new FirehoseSubscription(db, { db, cfg, didResolver, customFeeds: new Map() }), cfg) // Use FeedGenerator's customFeeds in the appContext const appContext: AppContext = { db, cfg, didResolver, customFeeds: feedGen.customFeeds, // Use the FeedGenerator's customFeeds map } // Register feed-generation and description methods feedGeneration(server, appContext) describeGenerator(server, appContext) // Register the ai-feed feedGen.registerFeed({ shortname: aiFeed.shortname, handler: aiFeed.handler, }) app.use((req, res, next) => { res.type('application/json') next() }) app.use(server.xrpc.router) app.use(wellKnown(appContext)) return feedGen } registerFeed(feed: { shortname: string; handler: (ctx: AppContext, params: any) => Promise<any> }) { console.log(`Registering feed: ${feed.shortname}`) this.customFeeds.set(feed.shortname, feed.handler) } async start(): Promise<http.Server> { this.server = this.app.listen(this.cfg.port, this.cfg.listenhost) await events.once(this.server, 'listening') return this.server } private setupErrorHandling() { this.app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => { console.error('Global error handler caught an error:') console.error('Error name:', err.name) console.error('Error message:', err.message) console.error('Error stack:', err.stack) console.error('Request URL:', req.url) console.error('Request method:', req.method) console.error('Request headers:', req.headers) console.error('Request body:', req.body) if (err.code) console.error('Error code:', err.code) if (err.type) console.error('Error type:', err.type) if (err.cause) console.error('Error cause:', err.cause) console.log('Database connection state:', this.db.getConnectionState()) if (!res.headersSent) { if (process.env.NODE_ENV === 'development') { res.status(500).json({ error: 'InternalServerError', message: err.message, stack: err.stack, name: err.name, code: err.code, type: err.type, cause: err.cause }) } else { res.status(500).json({ error: 'InternalServerError', message: 'An unexpected error occurred' }) } } }) } } export default FeedGenerator",
+            "chat_title": "Database Table Creation Issue",
+            "tags": [
+              [
+                "#technology"
+              ]
+            ]
+          }
+        ]
+      },
+      "execution_time": 0.00401616096496582
+    },
+    {
+      "name": "Semantic Search - Full workflow",
+      "status": "PASS",
+      "result": {
+        "count": 0,
+        "data": []
+      },
+      "execution_time": 0.025851011276245117
+    },
+    {
+      "name": "Hybrid - Semantic search with graph context",
+      "status": "PASS",
+      "result": {
+        "count": 0,
+        "data": []
+      },
+      "execution_time": 0.0246121883392334
+    },
+    {
+      "name": "Hybrid - Graph query with vector similarity",
+      "status": "PASS",
+      "result": {
+        "error": "No cluster_id found in cluster data"
+      },
+      "execution_time": 0.0014150142669677734
+    },
+    {
+      "name": "Hybrid - Content discovery workflow",
+      "status": "PASS",
+      "result": {
+        "count": 0,
+        "data": []
+      },
+      "execution_time": 0.020411014556884766
+    },
+    {
+      "name": "Performance - Neo4j query speed",
+      "status": "PASS",
+      "result": {
+        "execution_time": 0.03300809860229492,
+        "data": [
+          {
+            "chat_count": 1714,
+            "message_count": 32565,
+            "chunk_count": 47697
+          }
+        ]
+      },
+      "execution_time": 0.03301405906677246
+    },
+    {
+      "name": "Performance - Qdrant search speed",
+      "status": "PASS",
+      "result": {
+        "execution_time": 0.019409894943237305,
+        "result_count": 10
+      },
+      "execution_time": 0.01941823959350586
+    },
+    {
+      "name": "Performance - Cross-database lookup speed",
+      "status": "PASS",
+      "result": {
+        "execution_time": 0.002782106399536133,
+        "data": [
+          {
+            "ch.content": "use(server. xrpc. router) app. use(wellKnown(appContext)) return feedGen } registerFeed(feed: { shortname: string; handler: (ctx: AppContext, params: any) => Promise<any> }) { console. log(`Registering feed: ${feed. shortname}`) this. customFeeds. set(feed. shortname, feed. handler) } async start(): Promise<http. Server> { this. server = this. app. listen(this. cfg. port, this. cfg. listenhost) await events. once(this. server, 'listening') return this. server } private setupErrorHandling() { this. app. use((err: any, req: express. Request, res: express. Response, next: express. NextFunction) => { console. error('Global error handler caught an error:') console. error('Error name:', err. name) console. error('Error message:', err. message) console. error('Error stack:', err. stack) console. error('Request URL:', req. url) console. error('Request method:', req. method) console. error('Request headers:', req. headers) console. error('Request body:', req. body) if (err. code) console. error('Error code:', err. code) if (err. type) console. error('Error type:', err. type) if (err. cause) console. error('Error cause:', err. cause) console. log('Database connection state:', this. db. getConnectionState()) if (. res. headersSent) { if (process. env. NODE_ENV === 'development') { res. status(500). json({ error: 'InternalServerError', message: err. message, stack: err. stack, name: err. name, code: err. code, type: err. type, cause: err. cause }) } else { res. status(500). json({ error: 'InternalServerError', message: 'An unexpected error occurred' }) } } }) } } export default FeedGenerator"
+          }
+        ]
+      },
+      "execution_time": 0.002788066864013672
+    },
+    {
+      "name": "Semantic - Messages with tags",
+      "status": "PASS",
+      "result": {
+        "count": 10,
+        "data": [
+          {
+            "m.content": "Thanks \u2014 that helps a lot. Based on your answers, here\u2019s a summary and some possibilities: --- ### \ud83e\udde9 Summary of Your Symptoms - **Fatigue with waves of feverish feeling**, but no full fever - **Sometimes body aches or chills** - **No sore throat, swollen lymph nodes, or mouth issues** - **Normal appetite** - **Bloating and pain in the lower abdomen (more near ovary area)** - Symptoms **ongoing for 1\u20132 months** --- ### \ud83c\udfaf What This Suggests #### \u274c *Less likely:* - **Classic mononucleosis (Pfeiffersches Dr\u00fcsenfieber)** \u2014 not a perfect match since you don\u2019t have the signature symptoms (sore throat, swollen nodes, high fatigue + fever). - **COVID** or **flu** \u2014 unlikely unless you had a recent exposure or the symptoms fluctuated more dramatically. #### \u26a0\ufe0f *Still possible:* - **Post-viral fatigue** \u2014 your body might still be recovering from a virus you barely noticed. These symptoms can linger in a vague way. - **CMV (Cytomegalovirus)** \u2014 similar to EBV, but milder and sometimes without the throat symptoms. - **Hormonal imbalances or chronic stress** \u2014 especially if the fatigue and body disconnect feel cyclical. - **Mild inflammation or gut-related issues** \u2014 since you noted **bloating and pain in the ovary area**, it might be good to check for: - Ovarian cysts - IBS - Low-level pelvic inflammation - **Nutrient deficiency or anemia** \u2014 can cause strange fatigue despite having \"energy.\" --- ### \u2705 Next Best Steps - **See a doctor**, ideally a GP or internist, and ask for: - Basic bloodwork: **CBC**, **CRP**, **thyroid panel**, **B12**, **iron panel**, **vitamin D** - Possibly an **EBV/CMV screen**, just to rule them out - For the abdominal discomfort: **pelvic ultrasound** or **gynecological check** may help clarify if there\u2019s a cyst or other issue --- Would you like help drafting a quick summary of your symptoms in German for a doctor?",
+            "m.role": "assistant",
+            "t.tags": [
+              "#symptoms",
+              "#abdominal",
+              "#health"
+            ],
+            "t.domain": "unknown",
+            "t.sentiment": "positive"
+          },
+          {
+            "m.content": "1 no 2 no 3 sometimes 4 maybe sweaty but its been warm, maybe some chills, 5 no 6 no 7 no 8 abdominal discomfort bloating but pain in ovary area 9 1-2 months",
+            "m.role": "user",
+            "t.tags": [
+              "#abdominal discomfort",
+              "#health",
+              "#women's health"
+            ],
+            "t.domain": "unknown",
+            "t.sentiment": "neutral"
+          },
+          {
+            "m.content": "What you're describing sounds like **low-grade systemic symptoms** \u2014 not necessarily full-blown fever, but **waves of exhaustion, achy or \"off\" feelings**, and a disconnect between your physical energy and your drive or alertness. That can definitely fit **mononucleosis**, but could also be due to other causes like: - **EBV/Mono (Pfeiffersches Dr\u00fcsenfieber)** - **COVID/Long COVID** - **CMV (Cytomegalovirus)** \u2014 similar to mono - **Anemia** - **Vitamin deficiencies (e.g. B12, D, iron)** - **Thyroid issues** - **Burnout or stress-related fatigue** - **Post-viral syndrome** --- ### Let\u2019s go a bit deeper \u2014 can I ask you a few questions? Please answer yes/no or briefly describe: 1. **Do you have a sore throat** \u2014 especially one that comes and goes or feels raw without being \"sick\"? 2. **Any swollen lymph nodes** in your neck, underarms, or groin? 3. **Do your muscles or joints ache**, especially with no exertion? 4. **Any night sweats or chills**, even mild? 5. **Is your appetite normal or reduced?** 6. **Have you noticed white patches in your mouth or on your tonsils?** 7. **Any recent illness**, or being around someone sick? 8. **Any abdominal discomfort** on the left side (spleen area)? 9. **How long have you been feeling this way?** --- Once you answer those, I can better suggest whether it's worth getting checked for **mono** or something else.",
+            "m.role": "assistant",
+            "t.tags": [
+              "#mono",
+              "#illness",
+              "#symptoms"
+            ],
+            "t.domain": "unknown",
+            "t.sentiment": "neutral"
+          }
+        ]
+      },
+      "execution_time": 0.00977778434753418
+    },
+    {
+      "name": "Semantic - Messages by domain",
+      "status": "PASS",
+      "result": {
+        "count": 0,
+        "data": []
+      },
+      "execution_time": 0.028962135314941406
+    },
+    {
+      "name": "Semantic - Messages by sentiment",
+      "status": "PASS",
+      "result": {
+        "count": 10,
+        "data": [
+          {
+            "m.content": "Thanks \u2014 that helps a lot. Based on your answers, here\u2019s a summary and some possibilities: --- ### \ud83e\udde9 Summary of Your Symptoms - **Fatigue with waves of feverish feeling**, but no full fever - **Sometimes body aches or chills** - **No sore throat, swollen lymph nodes, or mouth issues** - **Normal appetite** - **Bloating and pain in the lower abdomen (more near ovary area)** - Symptoms **ongoing for 1\u20132 months** --- ### \ud83c\udfaf What This Suggests #### \u274c *Less likely:* - **Classic mononucleosis (Pfeiffersches Dr\u00fcsenfieber)** \u2014 not a perfect match since you don\u2019t have the signature symptoms (sore throat, swollen nodes, high fatigue + fever). - **COVID** or **flu** \u2014 unlikely unless you had a recent exposure or the symptoms fluctuated more dramatically. #### \u26a0\ufe0f *Still possible:* - **Post-viral fatigue** \u2014 your body might still be recovering from a virus you barely noticed. These symptoms can linger in a vague way. - **CMV (Cytomegalovirus)** \u2014 similar to EBV, but milder and sometimes without the throat symptoms. - **Hormonal imbalances or chronic stress** \u2014 especially if the fatigue and body disconnect feel cyclical. - **Mild inflammation or gut-related issues** \u2014 since you noted **bloating and pain in the ovary area**, it might be good to check for: - Ovarian cysts - IBS - Low-level pelvic inflammation - **Nutrient deficiency or anemia** \u2014 can cause strange fatigue despite having \"energy.\" --- ### \u2705 Next Best Steps - **See a doctor**, ideally a GP or internist, and ask for: - Basic bloodwork: **CBC**, **CRP**, **thyroid panel**, **B12**, **iron panel**, **vitamin D** - Possibly an **EBV/CMV screen**, just to rule them out - For the abdominal discomfort: **pelvic ultrasound** or **gynecological check** may help clarify if there\u2019s a cyst or other issue --- Would you like help drafting a quick summary of your symptoms in German for a doctor?",
+            "m.role": "assistant",
+            "t.sentiment": "positive"
+          },
+          {
+            "m.content": "Yes, it\u2019s absolutely possible that your wife could have **Pfeiffersches Dr\u00fcsenfieber (mononucleosis)** \u2014 especially if she\u2019s been feeling unwell for a while without a clear explanation. It\u2019s common in young adults and often spreads through saliva (hence the nickname \u201ckissing disease\u201d). --- ### \ud83e\udda0 **What Causes It?** - **Epstein-Barr Virus (EBV)** \u2014 part of the herpesvirus family - Transmitted mainly via **saliva**, but also via shared drinks, toothbrushes, or close contact --- ### \u26a0\ufe0f **Most Common Symptoms:** - **Extreme fatigue** (can last for weeks) - **Sore throat** (often severe, may resemble strep) - **Swollen lymph nodes** (especially in the neck and armpits) - **Fever** - **Swollen tonsils** (sometimes with white patches) - **Headache** - **Body aches or muscle pain** - **Loss of appetite** - **Enlarged spleen** (left upper abdomen pain or feeling of fullness) - **Liver inflammation** (sometimes mild jaundice) --- ### \u23f3 How Long Does It Last? - Symptoms usually last **2 to 4 weeks** - **Fatigue** can linger for **several more weeks or even months** --- ### \ud83d\udc69\u2695\ufe0f Should She See a Doctor? Yes \u2014 especially if she has: - Persistent fatigue - A bad sore throat that isn\u2019t going away - Swollen lymph nodes - A combination of the above A doctor can do a **blood test** (like the **Monospot test** or **EBV antibody test**) to confirm the diagnosis. --- If you tell me her symptoms, I can help you assess how likely it is or what to mention at the doctor.",
+            "m.role": "assistant",
+            "t.sentiment": "positive"
+          },
+          {
+            "m.content": "Would it make sense that my wife could potentially have it? What are the symptoms of it?",
+            "m.role": "user",
+            "t.sentiment": "positive"
+          }
+        ]
+      },
+      "execution_time": 0.009980916976928711
+    },
+    {
+      "name": "Semantic - Tag distribution",
+      "status": "PASS",
+      "result": {
+        "count": 20,
+        "data": [
+          {
+            "tag": "#technology",
+            "usage_count": 2467
+          },
+          {
+            "tag": "#ai",
+            "usage_count": 1115
+          },
+          {
+            "tag": "#data",
+            "usage_count": 1098
+          },
+          {
+            "tag": "#business",
+            "usage_count": 1012
+          },
+          {
+            "tag": "#tech",
+            "usage_count": 942
+          }
+        ]
+      },
+      "execution_time": 0.030460834503173828
+    },
+    {
+      "name": "Semantic - Domain distribution",
+      "status": "PASS",
+      "result": {
+        "count": 4,
+        "data": [
+          {
+            "t.domain": "unknown",
+            "message_count": 24447
+          },
+          {
+            "t.domain": "business",
+            "message_count": 7650
+          },
+          {
+            "t.domain": "personal",
+            "message_count": 413
+          },
+          {
+            "t.domain": "creative",
+            "message_count": 6
+          }
+        ]
+      },
+      "execution_time": 0.01766204833984375
+    },
+    {
+      "name": "Similarity - Similar chats",
+      "status": "PASS",
+      "result": {
+        "count": 10,
+        "data": [
+          {
+            "chat1_title": "Hokkaido Tourism Trends",
+            "chat2_title": "Business Plan Length Guide"
+          },
+          {
+            "chat1_title": "Hokkaido Tourism Trends",
+            "chat2_title": "New chat"
+          },
+          {
+            "chat1_title": "Hokkaido Tourism Trends",
+            "chat2_title": "Squarespace is a website builder."
+          }
+        ]
+      },
+      "execution_time": 0.0011551380157470703
+    },
+    {
+      "name": "Similarity - Similar clusters",
+      "status": "PASS",
+      "result": {
+        "count": 10,
+        "data": [
+          {
+            "cl1.cluster_id": "172",
+            "cl2.cluster_id": "241"
+          },
+          {
+            "cl1.cluster_id": "172",
+            "cl2.cluster_id": "975"
+          },
+          {
+            "cl1.cluster_id": "241",
+            "cl2.cluster_id": "975"
+          }
+        ]
+      },
+      "execution_time": 0.0008590221405029297
+    },
+    {
+      "name": "Similarity - Chat similarity stats",
+      "status": "PASS",
+      "result": {
+        "count": 10,
+        "data": [
+          {
+            "c.chat_id": "2fb8331325894a05dbc04332e27b127613b2da7546057d6e9c2d58cc2ba16b1c",
+            "similar_count": 413
+          },
+          {
+            "c.chat_id": "961244469df6a8aab63fd9fcad286e3b3907fa4c890751316582e3ce1e0cbf5f",
+            "similar_count": 411
+          },
+          {
+            "c.chat_id": "1af9956551b58976d412cd8aa4dd3d27f3b7655de02082cd960d927854446a62",
+            "similar_count": 411
+          }
+        ]
+      },
+      "execution_time": 0.012540102005004883
+    },
+    {
+      "name": "Discovery - Search by content",
+      "status": "PASS",
+      "result": {
+        "count": 10,
+        "data": [
+          {
+            "m.content": "Absolutely. Here's a prompt you can paste into Cursor (or any other coding assistant in your environment) to generate both `tags_master_list.json` and `tag_aliases.json` from your existing tag frequency file: --- ### \u2705 Cursor Prompt: ```python \"\"\" Task: Given a JSON file at `data/interim/tag_frequencies.json` that contains a list of [tag, frequency] pairs (e.g. [[\"#ai\", 34], [\"#AIethics\", 5], ...]), generate two new JSON files: 1. `data/tags_master_list.json`: - Contains a list of the top 300 canonical tags (e.g. \"#ai-ethics\", \"#mentalhealth\") - Normalize tags by converting to lowercase and replacing underscores with hyphens 2. `data/tag_aliases.json`: - Maps non-canonical variants (e.g. \"#AIethics\", \"#ai_ethics\") to their normalized canonical tag (e.g. \"#ai-ethics\") - If a tag normalizes to a tag that\u2019s in the master list, it should be mapped as an alias Code Requirements: - Load `tag_frequencies.json` - Generate the top 300 canonical tags and save to `tags_master_list.json` - Create an alias map and save to `tag_aliases.json` - Skip any tags that normalize to themselves or are already canonical \"\"\" import json from pathlib import Path from collections import Counter # Load frequency file with open(\"data/interim/tag_frequencies.json\") as f: raw_tags = json.load(f) tag_counts = Counter({tag: count for tag, count in raw_tags}) # Normalize function def normalize(tag: str) -> str: return tag.lower().replace(\"_\", \"-\") # Create master list top_tags = [normalize(tag) for tag, _ in tag_counts.most_common(300)] top_tags = sorted(set(top_tags)) # Ensure uniqueness # Save master list with open(\"data/tags_master_list.json\", \"w\") as f: json.dump(top_tags, f, indent=2) # Create alias map alias_map = {} for tag, _ in tag_counts.items(): norm = normalize(tag) if norm in top_tags and tag != norm: alias_map[tag] = norm # Save alias map with open(\"data/tag_aliases.json\", \"w\") as f: json.dump(alias_map, f, indent=2) ``` --- \u2705 Once run, this will give you a clean canonical list and alias map, ready to be used in your tag normalization pipeline. Let me know if you want to adjust the number of tags or enrich the alias detection (e.g. fuzzy matching).",
+            "m.role": "assistant",
+            "m.timestamp": 1753371215.268845
+          },
+          {
+            "m.content": "Perfect \u2014 thanks for the clarification. Since your `data/` directory is at the **project root**, here's where to place the files: --- ### \u2705 Save These Files Here: | File | Path | Purpose | |--------------------------|--------------------------|----------------------------------------------| | `tags_master_list.json` | `data/tags_master_list.json` | Canonical tags used in tag normalization | | `tag_aliases.json` | `data/tag_aliases.json` | Maps variants to canonical tag versions | --- ### \u2705 Update `tag_normalizer.py` to Match In your `chatmind/tagger/tag_normalizer.py`, make sure it points to the correct paths: ```python import json from pathlib import Path with open(Path(\"data/tags_master_list.json\")) as f: TAGS_MASTER = set(json.load(f)) try: with open(Path(\"data/tag_aliases.json\")) as f: TAG_ALIASES = json.load(f) except FileNotFoundError: TAG_ALIASES = {} def normalize_tag(tag: str) -> str: tag = tag.lower().replace(\"_\", \"-\") return TAG_ALIASES.get(tag, tag if tag in TAGS_MASTER else \"#untagged\") ``` --- Let me know if you want a helper script to move these files from `/mnt/data/` into `data/` or want to run normalization over all existing tags now.",
+            "m.role": "assistant",
+            "m.timestamp": 1753371042.650207
+          },
+          {
+            "m.content": "Great question \u2014 here's where to place the two files in your `chatmind` project to integrate smoothly with your tagging pipeline: --- ### \ud83d\udcc1 Recommended File Locations | File | Path | Purpose | |--------------------------|--------------------------------------|----------------------------------------------| | `tags_master_list.json` | `chatmind/data/tags_master_list.json` | Canonical tags for normalization | | `tag_aliases.json` | `chatmind/data/tag_aliases.json` | Aliases (e.g. `#ai_ethics` \u2192 `#ai-ethics`) | These paths align with the expected locations used in `tag_normalizer.py`. --- ### \u2705 Once Saved... You should: 1. **Ensure these are committed to your repo** so your team/code can access them. 2. Update or create `chatmind/tagger/tag_normalizer.py` if needed, and import the data like this: ```python with open(\"chatmind/data/tags_master_list.json\") as f: TAGS_MASTER = set(json.load(f)) try: with open(\"chatmind/data/tag_aliases.json\") as f: TAG_ALIASES = json.load(f) except FileNotFoundError: TAG_ALIASES = {} def normalize_tag(tag: str) -> str: tag = tag.lower().replace(\"_\", \"-\") return TAG_ALIASES.get(tag, tag if tag in TAGS_MASTER else \"#untagged\") ``` --- Let me know if you want to automate copying the files into place or need to lint/normalize all existing tags now.",
+            "m.role": "assistant",
+            "m.timestamp": 1753370999.075946
+          }
+        ]
+      },
+      "execution_time": 0.1727440357208252
+    },
+    {
+      "name": "Discovery - Search by tags",
+      "status": "PASS",
+      "result": {
+        "count": 10,
+        "data": [
+          {
+            "m.content": "Perfect \u2014 thanks for the clarification. Since your `data/` directory is at the **project root**, here's where to place the files: --- ### \u2705 Save These Files Here: | File | Path | Purpose | |--------------------------|--------------------------|----------------------------------------------| | `tags_master_list.json` | `data/tags_master_list.json` | Canonical tags used in tag normalization | | `tag_aliases.json` | `data/tag_aliases.json` | Maps variants to canonical tag versions | --- ### \u2705 Update `tag_normalizer.py` to Match In your `chatmind/tagger/tag_normalizer.py`, make sure it points to the correct paths: ```python import json from pathlib import Path with open(Path(\"data/tags_master_list.json\")) as f: TAGS_MASTER = set(json.load(f)) try: with open(Path(\"data/tag_aliases.json\")) as f: TAG_ALIASES = json.load(f) except FileNotFoundError: TAG_ALIASES = {} def normalize_tag(tag: str) -> str: tag = tag.lower().replace(\"_\", \"-\") return TAG_ALIASES.get(tag, tag if tag in TAGS_MASTER else \"#untagged\") ``` --- Let me know if you want a helper script to move these files from `/mnt/data/` into `data/` or want to run normalization over all existing tags now.",
+            "m.role": "assistant",
+            "t.tags": [
+              "#python"
+            ]
+          },
+          {
+            "m.content": "Your tagging prompt is already **clean, focused, and very usable** \u2014 especially given that it\u2019s now optimized for `gpt-3.5-turbo`. Here's a breakdown of strengths and possible improvements: --- ## \u2705 What\u2019s Strong: ### 1. **Clear task definition** ```text TASK: Analyze the following text and: 1. Generate 3-5 relevant hashtags 2. Assign a one-sentence category label ``` - GPT understands exactly what you want \u2014 no ambiguity. - The two-part structure (tags + category) is easy to follow. ### 2. **Structured output format** ```json { \"tags\": [\"#tag1\", \"#tag2\", \"#tag3\"], \"category\": \"A concise category title\" } ``` - Enforcing *only JSON* as output avoids parsing headaches. - Simple schema = easier downstream integration. ### 3. **Good balance of guidance** ```text - Tags should be specific and relevant - Use common hashtag formats - Category should be descriptive but concise ``` - These rules steer the model without over-constraining it. --- ## \ud83d\udee0\ufe0f Potential Improvements: Here are some lightweight ways to tune it further: ### 1. **Stronger anti-fluff signal** Add something like: > - Avoid generic tags like #general, #misc, or #topic unless unavoidable. This helps reduce noisy tags when GPT-3.5 gets lazy or vague. --- ### 2. **Make category output more consistent** Right now, the category is described as: > \"a one-sentence category label\" But in your expected output it\u2019s: ```json \"category\": \"A concise category title\" ``` You might clarify: > - Return a **short descriptive phrase** (not a sentence) as the category, e.g. `\"Python Web APIs\"` or `\"Startup Fundraising Tips\"` Or standardize the phrasing depending on how you're using categories downstream. --- ### 3. **(Optional)** Tag domain hints If your system has \u201crooms\u201d or domains (e.g. code, design, philosophy), consider injecting: > - If applicable, choose tags that align with domains like `#ai`, `#philosophy`, `#self-improvement`, etc. This would improve long-term semantic grouping, especially as your tag set grows. --- ## \ud83d\udca1 Bonus: Add a prompt version header If you're going to evolve this prompt over time (as part of an augmented intelligence system), add a hidden internal version line: ``` // prompt_version: 1.0.0 ``` Makes it easier to audit or A/B test later. --- ## \ud83d\udd1a Verdict: You\u2019re 90%+ of the way there. The prompt is tight and functional. These are polish-level suggestions to increase consistency, reduce noise, and prepare for scale. Want me to rewrite the prompt with these improvements baked in?",
+            "m.role": "assistant",
+            "t.tags": [
+              "#data-science",
+              "#machinelearning",
+              "#python"
+            ]
+          },
+          {
+            "m.content": "okay so this is what it does now ere\u2019s the end-to-end \u201cstory\u201d of what happens once you drop one (or more) ChatGPT export ZIPs into data/raw/ and invoke python run_pipeline.py ---------------------------------------------------------------------------- --- 1. Step 1 \u2013 Data Ingestion (`chatmind/data_ingestion/extract_and_flatten.py`) \u2022 **Load existing state** \u2013 Reads `data/processed/content_hashes.pkl` (a set of SHA256 hashes of chats seen so far) to avoid reprocessing. \u2022 **Scan `data/raw/*.zip`** \u2013 For each ZIP, opens it, finds all `.json` conversation files (or a top-level `conversations.json` array). \u2013 Normalizes each conversation: extracts the title, timestamps and flattens all messages into a list of dicts `{id, role, content, timestamp, parent_id}`. \u2022 **Deduplicate** \u2013 Computes a content-only hash (strips timestamps, sorts messages by content) per chat. \u2013 If hash \u2209 seen_hashes, it\u2019s \u201cnew\u201d: \u2022 Append that chat (with its messages) to `data/processed/chats.jsonl`. \u2022 Add hash to the in-memory set. Otherwise skip as duplicate. \u2022 **Data Lake Storage** \u2013 For each new chat, `DataLakeStorage.store_chat(...)` does: 1. Generates a deterministic `chat_id` (first 16 chars of SHA256 JSON-dump). 2. Writes `data/lake/chats/{chat_id}.json` containing chat metadata + embedded message list. 3. Generates for each message a `msg_{hash}` ID and writes `data/lake/messages/{msg_id}.json`. \u2013 This lets you drill down from chat \u2192 individual message. \u2022 **URL Mapping** \u2013 Scans each chat\u2019s messages for ChatGPT URLs (via regex). \u2013 For each found `conversation_id`, writes `data/lake/urls/{conversation_id}.json` mapping back to your `chat_id`. \u2022 **Save state** \u2013 Dumps updated `seen_hashes` back to `data/processed/content_hashes.pkl`. At the end of this step you have: * `data/processed/chats.jsonl` (one JSON per unique chat) * A fully populated `data/lake/` with `chats/, messages/, urls/` ---------------------------------------------------------------------------- --- 1. Step 2 \u2013 Embedding & Clustering (`chatmind/embedding/embed_and_cluster.py`) \u2022 **Load chats** \u2013 Reads `data/processed/chats.jsonl` into a list of chat dicts. \u2022 **Extract messages** \u2013 Flattens each chat into individual message records `{message_id, chat_id (==content_hash), chat_title, role, content, timestamp, parent_id}`. \u2022 **Chunking** \u2013 If you passed `--semantic-chunking`, it invokes `chatmind/semantic_chunker/chunker.py` (GPT-driven). \u2013 Otherwise splits long messages by sentences/paragraphs into \u2264512 char \u201cchunks.\u201d \u2022 **Auto-tagging** (optional) \u2013 If you passed `--auto-tagging`, runs `chatmind/tagger/tagger.py` over each chunk to attach `tags` and `category`. \u2022 **Embedding** \u2013 Uses a Sentence-Transformer (default `all-MiniLM-L6-v2`) to embed each chunk\u2019s text into a vector. \u2022 **Clustering** \u2013 Projects embeddings via UMAP (to 50 dims), then clusters with HDBSCAN. \u2013 Assigns every chunk a `cluster_id` (noise = `-1`). \u2022 **Cluster summaries** \u2013 For each non-noise cluster gathers: \u2022 size (#chunks), \u2022 top_words (most frequent non-stopwords), \u2022 sample_titles (up to 5 distinct chat titles). \u2022 **Save** \u2013 `data/embeddings/chunks_with_clusters.jsonl` (all chunks + embeddings + cluster_id + tags) \u2013 `data/embeddings/cluster_summaries.json` \u2013 pickles: `umap_embeddings.pkl`, `cluster_labels.pkl` ---------------------------------------------------------------------------- --- 1. Step 3 \u2013 Neo4j Load (`chatmind/neo4j_loader/load_graph.py`) \u2022 **Connect** \u2013 Reads `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD` from your `.env` (or flags). \u2013 Verifies connectivity. \u2022 **Clear & Constraints** \u2013 If you passed `--clear` (via `run_pipeline.py --clear-neo4j`), does `MATCH (n) DETACH DELETE n`. \u2013 Always then creates uniqueness constraints (`Chat.chat_id`, `Message.message_id`, `Topic.topic_id`) and indexes. \u2022 **Load Chats** \u2013 `MERGE (c:Chat {chat_id:...}) SET c.title, c.create_time, c.update_time, c.data_lake_id`. \u2022 **Load Messages** \u2013 `MERGE (m:Message {message_id:...}) SET m.content, m.role, m.timestamp, m.cluster_id`. \u2013 `MERGE (c)-[:CONTAINS]->(m)` to link chat \u2192 message. \u2013 If `parent_id` exists: `MERGE (p)-[:REPLIES_TO]->(m)`. \u2022 **Load Topics** \u2013 From `cluster_summaries.json`, `MERGE (t:Topic {topic_id:...}) SET t.name, t.size, t.top_words, t.sample_titles`. \u2022 **Topic\u2192Message Edges** \u2013 For each chunk with `cluster_id != -1`: `MERGE (t)-[:SUMMARIZES]->(m)`. \u2022 **Finish** \u2013 Reports node & relationship counts. Closes connection. ---------------------------------------------------------------------------- --- 1. Service & Frontend \u2022 **FastAPI** (`chatmind/api/main.py`) \u2013 On startup connects to Neo4j driver. \u2013 Endpoints: \u2022 `/graph` \u2192 returns nodes & edges (for Cytoscape). \u2022 `/topics`, `/chats`, `/chats/{id}/messages`, `/topics/{id}/messages`, `/search`. \u2022 `/tags`, `/search/by-tags` for filtering by GPT-tags & categories. \u2022 `/lake/...` for direct file-based retrieval of the data lake JSONs. \u2022 **React/Cytoscape Frontend** (`chatmind/frontend/src`) \u2013 Fetches `/graph`, renders an interactive mind-map. \u2013 Tag filter panel, cost-tracker panel, chat/topic/message viewers. ---------------------------------------------------------------------------- --- What to look at if something isn\u2019t doing what you expect: \u2013 Deduplication: tweak _generate_content_hash in extract_and_flatten.py. \u2013 Chunking behavior: switch --semantic-chunking vs default or adjust _simple_chunk_messages. \u2013 Tagging: toggle --auto-tagging, inspect chatmind/tagger/ prompts. \u2013 Clustering: adjust UMAP/HDBSCAN params in embed_and_cluster.py. \u2013 Neo4j schema: edit load_graph.py if you need extra node properties or relationships. \u2013 API: browse chatmind/api/main.py to see exactly what data the frontend is pulling. Let me know which part feels most opaque or what specific behavior you\u2019d like to change, and I can drill in further!",
+            "m.role": "user",
+            "t.tags": [
+              "#python"
+            ]
+          }
+        ]
+      },
+      "execution_time": 0.014030933380126953
+    },
+    {
+      "name": "Discovery - Search by domain",
+      "status": "PASS",
+      "result": {
+        "count": 0,
+        "data": []
+      },
+      "execution_time": 0.028748035430908203
+    },
+    {
+      "name": "Discovery - Complex content discovery",
+      "status": "PASS",
+      "result": {
+        "count": 10,
+        "data": [
+          {
+            "c.title": "React Adventure Site Build",
+            "message_count": 1069,
+            "chunk_count": 2087,
+            "tag_count": 1065
+          },
+          {
+            "c.title": "Talent Test App Setup",
+            "message_count": 1031,
+            "chunk_count": 1819,
+            "tag_count": 991
+          },
+          {
+            "c.title": "Skibituary",
+            "message_count": 772,
+            "chunk_count": 846,
+            "tag_count": 771
+          }
+        ]
+      },
+      "execution_time": 0.03239607810974121
+    },
+    {
+      "name": "Analysis - Complete message context",
+      "status": "PASS",
+      "result": {
+        "count": 5,
+        "data": [
+          {
+            "message_content": "What is the sickness mono in German?",
+            "message_role": "user",
+            "chat_title": "Mono auf Deutsch",
+            "chunk_count": 1,
+            "tag_count": 1
+          },
+          {
+            "message_content": "The sickness \"mono\" is short for **mononucleosis**, also known as the **kissing disease** in English. In German, it's called: ### **Pfeiffersches Dr\u00fcsenfieber** (pronounced: *Fye-fers-shes* *Dru-zen-fee-ber*) It literally means \"Pfeiffer\u2019s glandular fever,\" named after the German physician Emil Pfeiffer who first described it. You can also describe it more formally as: - **Infekti\u00f6se Mononukleose** (infectious mononucleosis) - Caused by: **Epstein-Barr-Virus (EBV)** Let me know if you need a sentence for context or explanation in German!",
+            "message_role": "assistant",
+            "chat_title": "Mono auf Deutsch",
+            "chunk_count": 1,
+            "tag_count": 1
+          },
+          {
+            "message_content": "Would it make sense that my wife could potentially have it? What are the symptoms of it?",
+            "message_role": "user",
+            "chat_title": "Mono auf Deutsch",
+            "chunk_count": 1,
+            "tag_count": 1
+          }
+        ]
+      },
+      "execution_time": 0.20378994941711426
+    },
+    {
+      "name": "Analysis - Chat with full analysis",
+      "status": "PASS",
+      "result": {
+        "count": 3,
+        "data": [
+          {
+            "c.title": "Food Intolerance Management Tips",
+            "message_count": 4,
+            "chunk_count": 6,
+            "domains": [
+              "business",
+              "personal",
+              "unknown"
+            ],
+            "chat_summary": "Resetting Gut Health: A Conversation Summary"
+          },
+          {
+            "c.title": "Resize Logos Same Width",
+            "message_count": 2,
+            "chunk_count": 2,
+            "domains": [
+              "unknown"
+            ],
+            "chat_summary": "Select and adjust logo widths"
+          },
+          {
+            "c.title": "Produktivit\u00e4tssteigernde App Ideen",
+            "message_count": 301,
+            "chunk_count": 461,
+            "domains": [
+              "unknown",
+              "business"
+            ],
+            "chat_summary": "Conversation summary unavailable"
+          }
+        ]
+      },
+      "execution_time": 0.07185935974121094
+    },
+    {
+      "name": "Analysis - Cluster analysis",
+      "status": "PASS",
+      "result": {
+        "count": 5,
+        "data": [
+          {
+            "cl.cluster_id": "172",
+            "chunk_count": 6,
+            "cluster_summary": "A comprehensive summary of the main topics and key points discussed"
+          },
+          {
+            "cl.cluster_id": "241",
+            "chunk_count": 12,
+            "cluster_summary": "A comprehensive summary of the main themes and key points discussed"
+          },
+          {
+            "cl.cluster_id": "975",
+            "chunk_count": 21,
+            "cluster_summary": "A comprehensive summary of the main topics and key points discussed"
+          }
+        ]
+      },
+      "execution_time": 0.015074968338012695
+    },
+    {
+      "name": "Analysis - Summary queries",
+      "status": "PASS",
+      "result": {
+        "count": 5,
+        "data": [
+          {
+            "cl.cluster_id": "0",
+            "s.summary": "A comprehensive summary of the main topics and key points discussed",
+            "s.key_points": [],
+            "s.common_tags": []
+          },
+          {
+            "cl.cluster_id": "1",
+            "s.summary": "A comprehensive summary of the main topics and key points discussed",
+            "s.key_points": [],
+            "s.common_tags": []
+          },
+          {
+            "cl.cluster_id": "10",
+            "s.summary": "A comprehensive summary of the main topics and key points discussed",
+            "s.key_points": [],
+            "s.common_tags": []
+          }
+        ]
+      },
+      "execution_time": 0.002187013626098633
+    },
+    {
+      "name": "Stats - Node counts by type",
+      "status": "PASS",
+      "result": {
+        "count": 7,
+        "data": [
+          {
+            "node_type": "Chunk",
+            "count": 47697
+          },
+          {
+            "node_type": "Message",
+            "count": 33991
+          },
+          {
+            "node_type": "Tag",
+            "count": 32516
+          },
+          {
+            "node_type": "Summary",
+            "count": 2581
+          },
+          {
+            "node_type": "Cluster",
+            "count": 1835
+          },
+          {
+            "node_type": "Chat",
+            "count": 1714
+          },
+          {
+            "node_type": "ChatSummary",
+            "count": 1714
+          }
+        ]
+      },
+      "execution_time": 0.02788710594177246
+    },
+    {
+      "name": "Stats - Relationship counts by type",
+      "status": "PASS",
+      "result": {
+        "count": 7,
+        "data": [
+          {
+            "relationship_type": "SIMILAR_TO_CLUSTER_HIGH",
+            "count": 305013
+          },
+          {
+            "relationship_type": "HAS_CHUNK",
+            "count": 95272
+          },
+          {
+            "relationship_type": "SIMILAR_TO_CHAT_HIGH",
+            "count": 86588
+          },
+          {
+            "relationship_type": "CONTAINS",
+            "count": 33991
+          },
+          {
+            "relationship_type": "TAGS",
+            "count": 32516
+          },
+          {
+            "relationship_type": "SUMMARIZES",
+            "count": 2581
+          },
+          {
+            "relationship_type": "SUMMARIZES_CHAT",
+            "count": 1714
+          }
+        ]
+      },
+      "execution_time": 0.06441783905029297
+    },
+    {
+      "name": "Stats - Average chunks per message",
+      "status": "PASS",
+      "result": {
+        "avg_chunks_per_message": 97.1
+      },
+      "execution_time": 0.014352083206176758
+    },
+    {
+      "name": "Stats - Tag usage statistics",
+      "status": "PASS",
+      "result": {
+        "count": 20,
+        "data": [
+          {
+            "tag": "#technology",
+            "usage_count": 2467
+          },
+          {
+            "tag": "#ai",
+            "usage_count": 1115
+          },
+          {
+            "tag": "#data",
+            "usage_count": 1098
+          },
+          {
+            "tag": "#business",
+            "usage_count": 1012
+          },
+          {
+            "tag": "#tech",
+            "usage_count": 942
+          }
+        ]
+      },
+      "execution_time": 0.030367136001586914
+    },
+    {
+      "name": "Stats - Domain distribution stats",
+      "status": "PASS",
+      "result": {
+        "count": 4,
+        "data": [
+          {
+            "t.domain": "unknown",
+            "message_count": 24447
+          },
+          {
+            "t.domain": "business",
+            "message_count": 7650
+          },
+          {
+            "t.domain": "personal",
+            "message_count": 413
+          },
+          {
+            "t.domain": "creative",
+            "message_count": 6
+          }
+        ]
+      },
+      "execution_time": 0.017366886138916016
+    },
+    {
+      "name": "Graph - Chat-message connectivity",
+      "status": "PASS",
+      "result": {
+        "count": 10,
+        "data": [
+          {
+            "c.chat_id": "fa3ae37f16f4f76088a4b45ac743e6c3e93b78b7485aeee605ac66488dd20f70",
+            "message_count": 1069
+          },
+          {
+            "c.chat_id": "f133f41f6b5469d65d1da05663cbe622638eddced088a7a9fd453be0d71a71d5",
+            "message_count": 1031
+          },
+          {
+            "c.chat_id": "eb71767f88e91518d76e39907d5392707075b04a3a081dc9d9e36339f5942979",
+            "message_count": 772
+          },
+          {
+            "c.chat_id": "ec83df96876b5fa1483aba0d29074c78985aa0568b02ff59e503f9832bf88475",
+            "message_count": 667
+          },
+          {
+            "c.chat_id": "34a2a73fa038b3834f84efc2b8e3b61eb2bd664ee4ab8ad088df501f65da3739",
+            "message_count": 507
+          },
+          {
+            "c.chat_id": "7e1709352ce53fe780f733be7d574484f9525e5a72625264c0353e24dba3271a",
+            "message_count": 475
+          },
+          {
+            "c.chat_id": "eb6963460b07dfca2bd3796e41834e9007a6e8daec63c25242deae4ddc971ff0",
+            "message_count": 458
+          },
+          {
+            "c.chat_id": "ff7fb3a8c335453fa8b2c5f24fbe0bbd4c17aec9a52d63bbdef4964051747dce",
+            "message_count": 426
+          },
+          {
+            "c.chat_id": "938e94f7dd89a750db7943b81f30942aa981a1f1659a1788b67196e5c22c096d",
+            "message_count": 404
+          },
+          {
+            "c.chat_id": "df4e5fb2285a678342d4455cbf9621b0524566113b7670db72f890d35c2be686",
+            "message_count": 389
+          }
+        ]
+      },
+      "execution_time": 0.006525993347167969
+    },
+    {
+      "name": "Graph - Message-chunk connectivity",
+      "status": "PASS",
+      "result": {
+        "count": 10,
+        "data": [
+          {
+            "m.message_id": "53d6e6cc-5a60-4881-8c38-9be226cbbd72",
+            "chunk_count": 59
+          },
+          {
+            "m.message_id": "25bab22f-70b8-418b-ae9f-bf8914747af2",
+            "chunk_count": 49
+          },
+          {
+            "m.message_id": "7e2f10a9-4f72-40c5-9fbf-89d60eae22e6",
+            "chunk_count": 49
+          },
+          {
+            "m.message_id": "7265ce1f-7f6c-4a55-94fa-1fb4f91877c9",
+            "chunk_count": 49
+          },
+          {
+            "m.message_id": "0f44e6ed-03f7-41ca-9a6a-f2acc1b4172d",
+            "chunk_count": 47
+          },
+          {
+            "m.message_id": "1ad076f8-5246-4cec-9545-9a04cac6f660",
+            "chunk_count": 42
+          },
+          {
+            "m.message_id": "aaa24856-a2f1-479c-b372-cfe5a51e75fc",
+            "chunk_count": 38
+          },
+          {
+            "m.message_id": "a0f77e5b-1337-45d4-8754-d6ba1900f70f",
+            "chunk_count": 35
+          },
+          {
+            "m.message_id": "975c02a2-38be-4c99-af48-e1e05ed3b4a8",
+            "chunk_count": 32
+          },
+          {
+            "m.message_id": "6d3522fa-298c-4eb6-bc19-1ca8e9aa8070",
+            "chunk_count": 32
+          }
+        ]
+      },
+      "execution_time": 0.03493309020996094
+    },
+    {
+      "name": "Graph - Message-tag connectivity",
+      "status": "PASS",
+      "result": {
+        "count": 10,
+        "data": [
+          {
+            "m.message_id": "a79c63bd-f669-4b20-8bda-bc53052a9a8d",
+            "tag_count": 1
+          },
+          {
+            "m.message_id": "4ba86a33-bd56-4287-af55-69bd29873fc6",
+            "tag_count": 1
+          },
+          {
+            "m.message_id": "6ebac52f-1d55-4ca7-8600-b78dac85598b",
+            "tag_count": 1
+          },
+          {
+            "m.message_id": "28208448-68e5-4274-89f2-2d26bdbecddf",
+            "tag_count": 1
+          },
+          {
+            "m.message_id": "af7b37ae-eb35-47a4-b481-88e14261a73f",
+            "tag_count": 1
+          },
+          {
+            "m.message_id": "76c2e4b5-a67f-48b7-a24c-23529c6ac304",
+            "tag_count": 1
+          },
+          {
+            "m.message_id": "1db0067b-5ce1-4ab0-bb0b-7f3bae27eb1d",
+            "tag_count": 1
+          },
+          {
+            "m.message_id": "eba7f17c-69cd-4b81-b36c-5c03ea906971",
+            "tag_count": 1
+          },
+          {
+            "m.message_id": "dca6f374-37a0-4532-a76d-c79842189dd7",
+            "tag_count": 1
+          },
+          {
+            "m.message_id": "974dc9c9-ed5a-4346-8d8f-75eec5ddbabc",
+            "tag_count": 1
+          }
+        ]
+      },
+      "execution_time": 0.03461718559265137
+    },
+    {
+      "name": "Graph - Cluster-chunk connectivity",
+      "status": "PASS",
+      "result": {
+        "count": 10,
+        "data": [
+          {
+            "cl.cluster_id": "-1",
+            "chunk_count": 28472
+          },
+          {
+            "cl.cluster_id": "786",
+            "chunk_count": 188
+          },
+          {
+            "cl.cluster_id": "1142",
+            "chunk_count": 143
+          },
+          {
+            "cl.cluster_id": "717",
+            "chunk_count": 126
+          },
+          {
+            "cl.cluster_id": "1624",
+            "chunk_count": 117
+          },
+          {
+            "cl.cluster_id": "871",
+            "chunk_count": 106
+          },
+          {
+            "cl.cluster_id": "1315",
+            "chunk_count": 72
+          },
+          {
+            "cl.cluster_id": "260",
+            "chunk_count": 68
+          },
+          {
+            "cl.cluster_id": "723",
+            "chunk_count": 61
+          },
+          {
+            "cl.cluster_id": "882",
+            "chunk_count": 60
+          }
+        ]
+      },
+      "execution_time": 0.009505987167358398
+    },
+    {
+      "name": "Graph - Complete semantic path",
+      "status": "PASS",
+      "result": {
+        "count": 0,
+        "data": []
+      },
+      "execution_time": 0.0008637905120849609
+    },
+    {
+      "name": "Quality - Orphaned messages",
+      "status": "PASS",
+      "result": {
+        "orphan_messages": 0
+      },
+      "execution_time": 0.014985084533691406
+    },
+    {
+      "name": "Quality - Orphaned chunks",
+      "status": "PASS",
+      "result": {
+        "orphan_chunks": 0
+      },
+      "execution_time": 0.020943164825439453
+    },
+    {
+      "name": "Quality - Duplicate detection",
+      "status": "PASS",
+      "result": {
+        "count": 0,
+        "data": []
+      },
+      "execution_time": 0.018697023391723633
+    },
+    {
+      "name": "Quality - Data completeness",
+      "status": "PASS",
+      "result": {
+        "incomplete_messages": 0
+      },
+      "execution_time": 0.008605003356933594
+    },
+    {
+      "name": "Quality - Rich semantic content",
+      "status": "PASS",
+      "result": {
+        "count": 10,
+        "data": [
+          {
+            "c.title": "React Adventure Site Build",
+            "message_count": 1069,
+            "chunk_count": 2087,
+            "tag_count": 1065
+          },
+          {
+            "c.title": "Talent Test App Setup",
+            "message_count": 1031,
+            "chunk_count": 1819,
+            "tag_count": 991
+          },
+          {
+            "c.title": "Skibituary",
+            "message_count": 772,
+            "chunk_count": 846,
+            "tag_count": 771
+          },
+          {
+            "c.title": "MindMapPyton",
+            "message_count": 667,
+            "chunk_count": 1294,
+            "tag_count": 648
+          },
+          {
+            "c.title": "DC Motor Bed Lift",
+            "message_count": 507,
+            "chunk_count": 598,
+            "tag_count": 486
+          },
+          {
+            "c.title": "Database Table Creation Issue",
+            "message_count": 475,
+            "chunk_count": 658,
+            "tag_count": 460
+          },
+          {
+            "c.title": "AI Job Displacement 2030",
+            "message_count": 458,
+            "chunk_count": 739,
+            "tag_count": 451
+          },
+          {
+            "c.title": "Dataset Compilation for ML",
+            "message_count": 426,
+            "chunk_count": 734,
+            "tag_count": 422
+          },
+          {
+            "c.title": "CSS Color Reconciliation",
+            "message_count": 404,
+            "chunk_count": 765,
+            "tag_count": 393
+          },
+          {
+            "c.title": "MindMapRact",
+            "message_count": 389,
+            "chunk_count": 733,
+            "tag_count": 378
+          }
+        ]
+      },
+      "execution_time": 0.03185105323791504
+    },
+    {
+      "name": "Viz - Chats with positions",
+      "status": "PASS",
+      "result": {
+        "count": 10,
+        "data": [
+          {
+            "c.chat_id": "d5bffa6d680deac36fc2021478aa7ff80a6a47f82deb03c7e45d571bdf3b1f9a",
+            "c.title": "Mono auf Deutsch",
+            "c.position_x": 0.0,
+            "c.position_y": 0.0
+          },
+          {
+            "c.chat_id": "7afca8236f4ed715796fdf388923b288311e4d4dc0e91397ef62b9fa5ff79989",
+            "c.title": "Plastic cap threading issue",
+            "c.position_x": 0.0,
+            "c.position_y": 0.0
+          },
+          {
+            "c.chat_id": "2fb8331325894a05dbc04332e27b127613b2da7546057d6e9c2d58cc2ba16b1c",
+            "c.title": "Rude in German",
+            "c.position_x": 0.0,
+            "c.position_y": 0.0
+          },
+          {
+            "c.chat_id": "961244469df6a8aab63fd9fcad286e3b3907fa4c890751316582e3ce1e0cbf5f",
+            "c.title": "Sticker backing paper printing",
+            "c.position_x": 0.0,
+            "c.position_y": 0.0
+          },
+          {
+            "c.chat_id": "27763fa4c382b3b1ddafef4751fd1b22e66a390d36879e05fecb61fbd33fcb00",
+            "c.title": "Making gyoza from frozen wrappers",
+            "c.position_x": 0.0,
+            "c.position_y": 0.0
+          },
+          {
+            "c.chat_id": "94777c64aff12a7703a9b140fdb0f43a8ffd4f55cf4deed7897cf0fb6d224faa",
+            "c.title": "Vite vs Next.js",
+            "c.position_x": 0.0,
+            "c.position_y": 0.0
+          },
+          {
+            "c.chat_id": "08e01d603c69933a1ec39acc914ed3c991543c1c762a591cd2ba15d0480dc37b",
+            "c.title": "Portfolio AI tools ideas",
+            "c.position_x": 0.0,
+            "c.position_y": 0.0
+          },
+          {
+            "c.chat_id": "e53c300a8238dcb6820024e552bf72a81525b266b3ae288fab7d7181995beff0",
+            "c.title": "Augmented intelligence concept",
+            "c.position_x": 0.0,
+            "c.position_y": 0.0
+          },
+          {
+            "c.chat_id": "9b65eee2135e8633c2b61a336a2cd827a7fe4a53a5a793e31f9d27ed7dc5fbb4",
+            "c.title": "Product owner vs manager",
+            "c.position_x": 0.0,
+            "c.position_y": 0.0
+          },
+          {
+            "c.chat_id": "d98eacc9034bf7317d85296caf5986bb561912dbbce48a62106ba76d4f630713",
+            "c.title": "Transfer PSD to iPad",
+            "c.position_x": 0.0,
+            "c.position_y": 0.0
+          }
+        ]
+      },
+      "execution_time": 0.0018291473388671875
+    },
+    {
+      "name": "Viz - Clusters with positions",
+      "status": "PASS",
+      "result": {
+        "count": 10,
+        "data": [
+          {
+            "cl.cluster_id": "0",
+            "cl.umap_x": 0.0,
+            "cl.umap_y": 0.0
+          },
+          {
+            "cl.cluster_id": "10",
+            "cl.umap_x": 0.0,
+            "cl.umap_y": 0.0
+          },
+          {
+            "cl.cluster_id": "100",
+            "cl.umap_x": 0.0,
+            "cl.umap_y": 0.0
+          },
+          {
+            "cl.cluster_id": "1000",
+            "cl.umap_x": 0.0,
+            "cl.umap_y": 0.0
+          },
+          {
+            "cl.cluster_id": "1001",
+            "cl.umap_x": 0.0,
+            "cl.umap_y": 0.0
+          },
+          {
+            "cl.cluster_id": "1002",
+            "cl.umap_x": 0.0,
+            "cl.umap_y": 0.0
+          },
+          {
+            "cl.cluster_id": "1003",
+            "cl.umap_x": 0.0,
+            "cl.umap_y": 0.0
+          },
+          {
+            "cl.cluster_id": "1005",
+            "cl.umap_x": 0.0,
+            "cl.umap_y": 0.0
+          },
+          {
+            "cl.cluster_id": "1007",
+            "cl.umap_x": 0.0,
+            "cl.umap_y": 0.0
+          },
+          {
+            "cl.cluster_id": "1008",
+            "cl.umap_x": 0.0,
+            "cl.umap_y": 0.0
+          }
+        ]
+      },
+      "execution_time": 0.0014028549194335938
+    },
+    {
+      "name": "Viz - Embeddings for visualization",
+      "status": "PASS",
+      "result": {
+        "count": 0,
+        "data": []
+      },
+      "execution_time": 0.0008399486541748047
+    },
+    {
+      "name": "Viz - Graph overview data",
+      "status": "PASS",
+      "result": {
+        "chat_count": 3145190,
+        "cluster_count": 3145190,
+        "embedding_count": 0
+      },
+      "execution_time": 0.22025585174560547
+    },
+    {
+      "name": "API - ID coverage report",
+      "status": "PASS",
+      "result": {
+        "null_message_ids": 0,
+        "null_chunk_ids": 0,
+        "null_chat_ids": 0,
+        "orphaned_chunks": 0,
+        "total_issues": 0,
+        "api_ready": true
+      },
+      "execution_time": 0.040103912353515625
+    },
+    {
+      "name": "API - Multi-hop semantic context",
+      "status": "PASS",
+      "result": {
+        "starting_chunk_id": "d5bffa6d680deac36fc2021478aa7ff80a6a47f82deb03c7e45d571bdf3b1f9a_msg_0_chunk_0",
+        "related_chunks_count": 1,
+        "related_chunks": [
+          {
+            "chunk_id": null,
+            "content": "No content",
+            "cluster_id": null
+          }
+        ],
+        "multi_hop_available": true
+      },
+      "execution_time": 0.0017251968383789062
+    },
+    {
+      "name": "API - Embedding drift test",
+      "status": "PASS",
+      "result": {
+        "total_content_samples": 935,
+        "drift_detected_count": 0,
+        "drift_detected": [],
+        "embedding_consistent": true
+      },
+      "execution_time": 0.22461581230163574
+    },
+    {
+      "name": "API - Combined endpoint shape",
+      "status": "PASS",
+      "result": {
+        "query": "python programming",
+        "results_count": 2,
+        "sample_response": {
+          "chunk_id": "c6d77dc25d3e75f246e53e6e809685bb7e00aa6e184db6c5ca77af7f7ab356ec_msg_51_chunk_0",
+          "content": "User is a beginner in Python.",
+          "similarity": 0.7435601,
+          "message_id": "f8e998b7-1b04-48b2-8dd9-691009f6d803",
+          "chat_title": "Mind Palace Assistant Models",
+          "tags": [
+            [
+              "#python"
+            ]
+          ],
+          "cluster_id": "-1"
+        },
+        "response_structure_valid": true
+      },
+      "execution_time": 0.060388803482055664
+    },
+    {
+      "name": "API - Fresh data embedding test",
+      "status": "PASS",
+      "result": {
+        "error": "Fresh data embedding test failed: Unexpected Response: 400 (Bad Request)\nRaw response content:\nb'{\"status\":{\"error\":\"Format error in JSON body: value test_chunk_1b465cfe95874279813b69485b763db5 is not a valid point ID, valid values are either an unsigned integer or a UUID\"},\"time\":0.0}'",
+        "fresh_data_embedding_works": false
+      },
+      "execution_time": 0.10260891914367676
+    },
+    {
+      "name": "API - Neo4j to Qdrant sync drift",
+      "status": "PASS",
+      "result": {
+        "neo4j_message_count": 100,
+        "qdrant_message_count": 922,
+        "common_messages": 1,
+        "neo4j_only": 99,
+        "qdrant_only": 921,
+        "sync_drift_percentage": 1019.9999999999999,
+        "databases_synced": false
+      },
+      "execution_time": 0.038214921951293945
+    },
+    {
+      "name": "Schema - Semantic search response",
+      "status": "PASS",
+      "result": {
+        "query": "machine learning",
+        "response_schema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string"
+            },
+            "results": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "chunk_id": {
+                    "type": "string"
+                  },
+                  "content": {
+                    "type": "string"
+                  },
+                  "similarity_score": {
+                    "type": "number"
+                  },
+                  "message_id": {
+                    "type": "string"
+                  },
+                  "chat_title": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "cluster_id": {
+                    "type": "number"
+                  },
+                  "metadata": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "example_responses": []
+      },
+      "execution_time": 0.021873950958251953
+    },
+    {
+      "name": "Schema - Graph exploration response",
+      "status": "PASS",
+      "result": {
+        "response_schema": {
+          "type": "object",
+          "properties": {
+            "nodes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  },
+                  "properties": {
+                    "type": "object"
+                  }
+                }
+              }
+            },
+            "edges": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "source": {
+                    "type": "string"
+                  },
+                  "target": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "example_responses": [
+          {
+            "chat_id": "02c35acd13d3695c6ab7676f464122cdd7826949d13f757097e1a125ceb386ae",
+            "chat_title": "Food Intolerance Management Tips",
+            "message_id": "0ee58da6-7396-48a1-99ef-e150401ecf37",
+            "chunk_id": "02c35acd13d3695c6ab7676f464122cdd7826949d13f757097e1a125ceb386ae_msg_3_chunk_1",
+            "tags": [
+              [
+                "#fasting",
+                "#health",
+                "#diet"
+              ]
+            ],
+            "relationships": {
+              "chat_to_message": "CONTAINS",
+              "message_to_chunk": "HAS_CHUNK",
+              "tag_to_message": "TAGS"
+            }
+          },
+          {
+            "chat_id": "02c35acd13d3695c6ab7676f464122cdd7826949d13f757097e1a125ceb386ae",
+            "chat_title": "Food Intolerance Management Tips",
+            "message_id": "0ee58da6-7396-48a1-99ef-e150401ecf37",
+            "chunk_id": "02c35acd13d3695c6ab7676f464122cdd7826949d13f757097e1a125ceb386ae_msg_3_chunk_0",
+            "tags": [
+              [
+                "#fasting",
+                "#health",
+                "#diet"
+              ]
+            ],
+            "relationships": {
+              "chat_to_message": "CONTAINS",
+              "message_to_chunk": "HAS_CHUNK",
+              "tag_to_message": "TAGS"
+            }
+          },
+          {
+            "chat_id": "02c35acd13d3695c6ab7676f464122cdd7826949d13f757097e1a125ceb386ae",
+            "chat_title": "Food Intolerance Management Tips",
+            "message_id": "39678505-478a-4356-8841-3045587bd551",
+            "chunk_id": "02c35acd13d3695c6ab7676f464122cdd7826949d13f757097e1a125ceb386ae_msg_2_chunk_0",
+            "tags": [
+              [
+                "#fasting",
+                "#gut"
+              ]
+            ],
+            "relationships": {
+              "chat_to_message": "CONTAINS",
+              "message_to_chunk": "HAS_CHUNK",
+              "tag_to_message": "TAGS"
+            }
+          }
+        ]
+      },
+      "execution_time": 0.1461622714996338
+    },
+    {
+      "name": "Schema - Content discovery response",
+      "status": "PASS",
+      "result": {
+        "response_schema": {
+          "type": "object",
+          "properties": {
+            "discoveries": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "chat_id": {
+                    "type": "string"
+                  },
+                  "chat_title": {
+                    "type": "string"
+                  },
+                  "message_count": {
+                    "type": "number"
+                  },
+                  "chunk_count": {
+                    "type": "number"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "discovery_metrics": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "example_responses": [
+          {
+            "chat_id": "02c35acd13d3695c6ab7676f464122cdd7826949d13f757097e1a125ceb386ae",
+            "chat_title": "Food Intolerance Management Tips",
+            "message_count": 4,
+            "chunk_count": 6,
+            "tags": [
+              [
+                "#fasting",
+                "#health",
+                "#diet"
+              ],
+              [
+                "#fasting",
+                "#gut"
+              ],
+              [
+                "#food intolerance",
+                "#health",
+                "#lifestyle"
+              ],
+              [
+                "#food intolerance",
+                "#health",
+                "#cooking"
+              ]
+            ],
+            "discovery_metrics": {
+              "content_density": 1.5,
+              "tag_diversity": 7
+            }
+          },
+          {
+            "chat_id": "f06852f2336bc99b3af39f712f7e8ec2c1fa58723c1944166308e9e46dca411c",
+            "chat_title": "Resize Logos Same Width",
+            "message_count": 2,
+            "chunk_count": 2,
+            "tags": [
+              [
+                "#align",
+                "#width"
+              ],
+              [
+                "#align-logos",
+                "#size-logos"
+              ]
+            ],
+            "discovery_metrics": {
+              "content_density": 1.0,
+              "tag_diversity": 4
+            }
+          },
+          {
+            "chat_id": "da4d5d208d0474346617cb67f5ca2c12219d53b2a3dc9f2452370fa076ef4fc1",
+            "chat_title": "Produktivit\u00e4tssteigernde App Ideen",
+            "message_count": 301,
+            "chunk_count": 461,
+            "tags": [
+              [
+                "#ssh",
+                "#host",
+                "#resolution"
+              ],
+              [
+                "#task",
+                "#prioritization"
+              ],
+              [
+                "#error",
+                "#api",
+                "#syntax"
+              ],
+              [
+                "#task-prioritization",
+                "#prioritization"
+              ],
+              [
+                "#task-prioritizer"
+              ],
+              [
+                "#email",
+                "#security"
+              ],
+              [
+                "#technology",
+                "#health"
+              ],
+              [
+                "#auth",
+                "#session",
+                "#next-auth"
+              ],
+              [
+                "#auth",
+                "#session",
+                "#api",
+                "#error"
+              ],
+              [
+                "#dev",
+                "#tech",
+                "#nextjs"
+              ],
+              [
+                "#dev",
+                "#nextjs",
+                "#tech"
+              ],
+              [
+                "#nextjs",
+                "#auth",
+                "#session"
+              ],
+              [
+                "#nextjs",
+                "#tech",
+                "#api"
+              ],
+              [
+                "#user",
+                "#session"
+              ],
+              [
+                "#error",
+                "#type",
+                "#assignment"
+              ],
+              [
+                "#authentication",
+                "#security"
+              ],
+              [
+                "#next-auth"
+              ],
+              [
+                "#auth",
+                "#session",
+                "#api",
+                "#next-auth"
+              ],
+              [
+                "#nextjs",
+                "#api",
+                "#auth"
+              ],
+              [
+                "#document-summarization",
+                "#machine-learning"
+              ],
+              [
+                "#document-summarization",
+                "#ai-generation",
+                "#task-prioritization"
+              ],
+              [
+                "#ai",
+                "#machinelearning",
+                "#dataanalytics"
+              ],
+              [
+                "#session-token"
+              ],
+              [
+                "#api",
+                "#data",
+                "#summarize"
+              ],
+              [
+                "#authentication",
+                "#session",
+                "#api",
+                "#authorization"
+              ],
+              [
+                "#authentication",
+                "#next-auth",
+                "#api",
+                "#session"
+              ],
+              [
+                "#api-auth"
+              ],
+              [
+                "#nextjs",
+                "#auth",
+                "#api"
+              ],
+              [
+                "#error",
+                "#client-fetch-error"
+              ],
+              [
+                "#api",
+                "#backend",
+                "#localhost"
+              ],
+              [
+                "#coding",
+                "#tech"
+              ],
+              [
+                "#next-auth",
+                "#authentication",
+                "#front-end"
+              ],
+              [
+                "#technology",
+                "#coding"
+              ],
+              [
+                "#next-auth",
+                "#session",
+                "#api",
+                "#front-end",
+                "#backend"
+              ],
+              [
+                "#separation",
+                "#api",
+                "#architecture"
+              ],
+              [
+                "#industry",
+                "#standard"
+              ],
+              [
+                "#ai",
+                "#nlp",
+                "#chatgpt"
+              ],
+              [
+                "#run",
+                "#backend",
+                "#3000"
+              ],
+              [
+                "#auth",
+                "#api",
+                "#session"
+              ],
+              [
+                "#server",
+                "#mongodb",
+                "#tech"
+              ],
+              [
+                "#session",
+                "#authentication",
+                "#login"
+              ],
+              [
+                "#curl",
+                "#api",
+                "#auth"
+              ],
+              [
+                "#auth",
+                "#nextjs",
+                "#api",
+                "#session"
+              ],
+              [
+                "#curl",
+                "#api",
+                "#request"
+              ],
+              [
+                "#typescript",
+                "#next-auth",
+                "#component",
+                "#session"
+              ],
+              [
+                "#error",
+                "#type-error"
+              ],
+              [
+                "#api",
+                "#backend",
+                "#session"
+              ],
+              [
+                "#server",
+                "#technology"
+              ],
+              [
+                "#next-auth",
+                "#api",
+                "#session"
+              ],
+              [
+                "#error",
+                "#next-auth"
+              ],
+              [
+                "#emaildraftcontroller"
+              ],
+              [
+                "#email-controller"
+              ],
+              [
+                "#auth",
+                "#gpt",
+                "#user"
+              ],
+              [
+                "#controller"
+              ],
+              [
+                "#auth",
+                "#user",
+                "#middleware"
+              ],
+              [
+                "#document-summary",
+                "#ai-generation",
+                "#natural-language-processing"
+              ],
+              [
+                "#authentication",
+                "#authorization"
+              ],
+              [
+                "#authentication",
+                "#backend",
+                "#security"
+              ],
+              [
+                "#apiprotection",
+                "#backendsecurity",
+                "#authentication"
+              ],
+              [
+                "#authentication",
+                "#api",
+                "#security"
+              ],
+              [
+                "#auth",
+                "#backend",
+                "#security"
+              ],
+              [
+                "#auth",
+                "#security"
+              ],
+              [
+                "#api-route"
+              ],
+              [
+                "#user",
+                "#authentication",
+                "#session"
+              ],
+              [
+                "#api-error",
+                "#server-error"
+              ],
+              [
+                "#email-draft",
+                "#api-calls"
+              ],
+              [
+                "#summarization",
+                "#text-summarization"
+              ],
+              [
+                "#api",
+                "#data",
+                "#machine-learning"
+              ],
+              [
+                "#email",
+                "#task",
+                "#document",
+                "#idea"
+              ],
+              [
+                "#api",
+                "#calls",
+                "#front-end"
+              ],
+              [
+                "#email",
+                "#draft",
+                "#api"
+              ],
+              [
+                "#email-draft",
+                "#technology"
+              ],
+              [
+                "#api",
+                "#backend",
+                "#front-end"
+              ],
+              [
+                "#email-draft"
+              ],
+              [
+                "#email",
+                "#draft",
+                "#request"
+              ],
+              [
+                "#auth",
+                "#authentication",
+                "#user",
+                "#session"
+              ],
+              [
+                "#authentication",
+                "#paywall"
+              ],
+              [
+                "#error",
+                "#api",
+                "#user"
+              ],
+              [
+                "#error",
+                "#code"
+              ],
+              [
+                "#summarize"
+              ],
+              [
+                "#curl",
+                "#api",
+                "#summarize"
+              ],
+              [
+                "#deprecated"
+              ],
+              [
+                "#node",
+                "#mongodb"
+              ],
+              [
+                "#productivity",
+                "#tech",
+                "#data"
+              ],
+              [
+                "#server"
+              ],
+              [
+                "#mongodb"
+              ],
+              [
+                "#connectmongodb"
+              ],
+              [
+                "#idea-generator"
+              ],
+              [
+                "#document-summarizer"
+              ],
+              [
+                "#document-summarization",
+                "#ai-generation"
+              ],
+              [
+                "#document-summarizer",
+                "#ai-models",
+                "#natural-language-processing"
+              ],
+              [
+                "#productivity",
+                "#app",
+                "#data"
+              ],
+              [
+                "#app-issue",
+                "#mongodb-storage"
+              ],
+              [
+                "#session",
+                "#next-auth",
+                "#react"
+              ],
+              [
+                "#prioritize",
+                "#tasks",
+                "#prioritize-tasks"
+              ],
+              [
+                "#page-prioritizer",
+                "#content-summarization"
+              ],
+              [
+                "#next-auth",
+                "#react",
+                "#session"
+              ],
+              [
+                "#react-js",
+                "#javascript",
+                "#front-end"
+              ],
+              [
+                "#summarizer-issue"
+              ],
+              [
+                "#build",
+                "#technology",
+                "#front-end"
+              ],
+              [
+                "#static-generation",
+                "#session-data",
+                "#getserversideprops"
+              ],
+              [
+                "#build",
+                "#dev",
+                "#js"
+              ],
+              [
+                "#server-side-rendering",
+                "#session-management"
+              ],
+              [
+                "#server-side-rendering",
+                "#static-generation",
+                "#next-auth"
+              ],
+              [
+                "#build",
+                "#react",
+                "#js"
+              ],
+              [
+                "#build",
+                "#development",
+                "#javascript"
+              ],
+              [
+                "#nextjs",
+                "#session",
+                "#server-side",
+                "#component"
+              ],
+              [
+                "#idea-generator",
+                "#task-prioritizer"
+              ],
+              [
+                "#client-side",
+                "#session-data",
+                "#server-side"
+              ],
+              [
+                "#summarization",
+                "#text-summarization",
+                "#document-summarization"
+              ],
+              [
+                "#client-side",
+                "#session-check"
+              ],
+              [
+                "#auth",
+                "#nextjs",
+                "#session"
+              ],
+              [
+                "#nextjs",
+                "#css",
+                "#components"
+              ],
+              [
+                "#css",
+                "#build",
+                "#nextjs"
+              ],
+              [
+                "#remove-font-imports"
+              ],
+              [
+                "#layout"
+              ],
+              [
+                "#font-issues",
+                "#build-errors",
+                "#nextjs",
+                "#css"
+              ],
+              [
+                "#npm",
+                "#build",
+                "#webpack"
+              ],
+              [
+                "#nextjs",
+                "#user",
+                "#authentication"
+              ],
+              [
+                "#user",
+                "#authentication"
+              ],
+              [
+                "#user",
+                "#next-auth"
+              ],
+              [
+                "#build",
+                "#api",
+                "#typescript"
+              ],
+              [
+                "#session-user"
+              ],
+              [
+                "#typescript",
+                "#web-dev",
+                "#auth"
+              ],
+              [
+                "#session-user",
+                "#property-id"
+              ],
+              [
+                "#auth",
+                "#jwt"
+              ],
+              [
+                "#google",
+                "#auth"
+              ],
+              [
+                "#auth",
+                "#login",
+                "#logout"
+              ],
+              [
+                "#navigation",
+                "#links"
+              ],
+              [
+                "#login",
+                "#app",
+                "#productivity"
+              ],
+              [
+                "#login"
+              ],
+              [
+                "#email",
+                "#smtp",
+                "#nextjs"
+              ],
+              [
+                "#webmail",
+                "#smtp",
+                "#email",
+                "#login"
+              ],
+              [
+                "#webmail",
+                "#technology"
+              ],
+              [
+                "#webmail"
+              ],
+              [
+                "#company",
+                "#email",
+                "#domain"
+              ],
+              [
+                "#company-email"
+              ],
+              [
+                "#email",
+                "#smtp",
+                "#next-auth",
+                "#auth",
+                "#login"
+              ],
+              [
+                "#understanding",
+                "#complexity",
+                "#intent"
+              ],
+              [
+                "#external",
+                "#google",
+                "#app",
+                "#consent",
+                "#settings"
+              ],
+              [
+                "#walk",
+                "#tutorial",
+                "#tech"
+              ],
+              [
+                "#technology",
+                "#health",
+                "#business"
+              ],
+              [
+                "#webdesign",
+                "#front-end",
+                "#development"
+              ],
+              [
+                "#error",
+                "#zsh"
+              ],
+              [
+                "#react",
+                "#next-auth",
+                "#js"
+              ],
+              [
+                "#next-auth",
+                "#react"
+              ],
+              [
+                "#authentication",
+                "#next-auth",
+                "#google",
+                "#github",
+                "#email"
+              ],
+              [
+                "#auth",
+                "#login",
+                "#google",
+                "#github",
+                "#email"
+              ],
+              [
+                "#authentication",
+                "#google",
+                "#github"
+              ],
+              [
+                "#openai",
+                "#gpt-3.5",
+                "#ai-chat"
+              ],
+              [
+                "#gpt-utils"
+              ],
+              [
+                "#chat",
+                "#ai",
+                "#gpt-3.5",
+                "#chatbot"
+              ],
+              [
+                "#gpt3.5"
+              ],
+              [
+                "#gpt-api",
+                "#ai-assistant",
+                "#language-learning"
+              ],
+              [
+                "#gpt",
+                "#ai",
+                "#language"
+              ],
+              [
+                "#prioritize",
+                "#tasks"
+              ],
+              [
+                "#gpt-api",
+                "#ai",
+                "#integration"
+              ],
+              [
+                "#commonjs",
+                "#modules",
+                "#server",
+                "#routes"
+              ],
+              [
+                "#js"
+              ],
+              [
+                "#import"
+              ],
+              [
+                "#productivity",
+                "#app-development",
+                "#serverless"
+              ],
+              [
+                "#api",
+                "#technology",
+                "#data"
+              ],
+              [
+                "#port",
+                "#tech"
+              ],
+              [
+                "#javascript",
+                "#commonjs"
+              ],
+              [
+                "#productivity",
+                "#app-development"
+              ],
+              [
+                "#commonjs"
+              ],
+              [
+                "#update",
+                "#routes"
+              ],
+              [
+                "#node",
+                "#javascript",
+                "#web-dev"
+              ],
+              [
+                "#node",
+                "#express",
+                "#web-dev"
+              ],
+              [
+                "#idea-generator",
+                "#document-summarizer"
+              ],
+              [
+                "#idea-generator",
+                "#presentation",
+                "#report"
+              ],
+              [
+                "#summarize",
+                "#email-draft",
+                "#task-prioritizer"
+              ],
+              [
+                "#step2"
+              ],
+              [
+                "#nextjs",
+                "#react",
+                "#web-dev"
+              ],
+              [
+                "#front-end",
+                "#navigation",
+                "#ui",
+                "#next.js"
+              ],
+              [
+                "#app-structure",
+                "#data-management"
+              ],
+              [
+                "#coding",
+                "#data"
+              ],
+              [
+                "#structure",
+                "#backend",
+                "#api"
+              ],
+              [
+                "#backend",
+                "#data-science",
+                "#machine-learning"
+              ],
+              [
+                "#backend",
+                "#web-dev",
+                "#development"
+              ],
+              [
+                "#new-directory-1",
+                "#new-directory-2"
+              ],
+              [
+                "#structure",
+                "#design",
+                "#organization"
+              ],
+              [
+                "#project-structure"
+              ],
+              [
+                "#backend",
+                "#install",
+                "#dependencies"
+              ],
+              [
+                "#install",
+                "#files"
+              ],
+              [
+                "#backend"
+              ],
+              [
+                "#javascript",
+                "#backend",
+                "#js",
+                "#typescript"
+              ],
+              [
+                "#typescript",
+                "#tsconfig",
+                "#front-end",
+                "#backend"
+              ],
+              [
+                "#typescript",
+                "#programming",
+                "#language"
+              ],
+              [
+                "#js",
+                "#typescript",
+                "#ai",
+                "#productivity"
+              ],
+              [
+                "#js",
+                "#programming"
+              ],
+              [
+                "#productivity",
+                "#app"
+              ],
+              [
+                "#directory",
+                "#structure"
+              ],
+              [
+                "#implementation",
+                "#app"
+              ],
+              [
+                "#technology",
+                "#business"
+              ],
+              [
+                "#productivity",
+                "#ai",
+                "#language"
+              ],
+              [
+                "#where",
+                "#logic",
+                "#starting"
+              ],
+              [
+                "#app-plan"
+              ],
+              [
+                "#format"
+              ],
+              [
+                "#productivity",
+                "#ai",
+                "#nlp"
+              ],
+              [
+                "#appbuilding",
+                "#software-development"
+              ],
+              [
+                "#project-setup"
+              ],
+              [
+                "#project-setup",
+                "#tech",
+                "#business"
+              ],
+              [
+                "#web-dev",
+                "#software-engineering",
+                "#digitalmarketing"
+              ],
+              [
+                "#domain"
+              ],
+              [
+                "#domain",
+                "#ssl"
+              ],
+              [
+                "#domainless"
+              ],
+              [
+                "#ssl",
+                "#letsencrypt"
+              ],
+              [
+                "#setup-ssl"
+              ],
+              [
+                "#502",
+                "#nginx",
+                "#node.js"
+              ],
+              [
+                "#nginx",
+                "#reverse proxy",
+                "#node.js",
+                "#ssl"
+              ],
+              [
+                "#server",
+                "#nginx"
+              ],
+              [
+                "#nginx",
+                "#web-server",
+                "#node.js"
+              ],
+              [
+                "#nginx"
+              ],
+              [
+                "#clone",
+                "#backend",
+                "#node",
+                "#javascript"
+              ],
+              [
+                "#ls"
+              ],
+              [
+                "#productivity",
+                "#app",
+                "#development"
+              ],
+              [
+                "#ssh"
+              ],
+              [
+                "#gpt-api-calls",
+                "#productivity-boosting",
+                "#german-language"
+              ],
+              [
+                "#gpt",
+                "#productivity",
+                "#german"
+              ],
+              [
+                "#productivity",
+                "#apps",
+                "#german"
+              ],
+              [
+                "#ideas"
+              ],
+              [
+                "#productivity",
+                "#apps",
+                "#tech"
+              ],
+              [
+                "#techstack",
+                "#python"
+              ],
+              [
+                "#productivity",
+                "#techstack",
+                "#german"
+              ],
+              [
+                "#backend",
+                "#db"
+              ],
+              [
+                "#backend",
+                "#database"
+              ],
+              [
+                "#nextjs",
+                "#node.js",
+                "#express",
+                "#mongodb",
+                "#nextauth.js",
+                "#digitalocean",
+                "#vercel"
+              ],
+              [
+                "#project-scope",
+                "#techstack"
+              ],
+              [
+                "#next-auth",
+                "#technology"
+              ],
+              [
+                "#next-auth",
+                "#version-conflict"
+              ],
+              [
+                "#git-submodule"
+              ],
+              [
+                "#embedded-git-repository"
+              ],
+              [
+                "#git",
+                "#front-end"
+              ],
+              [
+                "#front-end"
+              ],
+              [
+                "#deploy",
+                "#vercel",
+                "#backend"
+              ],
+              [
+                "#web-dev",
+                "#ai",
+                "#openai"
+              ],
+              [
+                "#project-dir"
+              ],
+              [
+                "#project-directory"
+              ],
+              [
+                "#nextjs",
+                "#js"
+              ],
+              [
+                "#nextjs"
+              ],
+              [
+                "#nextjs",
+                "#react",
+                "#javascript"
+              ],
+              [
+                "#nextjs-12",
+                "#react-18"
+              ],
+              [
+                "#deploy",
+                "#vercel",
+                "#cloud"
+              ],
+              [
+                "#nextjs",
+                "#vercel",
+                "#deployment"
+              ],
+              [
+                "#error",
+                "#nextjs",
+                "#build"
+              ],
+              [
+                "#next.js",
+                "#typescript"
+              ],
+              [
+                "#newproject",
+                "#backend",
+                "#server"
+              ],
+              [
+                "#productivity"
+              ],
+              [
+                "#data",
+                "#analysis",
+                "#machine-learning"
+              ],
+              [
+                "#git-ignore"
+              ],
+              [
+                "#deploy",
+                "#vercel",
+                "#app"
+              ],
+              [
+                "#front-end",
+                "#nextjs",
+                "#vercel"
+              ],
+              [
+                "#vercel",
+                "#login"
+              ],
+              [
+                "#vercel",
+                "#login",
+                "#project"
+              ],
+              [
+                "#environment-variables"
+              ],
+              [
+                "#api-key",
+                "#openai",
+                "#security"
+              ],
+              [
+                "#digitalocean"
+              ],
+              [
+                "#digitalocean",
+                "#backend",
+                "#node",
+                "#mongodb"
+              ],
+              [
+                "#access",
+                "#droplet",
+                "#ssh"
+              ],
+              [
+                "#digitalocean",
+                "#ssh"
+              ]
+            ],
+            "discovery_metrics": {
+              "content_density": 1.5315614617940199,
+              "tag_diversity": 237
+            }
+          }
+        ]
+      },
+      "execution_time": 0.05438494682312012
+    },
+    {
+      "name": "Timestamps - Neo4j timestamp formats",
+      "status": "PASS",
+      "result": {
+        "chat_timestamps": 5,
+        "message_timestamps": 5,
+        "chunk_timestamps": 5,
+        "sample_chat_timestamp": {
+          "c.chat_id": "d5bffa6d680deac36fc2021478aa7ff80a6a47f82deb03c7e45d571bdf3b1f9a",
+          "c.create_time": 1753379267.517822,
+          "c.update_time": null
+        },
+        "sample_message_timestamp": {
+          "m.message_id": "1db0067b-5ce1-4ab0-bb0b-7f3bae27eb1d",
+          "m.timestamp": 1753379536.009362,
+          "m.role": "assistant"
+        },
+        "timestamp_types": {
+          "chat_create_time_type": "float",
+          "message_timestamp_type": "float"
+        }
+      },
+      "execution_time": 0.024999380111694336
+    },
+    {
+      "name": "Timestamps - Qdrant timestamp payloads",
+      "status": "PASS",
+      "result": {
+        "total_points_checked": 10,
+        "timestamp_fields_found": [
+          "original_timestamp"
+        ],
+        "sample_timestamps": [
+          {
+            "point_id": 140325950597476,
+            "timestamp_fields": [
+              "original_timestamp"
+            ],
+            "sample_values": {
+              "original_timestamp": 1729285172.439663
+            }
+          },
+          {
+            "point_id": 259744269742668,
+            "timestamp_fields": [
+              "original_timestamp"
+            ],
+            "sample_values": {
+              "original_timestamp": 1731336828.212524
+            }
+          },
+          {
+            "point_id": 520415398129437,
+            "timestamp_fields": [
+              "original_timestamp"
+            ],
+            "sample_values": {
+              "original_timestamp": 1736159204.671806
+            }
+          },
+          {
+            "point_id": 1189525410949802,
+            "timestamp_fields": [
+              "original_timestamp"
+            ],
+            "sample_values": {
+              "original_timestamp": 1729902665.307473
+            }
+          },
+          {
+            "point_id": 1720514572200455,
+            "timestamp_fields": [
+              "original_timestamp"
+            ],
+            "sample_values": {
+              "original_timestamp": 1732459322.030535
+            }
+          },
+          {
+            "point_id": 1756968691423038,
+            "timestamp_fields": [
+              "original_timestamp"
+            ],
+            "sample_values": {
+              "original_timestamp": 1752088626.245331
+            }
+          },
+          {
+            "point_id": 1890803573913674,
+            "timestamp_fields": [
+              "original_timestamp"
+            ],
+            "sample_values": {
+              "original_timestamp": 1750740078.136097
+            }
+          },
+          {
+            "point_id": 2067902582637214,
+            "timestamp_fields": [
+              "original_timestamp"
+            ],
+            "sample_values": {
+              "original_timestamp": 1729964226.339446
+            }
+          },
+          {
+            "point_id": 2503638205683670,
+            "timestamp_fields": [
+              "original_timestamp"
+            ],
+            "sample_values": {
+              "original_timestamp": 1731493218.537876
+            }
+          },
+          {
+            "point_id": 2638108074608837,
+            "timestamp_fields": [
+              "original_timestamp"
+            ],
+            "sample_values": {
+              "original_timestamp": 1731315648.244762
+            }
+          }
+        ]
+      },
+      "execution_time": 0.0025429725646972656
+    },
+    {
+      "name": "Timestamps - Cross-database consistency",
+      "status": "PASS",
+      "result": {
+        "error": "Cross-database timestamp test failed: 'message_id'"
+      },
+      "execution_time": 0.010862112045288086
+    },
+    {
+      "name": "Timestamps - Time-based queries",
+      "status": "PASS",
+      "result": {
+        "neo4j_recent_messages": 1187,
+        "neo4j_old_messages": 29233,
+        "neo4j_range_messages": 2235,
+        "qdrant_recent_points": 10,
+        "current_time_reference": 1754655786.91616
+      },
+      "execution_time": 0.03227090835571289
+    },
+    {
+      "name": "Timestamps - Range and ordering",
+      "status": "PASS",
+      "result": {
+        "chronological_messages": 5,
+        "reverse_chronological_messages": 5,
+        "chat_ordering": 5,
+        "chronological_ordering_correct": true,
+        "reverse_ordering_correct": true,
+        "sample_chronological": {
+          "m.message_id": "30198558-3a60-4caa-8898-d16cd690976f",
+          "m.timestamp": 1674721354.589293,
+          "m.role": "user"
+        },
+        "sample_reverse": {
+          "m.message_id": "1db0067b-5ce1-4ab0-bb0b-7f3bae27eb1d",
+          "m.timestamp": 1753379536.009362,
+          "m.role": "assistant"
+        }
+      },
+      "execution_time": 0.01927471160888672
+    },
+    {
+      "name": "Timestamps - Data quality validation",
+      "status": "PASS",
+      "result": {
+        "null_timestamps": 0,
+        "invalid_timestamps": 0,
+        "total_messages": 33991,
+        "timestamp_range": {
+          "min": 1674721354.589293,
+          "max": 1753379536.009362,
+          "span_days": 910.3956182878354
+        },
+        "duplicate_timestamp_groups": 0,
+        "data_quality_score": {
+          "null_percentage": 0.0,
+          "invalid_percentage": 0.0,
+          "quality_score": 100.0
+        }
+      },
+      "execution_time": 0.04257798194885254
+    }
+  ]
+}

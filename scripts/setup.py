@@ -99,7 +99,7 @@ def main(skip_frontend: bool, skip_neo4j: bool):
     print("\n🎉 Setup completed!")
     print("\n📋 Next steps:")
     print("1. Place ChatGPT export ZIP files in data/raw/")
-    print("2. Run: python run_pipeline.py")
+    print("2. Run: python chatmind/pipeline/run_pipeline.py")
     print("3. Run: python start_services.py")
     print("4. Open http://localhost:3000 in your browser")
     

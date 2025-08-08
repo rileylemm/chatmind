@@ -1,0 +1,15 @@
+site_name: ChatMind
+site_description: Hybrid Neo4j + Qdrant pipeline, API, and frontend
+theme:
+  name: material
+nav:
+  - Home: README.md
+  - Pipeline: chatmind/pipeline/README.md
+  - API: chatmind/api/README.md
+  - Docs:
+    - Overview: docs/README.md
+    - Dual Layer Graph: docs/DUAL_LAYER_GRAPH_STRATEGY_AND_IMPLEMENTATION.md
+    - Pipeline Overview: docs/PIPELINE_OVERVIEW_AND_INCREMENTAL.md
+    - User Guide: docs/UserGuide.md
+    - API Reference: docs/API_DOCUMENTATION.md
+repo_url: https://github.com/rileylemm/chatmind 
