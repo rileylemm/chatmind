@@ -33,6 +33,7 @@ ENV/
 env.bak/
 venv.bak/
 chatmind_env/
+chatmind/pipeline/pipeline_env/
 
 # IDE
 .vscode/
@@ -158,4 +159,6 @@ dmypy.json
 cost_tracker.db
 
 # Local documentation and analysis files
-docs/local/ 
+# (kept out of open source releases)
+docs/local/
+docs/dev_plans/ 
