@@ -1,10 +1,12 @@
-import React, { useRef } from 'react';
+import React, { useMemo } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
 import type { GraphNode, GraphEdge } from '../../types';
 
 type PositionedGraphNode = GraphNode & {
-  x: number;
-  y: number;
+  x?: number;
+  y?: number;
+  fx?: number;
+  fy?: number;
   type: string;
   name: string;
 };
@@ -17,6 +19,9 @@ interface GraphViewProps {
   onNodeClick?: (node: GraphNode) => void;
   onNodeHover?: (node: GraphNode | null) => void;
   onZoomChange?: (zoom: number) => void;
+  // LOD controls
+  hideMessagesByDefault?: boolean;
+  maxNodesBeforeCull?: number; // threshold to auto-hide low-importance types
 }
 
 export const GraphView: React.FC<GraphViewProps> = ({
@@ -27,223 +32,191 @@ export const GraphView: React.FC<GraphViewProps> = ({
   onNodeClick,
   onNodeHover,
   onZoomChange,
+  hideMessagesByDefault = true,
+  maxNodesBeforeCull = 1200,
 }) => {
-  // Reference to force graph API for freezing layout
-  const fgRef = useRef<any>(null);
-  
-  // On mount, previously tried to disable forces, but these methods are not available in latest react-force-graph-2d
-  // useEffect(() => {
-  //   if (fgRef.current) {
-  //     fgRef.current.d3AlphaDecay(1);
-  //     fgRef.current.d3VelocityDecay(1);
-  //     fgRef.current.d3Force('charge', null);
-  //   }
-  // }, []);
+  // Prepare visibility culling
+  const shouldCull = nodes.length > maxNodesBeforeCull;
+  const visibleTypes = useMemo(() => {
+    if (shouldCull) return new Set<string>(['Topic', 'Cluster', 'Chat']);
+    return hideMessagesByDefault ? new Set<string>(['Topic', 'Cluster', 'Chat']) : new Set<string>(['Topic', 'Cluster', 'Chat', 'Message']);
+  }, [shouldCull, hideMessagesByDefault]);
 
-  // Transform data to match react-force-graph format
-  const graphData = {
-    nodes: nodes.map((n) => {
+  // Map raw nodes to ForceGraph format and pre-position from properties
+  const mappedNodes: PositionedGraphNode[] = useMemo(() => {
+    const mn: PositionedGraphNode[] = [];
+    for (const n of nodes) {
+      if (!visibleTypes.has(n.type)) continue;
       let name = n.id;
-      
-      // Use appropriate title based on node type
-      if (n.type === 'Chat' && n.properties.title) {
-        name = n.properties.title;
-      } else if (n.type === 'Topic' && n.properties.sample_titles && n.properties.sample_titles.length > 0) {
-        name = n.properties.sample_titles[0]; // Use first sample title
-      } else if (n.type === 'Message' && n.properties.content) {
-        // For messages, use first 20 chars of content
-        name = n.properties.content.substring(0, 20) + (n.properties.content.length > 20 ? '...' : '');
+      const props = n.properties as GraphNode['properties'];
+      if (n.type === 'Chat' && props?.title) {
+        name = props.title;
+      } else if (n.type === 'Topic' && Array.isArray(props?.sample_titles) && props.sample_titles.length > 0) {
+        name = props.sample_titles[0];
+      } else if (n.type === 'Message' && props?.content) {
+        const content = props.content;
+        name = content.substring(0, 20) + (content.length > 20 ? '...' : '');
       }
-      
-      return {
+
+      const px = (props?.position_x ?? props?.umap_x ?? props?.x) as number | undefined;
+      const py = (props?.position_y ?? props?.umap_y ?? props?.y) as number | undefined;
+
+      const mapped: PositionedGraphNode = {
         ...n,
         id: n.id,
-        name: name,
+        name,
+        x: px,
+        y: py,
+        fx: px,
+        fy: py,
       };
-    }),
-    links: edges.map((e) => ({
-      source: e.source,
-      target: e.target,
-      type: e.type,
-      properties: e.properties,
-    })),
-  };
+      mn.push(mapped);
+    }
+    return mn;
+  }, [nodes, visibleTypes]);
+
+  // Filter links to only those connecting visible nodes
+  const nodeIdSet = useMemo(() => new Set(mappedNodes.map((n) => n.id)), [mappedNodes]);
+  const mappedLinks = useMemo(
+    () =>
+      edges
+        .filter((e) => nodeIdSet.has(e.source) && nodeIdSet.has(e.target))
+        .map((e) => ({ source: e.source, target: e.target, type: e.type, properties: e.properties })),
+    [edges, nodeIdSet]
+  );
+
+  const graphData = useMemo(
+    () => ({ nodes: mappedNodes, links: mappedLinks }),
+    [mappedNodes, mappedLinks]
+  );
 
   const getNodeColor = (type: string) => {
     switch (type) {
       case 'Topic':
-        return '#f59e0b'; // Orange
+      case 'Cluster':
+        return '#f59e0b';
       case 'Chat':
-        return '#3b82f6'; // Blue
+        return '#3b82f6';
       case 'Message':
-        return '#10b981'; // Green
+        return '#10b981';
       default:
-        return '#6b7280'; // Gray
+        return '#6b7280';
     }
   };
 
-  // Enhanced node sizing based on the mindmap plan formula
-  const getNodeSize = (type: string, properties: Record<string, unknown> = {}) => {
+  const getNodeSize = (type: string, properties: GraphNode['properties'] = {}) => {
     switch (type) {
-              case 'Topic': {
-          // Formula: log10(totalMessages + 1) * recencyBoost * importanceBoost
-          const messageCount = (properties.message_count as number) || 0;
-          const chatCount = (properties.chat_count as number) || 0;
-          const lastActive = (properties.last_active as number) || 0;
-          
-          // Base size from log of message count
-          const baseSize = Math.log10(messageCount + 1) * 8;
-        
-        // Recency boost (last 30 days = 1.2x, last 7 days = 1.4x)
-        const thirtyDaysAgo = Date.now() / 1000 - (30 * 24 * 60 * 60);
-        const sevenDaysAgo = Date.now() / 1000 - (7 * 24 * 60 * 60);
-        
+      case 'Topic':
+      case 'Cluster': {
+        const messageCount = (properties.message_count as number) || 0;
+        const chatCount = (properties.chat_count as number) || 0;
+        const lastActive = (properties.last_active as number) || 0;
+        const baseSize = Math.log10(messageCount + 1) * 8;
+        const thirtyDaysAgo = Date.now() / 1000 - 30 * 24 * 60 * 60;
+        const sevenDaysAgo = Date.now() / 1000 - 7 * 24 * 60 * 60;
         let recencyBoost = 1.0;
-        if (lastActive > sevenDaysAgo) {
-          recencyBoost = 1.4;
-        } else if (lastActive > thirtyDaysAgo) {
-          recencyBoost = 1.2;
-        }
-        
-        // Importance boost based on chat count and activity
+        if (lastActive > sevenDaysAgo) recencyBoost = 1.4;
+        else if (lastActive > thirtyDaysAgo) recencyBoost = 1.2;
         const importanceBoost = chatCount > 0 ? 1.3 : 1.0;
-        
         const finalSize = Math.max(baseSize * recencyBoost * importanceBoost, 8);
-        console.log(`Topic size: ${finalSize} (messageCount: ${messageCount}, recencyBoost: ${recencyBoost}, importanceBoost: ${importanceBoost})`);
         return finalSize;
       }
-              case 'Chat': {
-          const messageCount = (properties.message_count as number) || 0;
-          const lastActive = (properties.create_time as number) || 0;
-          
-          // Base size from log of message count
-          const baseSize = Math.log10(messageCount + 1) * 6;
-        
-        // Recency boost for chats
-        const thirtyDaysAgo = Date.now() / 1000 - (30 * 24 * 60 * 60);
+      case 'Chat': {
+        const messageCount = (properties.message_count as number) || 0;
+        const lastActive = (properties.create_time as number) || 0;
+        const baseSize = Math.log10(messageCount + 1) * 6;
+        const thirtyDaysAgo = Date.now() / 1000 - 30 * 24 * 60 * 60;
         const recencyBoost = lastActive > thirtyDaysAgo ? 1.2 : 1.0;
-        
         const finalSize = Math.max(baseSize * recencyBoost, 4);
-        console.log(`Chat size: ${finalSize} (messageCount: ${messageCount}, recencyBoost: ${recencyBoost})`);
         return finalSize;
       }
       case 'Message':
-        return 3;   // Smallest, fixed size
+        return 3;
       default:
         return 6;
     }
   };
 
-  // Enhanced edge visualization with opacity scaling
-  const getEdgeOpacity = (edge: Record<string, unknown>) => {
-    // Base opacity
-    let opacity = 0.3;
-    
-    // Increase opacity for stronger relationships
-    if (edge.type === 'SUMMARIZES') {
-      opacity = 0.6; // Topic-message relationships
-    } else if (edge.type === 'HAS_TOPIC') {
-      opacity = 0.5; // Chat-topic relationships
-    } else if (edge.properties && typeof edge.properties === 'object' && 'weight' in edge.properties) {
-      // Scale opacity by relationship weight
-      opacity = Math.min(0.8, 0.3 + (edge.properties.weight as number) * 0.5);
+  const getEdgeOpacity = (edge: GraphEdge | { type?: string; properties?: { weight?: number } }) => {
+    const type = (edge as GraphEdge).type ?? edge.type ?? '';
+    const props = (edge as GraphEdge).properties ?? edge.properties;
+    let opacity = 0.25;
+    if (type === 'SUMMARIZES') opacity = 0.6;
+    else if (type === 'HAS_TOPIC' || type === 'HAS_CHUNK') opacity = 0.45;
+    else if (props && typeof props === 'object' && 'weight' in props && typeof props.weight === 'number') {
+      opacity = Math.min(0.8, 0.25 + props.weight * 0.5);
     }
-    
     return opacity;
   };
 
   return (
     <div className="relative">
-      {/* Zoom Controls */}
       <div className="absolute top-4 right-4 z-10 flex flex-col space-y-2">
-        <button
-          onClick={() => {
-            if (onZoomChange) onZoomChange(1.5);
-          }}
-          className="w-8 h-8 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-center"
-        >
+        <button onClick={() => onZoomChange?.(1.5)} className="w-8 h-8 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-center">
           <span className="text-sm font-bold">+</span>
         </button>
-        <button
-          onClick={() => {
-            if (onZoomChange) onZoomChange(0.5);
-          }}
-          className="w-8 h-8 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-center"
-        >
+        <button onClick={() => onZoomChange?.(0.5)} className="w-8 h-8 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-center">
           <span className="text-sm font-bold">−</span>
         </button>
-        <button
-          onClick={() => {
-            if (onZoomChange) onZoomChange(1);
-          }}
-          className="w-8 h-8 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-center text-xs"
-        >
+        <button onClick={() => onZoomChange?.(1)} className="w-8 h-8 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-center text-xs">
           🏠
         </button>
       </div>
-      
+
       <ForceGraph2D
-        ref={fgRef}
         width={width}
         height={height}
-        graphData={graphData}
+        graphData={graphData as unknown as { nodes: unknown[]; links: unknown[] }}
         nodeLabel="name"
         nodeAutoColorBy="type"
         enableNodeDrag={true}
         enableZoomInteraction={true}
         enablePanInteraction={true}
-        nodeCanvasObject={(node: PositionedGraphNode, ctx: CanvasRenderingContext2D, globalScale: number) => {
+        nodeCanvasObject={(nodeObj: unknown, ctx: CanvasRenderingContext2D, globalScale: number) => {
+          const node = nodeObj as PositionedGraphNode;
           const label = node.name;
-          const fontSize = Math.max(8, 12 / globalScale);
-          const nodeSize = getNodeSize(node.type, node.properties);
-          
-          // Draw node with enhanced styling
-          ctx.font = `${fontSize}px Inter`;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          
-          // Node fill
+          const nodeSize = getNodeSize(node.type, (node as unknown as GraphNode).properties || {});
+          const showLabel = globalScale > 0.6 && node.type !== 'Message';
+
           ctx.fillStyle = getNodeColor(node.type);
           ctx.beginPath();
           ctx.arc(node.x!, node.y!, nodeSize, 0, 2 * Math.PI);
           ctx.fill();
-          
-          // Node border
+
           ctx.strokeStyle = '#ffffff';
           ctx.lineWidth = Math.max(1, 2 / globalScale);
           ctx.stroke();
-          
-          // Text shadow for better readability
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-          ctx.shadowBlur = 2;
-          ctx.fillStyle = '#ffffff';
-          ctx.fillText(label, node.x!, node.y! + nodeSize + 5);
-          ctx.shadowBlur = 0;
+
+          if (showLabel) {
+            const fontSize = Math.max(8, 12 / globalScale);
+            ctx.font = `${fontSize}px Inter`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+            ctx.shadowBlur = 2;
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(label, node.x!, node.y! + nodeSize + 5);
+            ctx.shadowBlur = 0;
+          }
         }}
-        linkCanvasObject={(link: Record<string, unknown>, ctx: CanvasRenderingContext2D) => {
-          // Enhanced edge visualization with opacity and thickness
+        linkCanvasObject={(linkObj: unknown, ctx: CanvasRenderingContext2D) => {
+          const link = linkObj as GraphEdge & { source: PositionedGraphNode; target: PositionedGraphNode };
           const opacity = getEdgeOpacity(link);
-          const thickness = (link.properties && typeof link.properties === 'object' && 'weight' in link.properties) 
-            ? Math.max(1, (link.properties.weight as number) * 3) 
+          const thickness = link.properties && typeof link.properties === 'object' && 'weight' in link.properties
+            ? Math.max(1, (link.properties.weight as number) * 3)
             : 1;
-          
+
           ctx.globalAlpha = opacity;
           ctx.strokeStyle = '#666666';
           ctx.lineWidth = thickness;
           ctx.beginPath();
-          ctx.moveTo((link.source as PositionedGraphNode).x!, (link.source as PositionedGraphNode).y!);
-          ctx.lineTo((link.target as PositionedGraphNode).x!, (link.target as PositionedGraphNode).y!);
+          ctx.moveTo(link.source.x!, link.source.y!);
+          ctx.lineTo(link.target.x!, link.target.y!);
           ctx.stroke();
           ctx.globalAlpha = 1.0;
         }}
-        onNodeClick={(node: PositionedGraphNode) => {
-          console.log('Node clicked:', node);
-          if (onNodeClick) onNodeClick(node);
-        }}
-        onNodeHover={(node: PositionedGraphNode | null) => {
-          console.log('Node hover:', node);
-          if (onNodeHover) onNodeHover(node);
-        }}
+        onNodeClick={(nodeObj: unknown) => onNodeClick?.(nodeObj as GraphNode)}
+        onNodeHover={(nodeObj: unknown | null) => onNodeHover?.((nodeObj as GraphNode) || null)}
       />
     </div>
   );

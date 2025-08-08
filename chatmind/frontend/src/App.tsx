@@ -7,6 +7,7 @@ import Discovery from './pages/Discovery';
 import ConnectionDiscovery from './pages/ConnectionDiscovery';
 import ClusterDiscovery from './pages/ClusterDiscovery';
 import TimelineDiscovery from './pages/TimelineDiscovery';
+import Cockpit from './pages/Cockpit';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -24,7 +25,7 @@ function App() {
       <Router>
         <Layout>
           <Routes>
-            <Route path="/" element={<Search />} />
+            <Route path="/" element={<Cockpit />} />
             <Route path="/search" element={<Search />} />
             <Route path="/discovery" element={<Discovery />} />
             <Route path="/connections" element={<ConnectionDiscovery />} />

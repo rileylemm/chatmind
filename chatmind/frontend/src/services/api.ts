@@ -433,4 +433,69 @@ export const getAllClusters = async (params?: {
   if (params?.include_positioning !== undefined) searchParams.append('include_positioning', params.include_positioning.toString());
   
   return apiGet<ClusterData[]>(`/api/discover/clusters?${searchParams.toString()}`);
+};
+
+// ============================================================================
+// Insights API Functions (bridges, serendipity)
+// ============================================================================
+
+export interface BridgeItem {
+  chat_id: string;
+  title: string;
+  bridge_score: number;
+  clusters: (string | number)[];
+}
+
+export interface BridgesResponse {
+  filters: { domain_a?: string | null; domain_b?: string | null };
+  items: BridgeItem[];
+  count: number;
+  limit: number;
+}
+
+export const getBridges = async (params?: {
+  domain_a?: string;
+  domain_b?: string;
+  limit?: number;
+}): Promise<BridgesResponse> => {
+  const searchParams = new URLSearchParams();
+  if (params?.domain_a) searchParams.append('domain_a', params.domain_a);
+  if (params?.domain_b) searchParams.append('domain_b', params.domain_b);
+  if (params?.limit) searchParams.append('limit', params.limit.toString());
+  return apiGet<BridgesResponse>(`/api/discover/bridges${searchParams.toString() ? `?${searchParams.toString()}` : ''}`);
+};
+
+export interface SerendipityItem {
+  chunk_id?: string;
+  chat_id?: string;
+  message_id?: string;
+  content?: string;
+  similarity: number;
+  novelty: number;
+  combined: number;
+  tags?: string[];
+}
+
+export interface SerendipityResponse {
+  seed_id: string;
+  type: 'chat' | 'chunk';
+  novelty: number;
+  items: SerendipityItem[];
+  count: number;
+  limit: number;
+}
+
+export const getSerendipity = async (params: {
+  seed_id: string;
+  type?: 'chat' | 'chunk';
+  novelty?: number;
+  limit?: number;
+}): Promise<SerendipityResponse> => {
+  const { seed_id, type = 'chat', novelty = 0.7, limit = 10 } = params;
+  const searchParams = new URLSearchParams();
+  searchParams.append('seed_id', seed_id);
+  searchParams.append('type', type);
+  searchParams.append('novelty', String(novelty));
+  searchParams.append('limit', String(limit));
+  return apiGet<SerendipityResponse>(`/api/serendipity?${searchParams.toString()}`);
 }; 
