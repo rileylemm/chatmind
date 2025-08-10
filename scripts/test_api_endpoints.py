@@ -848,6 +848,59 @@ class ChatMindAPITester:
         
         return results
     
+    def test_retrieval_endpoint(self):
+        """Test the PR2 retrieval endpoint with a few queries."""
+        tests = [
+            {"name": "Retrieval (python)", "query": "python", "topn": 3},
+            {"name": "Retrieval (health)", "query": "health", "topn": 3},
+        ]
+        results = []
+        for t in tests:
+            try:
+                response = self.session.post(
+                    f"{self.base_url}/api/retrieval/retrieve",
+                    json={"query": t["query"], "topn": t["topn"]},
+                    headers={"Content-Type": "application/json"},
+                    timeout=15,
+                )
+                status = "PASSED" if response.status_code == 200 else "FAILED"
+                try:
+                    data = response.json()
+                    # Basic shape checks
+                    assert "packs" in data and isinstance(data["packs"], list)
+                    if data["packs"]:
+                        first_pack = data["packs"][0]
+                        assert "turns" in first_pack and isinstance(first_pack["turns"], list)
+                        # If rerank present, turns should include rerank_score
+                        if first_pack["turns"]:
+                            _ = first_pack["turns"][0].get("rerank_score", None)
+                    response_size = len(json.dumps(data))
+                except Exception:
+                    data = {"raw_response": response.text[:200]}
+                    response_size = len(response.text)
+                result = {
+                    "name": t["name"],
+                    "method": "POST",
+                    "url": f"{self.base_url}/api/retrieval/retrieve",
+                    "status": status,
+                    "status_code": response.status_code,
+                    "expected_status": 200,
+                    "response_size": response_size,
+                    "error": None if status == "PASSED" else f"Expected 200, got {response.status_code}",
+                    "description": f"Retrieve packs for query '{t['query']}'",
+                    "data_keys": list(data.keys()) if isinstance(data, dict) else None,
+                }
+                if status == "PASSED":
+                    logger.info(f"✅ {t['name']}: PASSED")
+                else:
+                    logger.error(f"❌ {t['name']}: FAILED - {result['error']}")
+                self.results.append(result)
+                results.append(result)
+            except requests.exceptions.RequestException as e:
+                logger.error(f"❌ {t['name']}: FAILED - {str(e)}")
+                results.append({"name": t["name"], "status": "FAILED", "error": str(e)})
+        return results
+    
     def test_graph_exploration_endpoints(self):
         """Test graph exploration endpoints."""
         tests = [
@@ -1435,6 +1488,10 @@ class ChatMindAPITester:
         # Test hybrid search endpoints
         logger.info("\n🔍 Testing Hybrid Search Endpoints...")
         self.test_hybrid_search_endpoints()
+        
+        # Test retrieval endpoint
+        logger.info("\n🔎 Testing Retrieval Endpoint...")
+        self.test_retrieval_endpoint()
         
         # Test conversation context
         logger.info("\n💬 Testing Conversation Context Endpoint...")

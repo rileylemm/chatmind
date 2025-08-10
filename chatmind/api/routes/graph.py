@@ -5,6 +5,7 @@ Graph-related endpoints for ChatMind API
 from fastapi import APIRouter, HTTPException, Query
 from models import ApiResponse
 from utils import convert_neo4j_to_json
+from config import get_config
 import logging
 
 logger = logging.getLogger(__name__)
