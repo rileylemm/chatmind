@@ -42,10 +42,12 @@ class QdrantVectorLoader:
     def __init__(self, 
                  qdrant_url: str = "http://localhost:6335",
                  collection_name: str = "chatmind_embeddings",
+                 turns_collection_name: str = "chatmind_turns",
                  processed_dir: str = "data/processed"):
         
         self.qdrant_url = qdrant_url
         self.collection_name = collection_name
+        self.turns_collection_name = turns_collection_name
         
         # Resolve processed_dir path
         if Path(processed_dir).is_absolute():
@@ -78,7 +80,7 @@ class QdrantVectorLoader:
         self.loading_dir.mkdir(parents=True, exist_ok=True)
         
         if QDRANT_AVAILABLE:
-            self.client = QdrantClient(url=self.qdrant_url)
+            self.client = QdrantClient(url=self.qdrant_url, timeout=120)
         else:
             self.client = None
     
@@ -207,7 +209,80 @@ class QdrantVectorLoader:
         except Exception as e:
             logger.error(f"❌ Failed to create collection: {e}")
             return False
-    
+
+    def _create_turns_collection(self) -> bool:
+        """Create a separate collection for turn summaries."""
+        try:
+            collections = self.client.get_collections()
+            existing = {col.name for col in collections.collections}
+            if self.turns_collection_name in existing:
+                return True
+            # Use vectors_config for compatibility with current Qdrant client
+            self.client.create_collection(
+                collection_name=self.turns_collection_name,
+                vectors_config=VectorParams(
+                    size=384,
+                    distance=Distance.COSINE
+                )
+            )
+            logger.info(f"✅ Created collection '{self.turns_collection_name}'")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Failed to create turns collection: {e}")
+            return False
+
+    def _prepare_turn_points(self, turns: List[Dict], model_dim: int = 384) -> List[PointStruct]:
+        """Prepare points for turn summaries (payload only; vectors added later in embed step if needed)."""
+        points: List[PointStruct] = []
+        # This loader assumes embedding vectors for turns already exist; PR1 focuses on payloads if vectors are provided later.
+        # For now, we only support payload upserts when 'embedding' exists on turn records.
+        for t in turns:
+            vec = t.get('embedding')
+            if not vec:
+                # Skip turns without vectors in PR1; embedding may be added in a later step
+                continue
+            turn_uid = t.get('turn_uid')
+            point_id = int(hashlib.sha256(turn_uid.encode()).hexdigest()[:16], 16)
+            points.append(PointStruct(
+                id=point_id,
+                vector=vec,
+                payload={
+                    'entity_type': 'turn',
+                    'turn_uid': turn_uid,
+                    'chat_id': t.get('chat_id'),
+                    'turn_id': t.get('turn_id'),
+                    'ts': t.get('ts'),
+                    'roles': t.get('roles', []),
+                    'text_user': t.get('text_user', ''),
+                    'text_assistant': t.get('text_assistant', ''),
+                    'summary': t.get('summary', ''),
+                    'prev_turn_ids': t.get('prev_turn_ids', []),
+                    'chunk_version': t.get('chunk_version', ''),
+                    'embed_model': t.get('embed_model', ''),
+                    'embed_version': t.get('embed_version', ''),
+                    'loaded_at': datetime.now().isoformat(),
+                    'vector_dimension': len(vec)
+                }
+            ))
+        return points
+
+    def _upload_turn_points(self, points: List[PointStruct], batch_size: int = 1000) -> bool:
+        """Upload turn points in batches to avoid timeouts."""
+        try:
+            if not points:
+                return True
+            total = len(points)
+            uploaded = 0
+            for i in range(0, total, batch_size):
+                batch = points[i:i+batch_size]
+                self.client.upsert(collection_name=self.turns_collection_name, points=batch, wait=True)
+                uploaded += len(batch)
+            logger.info(f"📤 Uploaded {uploaded} turn points to {self.turns_collection_name}")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Failed uploading turn points: {e}")
+            return False
+
     def _prepare_points(self, embeddings: List[Dict], chunks: List[Dict], 
                        cluster_summary_embeddings: List[Dict], cluster_summaries: Dict,
                        chat_summary_embeddings: List[Dict], chat_summaries: Dict) -> List[PointStruct]:
@@ -520,7 +595,27 @@ class QdrantVectorLoader:
         # Upload points
         if not self._upload_points(points):
             return {'status': 'failed', 'reason': 'upload_failed'}
-        
+
+        # Load turns collection if turn vectors are present on disk (optional in PR1)
+        turns_file = self.processed_dir / 'turns' / 'turn_embeddings.jsonl'
+        if turns_file.exists():
+            try:
+                turns: List[Dict] = []
+                with jsonlines.open(turns_file) as reader:
+                    for item in reader:
+                        if 'embedding' in item:
+                            turns.append(item)
+                if turns:
+                    if not self._create_turns_collection():
+                        logger.warning("Turns collection not created; skipping turn vectors upload")
+                    else:
+                        turn_points = self._prepare_turn_points(turns)
+                        if turn_points:
+                            if not self._upload_turn_points(turn_points, batch_size=1000):
+                                logger.warning("Turn vectors upload failed")
+            except Exception as e:
+                logger.warning(f"Skipping turn vectors load: {e}")
+
         # Verify collection
         verification_stats = self._verify_collection()
         

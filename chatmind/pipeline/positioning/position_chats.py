@@ -29,10 +29,23 @@ class ChatPositioner:
     
     def __init__(self, 
                  chat_summaries_file: str = "data/processed/chat_summarization/chat_summaries.json"):
-        self.chat_summaries_file = Path(chat_summaries_file)
+        # Resolve project root
+        current_dir = Path(__file__).parent
+        project_root = None
+        for parent in [current_dir] + list(current_dir.parents):
+            if (parent / ".env").exists() or (parent / ".git").exists():
+                project_root = parent
+                break
+        if project_root is None:
+            project_root = current_dir.parent.parent.parent
+
+        processed_root = project_root / "data" / "processed"
+        processed_root.mkdir(parents=True, exist_ok=True)
+
+        self.chat_summaries_file = processed_root / "chat_summarization" / Path(chat_summaries_file).name if not chat_summaries_file.startswith(str(processed_root)) else Path(chat_summaries_file)
         
-        # Use modular directory structure
-        self.output_dir = Path("data/processed/positioning")
+        # Canonical processed positioning directory under project root
+        self.output_dir = processed_root / "positioning"
         self.output_dir.mkdir(parents=True, exist_ok=True)
     
     def _generate_positioning_hash(self, chat_id: str, summary_hash: str) -> str:

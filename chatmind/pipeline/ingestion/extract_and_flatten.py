@@ -148,7 +148,7 @@ class ChatExtractor:
             logger.info(f"Saved metadata to {metadata_file}")
         except Exception as e:
             logger.error(f"Failed to save metadata: {e}")
-    
+
 
     
     def extract_zip_file(self, zip_path: Path) -> List[Dict]:
@@ -357,15 +357,16 @@ class ChatExtractor:
 @click.command()
 @click.option('--raw-dir', default='data/raw', help='Directory containing ZIP files')
 @click.option('--processed-dir', default='data/processed', help='Output directory for processed data')
+@click.option('--data-lake-dir', default='data/lake', help='Data lake directory for hierarchical storage and URL mappings')
 @click.option('--force', is_flag=True, help='Force reprocess all files (ignore previous state)')
 @click.option('--clear-state', is_flag=True, help='Clear all processed state and start fresh')
 @click.option('--verbose', is_flag=True, help='Enable verbose logging')
-def main(raw_dir: str, processed_dir: str, force: bool, clear_state: bool, verbose: bool):
+def main(raw_dir: str, processed_dir: str, data_lake_dir: str, force: bool, clear_state: bool, verbose: bool):
     """Extract and flatten ChatGPT exports."""
     if verbose:
         logging.getLogger().setLevel(logging.DEBUG)
     
-    extractor = ChatExtractor(raw_dir, processed_dir)
+    extractor = ChatExtractor(raw_dir, processed_dir, data_lake_dir)
     
     if clear_state:
         extractor.clear_processed_state()
