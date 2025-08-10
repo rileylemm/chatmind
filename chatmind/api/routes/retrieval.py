@@ -3,7 +3,10 @@ from pydantic import BaseModel
 from typing import List, Dict, Any
 import logging
 
-from ..services import retrieval as rsvc
+try:
+    from ..services import retrieval as rsvc
+except ImportError:
+    from services import retrieval as rsvc
 
 router = APIRouter(prefix="/api/retrieval", tags=["retrieval"])
 logger = logging.getLogger(__name__)
