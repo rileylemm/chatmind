@@ -300,6 +300,78 @@ class HybridNeo4jGraphLoader:
         
         logger.info(f"Created {len(message_mapping)} Message nodes")
         return message_mapping
+
+    def _create_turn_nodes(self, session, turns: List[Dict]) -> Dict[str, str]:
+        """Create Turn nodes and link HAS_TURN and NEXT per chat."""
+        turn_mapping: Dict[str, str] = {}
+        # Group turns by chat for efficient NEXT linking
+        turns_by_chat: Dict[str, List[Dict]] = {}
+        for t in turns:
+            chat_id = t.get('chat_id') or t.get('chat_hash')
+            if not chat_id:
+                continue
+            turns_by_chat.setdefault(chat_id, []).append(t)
+
+        total = 0
+        for chat_id, items in turns_by_chat.items():
+            # Ensure deterministic order by turn_id
+            items.sort(key=lambda x: x.get('turn_id', 0))
+            for idx, t in enumerate(items):
+                turn_uid = t.get('turn_uid')
+                if not turn_uid:
+                    continue
+                params = {
+                    'turn_uid': turn_uid,
+                    'chat_id': chat_id,
+                    'turn_id': int(t.get('turn_id', 0)),
+                    'ts': t.get('ts'),
+                    'roles': t.get('roles', []),
+                    'text_user': t.get('text_user', ''),
+                    'text_assistant': t.get('text_assistant', ''),
+                    'summary': t.get('summary', ''),
+                    'prev_turn_ids': t.get('prev_turn_ids', []),
+                    'chunk_version': t.get('chunk_version', ''),
+                    'embed_model': t.get('embed_model', ''),
+                    'embed_version': t.get('embed_version', '')
+                }
+                query = """
+                MERGE (t:Turn {turn_uid: $turn_uid})
+                SET t.chat_id = $chat_id,
+                    t.turn_id = $turn_id,
+                    t.ts = $ts,
+                    t.roles = $roles,
+                    t.text_user = $text_user,
+                    t.text_assistant = $text_assistant,
+                    t.summary = $summary,
+                    t.prev_turn_ids = $prev_turn_ids,
+                    t.chunk_version = $chunk_version,
+                    t.embed_model = $embed_model,
+                    t.embed_version = $embed_version,
+                    t.loaded_at = datetime()
+                WITH t
+                MATCH (c:Chat {chat_id: $chat_id})
+                MERGE (c)-[:HAS_TURN]->(t)
+                RETURN t
+                """
+                session.run(query, params)
+                turn_mapping[turn_uid] = turn_uid
+                total += 1
+
+            # Link NEXT per chat
+            for i in range(len(items) - 1):
+                a = items[i]
+                b = items[i + 1]
+                session.run(
+                    """
+                    MATCH (t1:Turn {turn_uid: $a_uid})
+                    MATCH (t2:Turn {turn_uid: $b_uid})
+                    MERGE (t1)-[:NEXT]->(t2)
+                    """,
+                    {'a_uid': a.get('turn_uid'), 'b_uid': b.get('turn_uid')}
+                )
+
+        logger.info(f"Created {total} Turn nodes across {len(turns_by_chat)} chats")
+        return turn_mapping
     
     def _create_chunk_nodes(self, session, chunks: List[Dict], message_mapping: Dict[str, str]) -> Dict[str, str]:
         """Create Chunk nodes with enhanced properties and cross-reference IDs."""
@@ -734,7 +806,8 @@ class HybridNeo4jGraphLoader:
                 "CREATE CONSTRAINT cluster_id_unique IF NOT EXISTS FOR (cl:Cluster) REQUIRE cl.cluster_id IS UNIQUE",
                 "CREATE CONSTRAINT tag_hash_unique IF NOT EXISTS FOR (t:Tag) REQUIRE t.tag_hash IS UNIQUE",
                 "CREATE CONSTRAINT summary_hash_unique IF NOT EXISTS FOR (s:Summary) REQUIRE s.summary_hash IS UNIQUE",
-                "CREATE CONSTRAINT chat_summary_hash_unique IF NOT EXISTS FOR (cs:ChatSummary) REQUIRE cs.chat_summary_hash IS UNIQUE"
+                "CREATE CONSTRAINT chat_summary_hash_unique IF NOT EXISTS FOR (cs:ChatSummary) REQUIRE cs.chat_summary_hash IS UNIQUE",
+                "CREATE CONSTRAINT turn_uid_unique IF NOT EXISTS FOR (t:Turn) REQUIRE t.turn_uid IS UNIQUE"
             ]
             
             for constraint in constraints:
@@ -754,7 +827,9 @@ class HybridNeo4jGraphLoader:
                 "CREATE INDEX cluster_position_index IF NOT EXISTS FOR (cl:Cluster) ON (cl.position_x, cl.position_y)",
                 "CREATE INDEX cluster_umap_index IF NOT EXISTS FOR (cl:Cluster) ON (cl.umap_x, cl.umap_y)",
                 "CREATE INDEX chat_position_index IF NOT EXISTS FOR (c:Chat) ON (c.position_x, c.position_y)",
-                "CREATE INDEX chat_umap_index IF NOT EXISTS FOR (c:Chat) ON (c.umap_x, c.umap_y)"
+                "CREATE INDEX chat_umap_index IF NOT EXISTS FOR (c:Chat) ON (c.umap_x, c.umap_y)",
+                "CREATE INDEX turn_chat_id_index IF NOT EXISTS FOR (t:Turn) ON (t.chat_id)",
+                "CREATE INDEX turn_ts_index IF NOT EXISTS FOR (t:Turn) ON (t.ts)"
             ]
             
             for index in indexes:
@@ -901,6 +976,10 @@ class HybridNeo4jGraphLoader:
             
             chat_mapping = self._create_chat_nodes(session, data['chats'])
             message_mapping = self._create_message_nodes(session, data['chats'], chat_mapping)
+            # Load turns (optional; file may not exist yet)
+            turns = self._load_data_file(self.processed_dir / "turns" / "turns.jsonl", "turns")
+            if turns:
+                self._create_turn_nodes(session, turns)
             chunk_mapping = self._create_chunk_nodes(session, data['chunks'], message_mapping)
             cluster_mapping = self._create_cluster_nodes(session, data['cluster_positions'], chunk_mapping)
             # Link clusters to chunks using cluster assignments

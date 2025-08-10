@@ -91,6 +91,36 @@ class PipelineRunner:
         
         return self._run_step("chunking", command, "Running chunking step")
     
+    def run_turns(self, force: bool = False, prev_window: int = 3) -> bool:
+        """Run the turnization step."""
+        # consider presence of turns.jsonl as completion
+        if not force and self._check_step_output("turns", ["turns.jsonl", "metadata.json"]):
+            logger.info("ℹ️ Turnization already completed, skipping...")
+            return True
+        command = [
+            str(self.python_executable), str(self.pipeline_dir / "turns" / "run_turnization.py"),
+            "--processed-dir", str(self.processed_dir),
+            "--prev-window", str(prev_window)
+        ]
+        if force:
+            command.append("--force")
+        return self._run_step("turns", command, "Running turnization step")
+
+    def run_turn_embedding(self, force: bool = False, model_name: str = "all-MiniLM-L6-v2") -> bool:
+        """Run the turn summary embedding step."""
+        # Check for output
+        if not force and self._check_step_output("turns", ["turn_embeddings.jsonl", "embedding_metadata.json"]):
+            logger.info("ℹ️ Turn embeddings already completed, skipping...")
+            return True
+        command = [
+            str(self.python_executable), str(self.pipeline_dir / "embedding" / "local" / "embed_turns.py"),
+            "--processed-dir", str(self.processed_dir),
+            "--model-name", model_name
+        ]
+        if force:
+            command.append("--force")
+        return self._run_step("turn_embedding", command, "Running turn summary embedding step")
+
     def run_embedding(self, method: str = "local", force: bool = False) -> bool:
         """Run the embedding step."""
         if not force and self._check_step_output("embedding", ["embeddings.jsonl", "metadata.json"]):
@@ -349,6 +379,8 @@ class PipelineRunner:
         # Define pipeline steps in order
         pipeline_steps = [
             ("ingestion", self.run_ingestion),
+            ("turns", self.run_turns),
+            ("turn_embedding", self.run_turn_embedding),
             ("chunking", self.run_chunking),
             ("embedding", lambda f: self.run_embedding(embedding_method, f)),
             ("clustering", self.run_clustering),

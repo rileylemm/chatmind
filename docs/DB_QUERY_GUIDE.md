@@ -128,6 +128,35 @@ RETURN s.summary, s.key_points
 LIMIT 5
 ```
 
+### Turn Node (New)
+Represents a paired user+assistant turn with micro-summary.
+
+Properties:
+- `turn_uid` (String, Unique): `chat_id:turn_id`
+- `chat_id` (String)
+- `turn_id` (Integer)
+- `ts` (Float seconds or ISO string)
+- `roles` (List[String])
+- `text_user`, `text_assistant` (String)
+- `summary` (String)
+- `prev_turn_ids` (List[Integer])
+- `loaded_at`, `chunk_version`, `embed_model`, `embed_version`
+
+Relationships:
+- `(:Chat)-[:HAS_TURN]->(:Turn)`
+- `(:Turn)-[:NEXT]->(:Turn)`
+
+Examples:
+```cypher
+MATCH (c:Chat)-[:HAS_TURN]->(t:Turn)
+RETURN c.chat_id, t.turn_id, t.summary
+ORDER BY t.turn_id LIMIT 10
+```
+```cypher
+MATCH (t1:Turn {chat_id: $chat_id, turn_id: $turn_id})-[:NEXT]->(t2:Turn)
+RETURN t1.summary, t2.summary LIMIT 1
+```
+
 ### Neo4j Relationship Types (Canonical)
 
 Core relationships:
