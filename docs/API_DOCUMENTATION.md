@@ -55,6 +55,8 @@ Your ChatMind database contains:
 - **Hybrid Search**: Combines Neo4j graph queries with Qdrant vector search
 - **Interactive Exploration**: Real-time graph navigation
 - **Vector Similarity**: Embeddings for semantic search
+- **Turn-level Retrieval (New)**: Retrieve coherent pairs of user+assistant turns with micro-summaries
+- **Cross-Encoder Reranking (New)**: Re-rank expanded candidates for relevance and diversity
 
 ### Authentication
 Currently, the API runs without authentication for local development. For production deployment, consider adding API key authentication.
@@ -78,6 +80,8 @@ The API is configured to accept requests from:
 - ✅ **Hybrid Database Integration**: Seamless Neo4j + Qdrant operations
 - ✅ **Error Handling**: Robust error handling and graceful fallbacks
 - ✅ **Performance**: Optimized database connections and queries
+- ✅ **Turnization + NEXT Links (New)**: `(:Turn)` nodes with `[:HAS_TURN]` and `[:NEXT]`
+- ✅ **Retrieval Endpoint (New)**: BM25 → Vector → Graph Expansion → Cross-Encoder Rerank → Pack
 
 ---
 
@@ -159,6 +163,58 @@ The API is configured to accept requests from:
   "role": "user|assistant",
   "timestamp": "number",
   "chat_id": "string"
+}
+```
+
+### Turn (New)
+```json
+{
+  "turn_uid": "string", 
+  "chat_id": "string",
+  "turn_id": "number",
+  "ts": "string|number",
+  "summary": "string",
+  "roles": ["user", "assistant"],
+  "prev_turn_ids": ["number"]
+}
+```
+
+### RetrievalPack (New)
+```json
+{
+  "chat_id": "string",
+  "turns": [
+    {
+      "turn_uid": "string",
+      "turn_id": "number",
+      "summary": "string",
+      "rerank_score": "number"
+    }
+  ]
+}
+```
+
+### RetrievalResponse (New)
+```json
+{
+  "data": {
+    "query": "string",
+    "packs": [
+      {
+        "chat_id": "string",
+        "turns": [
+          {
+            "turn_uid": "string",
+            "turn_id": "number",
+            "summary": "string",
+            "rerank_score": "number"
+          }
+        ]
+      }
+    ]
+  },
+  "message": "string",
+  "error": null
 }
 ```
 
@@ -535,6 +591,44 @@ Get all available tags.
   "error": null
 }
 ```
+
+#### POST `/api/retrieval/retrieve` (New)
+Turn-level hybrid retrieval with reranking.
+
+**Request Body:**
+```json
+{
+  "query": "python web dev",
+  "topn": 10,
+  "window_tokens": 5000
+}
+```
+
+**Response:**
+```json
+{
+  "data": {
+    "query": "python web dev",
+    "packs": [
+      {
+        "chat_id": "chat_abc123",
+        "turns": [
+          {
+            "turn_uid": "chat_abc123:12",
+            "turn_id": 12,
+            "summary": "We decided X because Y.",
+            "rerank_score": 0.84
+          }
+        ]
+      }
+    ]
+  },
+  "message": "Retrieved 10 turns across 4 chats",
+  "error": null
+}
+```
+
+**Pipeline:** BM25 (SQLite FTS5 on turn summaries) → Qdrant vector search (`chatmind_turns`) → NEXT ±1 expansion (Neo4j) → Cross‑encoder rerank → Pack by `chat_id`.
 
 ### 4. Advanced Search & Discovery APIs
 
@@ -1217,6 +1311,8 @@ API_PORT=8000
 ### Running Tests
 ```bash
 # Run comprehensive test suite
+python scripts/test_api_endpoints.py --base-url http://localhost:8000
+# (Legacy) simple smoke tests
 python test_simple_api.py
 ```
 
@@ -1259,13 +1355,9 @@ health = response.json()
 response = requests.get('http://localhost:8000/api/search/hybrid?query=python&limit=10')
 results = response.json()
 
-# Get graph data
-response = requests.get('http://localhost:8000/api/graph')
-graph_data = response.json()
-
-# Get available tags
-response = requests.get('http://localhost:8000/api/search/tags/available')
-tags = response.json()
+# Retrieval
+response = requests.post('http://localhost:8000/api/retrieval/retrieve', json={"query": "python web dev", "topn": 5})
+retrieval = response.json()
 ```
 
 ---
@@ -1284,6 +1376,7 @@ api/
 │   ├── health.py           # Health checks
 │   ├── search.py           # Search endpoints
 │   ├── graph.py            # Graph exploration endpoints
+│   ├── retrieval.py        # Turn retrieval endpoint (PR2)
 │   └── debug.py            # Debug endpoints
 ├── models/                 # Pydantic models
 │   ├── __init__.py
@@ -1291,20 +1384,21 @@ api/
 ├── utils/                  # Utility functions
 │   ├── __init__.py
 │   └── helpers.py
-└── services/               # Business logic (future expansion)
-    └── __init__.py
+└── services/               # Business logic
+    ├── __init__.py
+    └── retrieval.py        # BM25 + vector + expansion + rerank + packing
 ```
 
 ### Database Integration
-- **Neo4j**: Handles graph relationships, metadata, and complex queries
-- **Qdrant**: Handles semantic search with embeddings
-- **Hybrid Queries**: Combines both databases for rich exploration
-- **Error Handling**: Graceful fallbacks for all database operations
+- **Neo4j**: Handles graph relationships, metadata, and complex queries. Includes `(:Turn)` with `[:HAS_TURN]` and `[:NEXT]` per conversation.
+- **Qdrant**: Handles semantic search with embeddings. Uses `chatmind_embeddings` (chunks) and `chatmind_turns` (turn summaries) collections.
+- **Hybrid / Retrieval**: Combines BM25 prefilter, turn vectors, graph expansion, and cross-encoder reranking.
+- **Error Handling**: Graceful fallbacks for all database operations.
 
 ### Performance Features
 - **Singleton Pattern**: Single instances of database drivers and embedding models
 - **Connection Pooling**: Efficient database connection management
-- **Lazy Loading**: Embedding model loaded only when needed
+- **Lazy Loading**: Embedding models loaded only when needed
 - **Global Connections**: Database connections passed via `set_global_connections` functions
 
 ---
