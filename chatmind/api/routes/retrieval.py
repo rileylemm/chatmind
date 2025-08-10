@@ -3,6 +3,8 @@ from pydantic import BaseModel
 from typing import List, Dict, Any
 import logging
 
+from ..services import retrieval as rsvc
+
 router = APIRouter(prefix="/api/retrieval", tags=["retrieval"])
 logger = logging.getLogger(__name__)
 
@@ -32,26 +34,36 @@ async def retrieve(req: RetrieveRequest) -> Dict[str, Any]:
         if not qdrant_client or not embedding_model:
             raise HTTPException(status_code=503, detail="Qdrant or embedding model not connected")
 
-        # Placeholder minimal retrieval: vector search over turn summaries
-        query_vec = embedding_model.encode(req.query).tolist()
-        res = qdrant_client.search(
-            collection_name="chatmind_turns",
-            query_vector=query_vec,
-            limit=req.topn,
-            with_payload=True,
-            with_vectors=False
-        )
-        hits = []
-        for r in res:
-            p = r.payload or {}
-            hits.append({
-                "turn_uid": p.get("turn_uid"),
-                "chat_id": p.get("chat_id"),
-                "turn_id": p.get("turn_id"),
-                "summary": p.get("summary"),
-                "score": r.score
-            })
-        return {"query": req.query, "results": hits}
+        # Ensure BM25 index ready
+        rsvc.ensure_bm25_index()
+
+        # 1) Lexical
+        cand_ids_lex = rsvc.bm25_search(req.query, topn=400)
+        # 2) Vector
+        cand_ids_vec = rsvc.qdrant_search_turns(qdrant_client, embedding_model, req.query, topn=200)
+        # 3) Union
+        ids = rsvc.union_topn(cand_ids_lex, cand_ids_vec, n=300)
+        # 4) Expand NEXT +/- 1
+        expanded_ids = rsvc.expand_neighbors(neo4j_driver, ids, hop=1)
+        # 5) Fetch turn records (no rerank yet)
+        turns = rsvc.fetch_turns(neo4j_driver, expanded_ids[: max(req.topn * 5, 50)])
+
+        # Simple pack by chat_id preserving order
+        packs: Dict[str, List[Dict[str, Any]]] = {}
+        for t in turns:
+            packs.setdefault(t["chat_id"], []).append(t)
+        # Take top N chats by count
+        sorted_chats = sorted(packs.items(), key=lambda kv: -len(kv[1]))[: req.topn]
+        results = [
+            {
+                "chat_id": chat_id,
+                "turns": chat_turns[:50],  # cap per-chat
+                "score": len(chat_turns),
+            }
+            for chat_id, chat_turns in sorted_chats
+        ]
+
+        return {"query": req.query, "packs": results}
     except HTTPException:
         raise
     except Exception as e:
