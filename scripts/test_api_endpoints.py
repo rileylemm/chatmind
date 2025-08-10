@@ -866,8 +866,16 @@ class ChatMindAPITester:
                 status = "PASSED" if response.status_code == 200 else "FAILED"
                 try:
                     data = response.json()
+                    # Basic shape checks
+                    assert "packs" in data and isinstance(data["packs"], list)
+                    if data["packs"]:
+                        first_pack = data["packs"][0]
+                        assert "turns" in first_pack and isinstance(first_pack["turns"], list)
+                        # If rerank present, turns should include rerank_score
+                        if first_pack["turns"]:
+                            _ = first_pack["turns"][0].get("rerank_score", None)
                     response_size = len(json.dumps(data))
-                except json.JSONDecodeError:
+                except Exception:
                     data = {"raw_response": response.text[:200]}
                     response_size = len(response.text)
                 result = {

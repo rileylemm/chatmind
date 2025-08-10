@@ -168,4 +168,21 @@ def fetch_turns(neo4j_driver, turn_uids: List[str]) -> List[Dict[str, Any]]:
     # Preserve requested order
     pos = {u: i for i, u in enumerate(turn_uids)}
     rows.sort(key=lambda r: pos.get(r["turn_uid"], 10**9))
-    return rows 
+    return rows
+
+
+def cross_encode_rerank(cross_encoder, query: str, turns: List[Dict[str, Any]], batch_size: int = 64, topk: int = 200) -> List[Dict[str, Any]]:
+    """Score (query, summary) pairs with cross-encoder and return topk turns annotated with rerank_score."""
+    if not turns or cross_encoder is None:
+        return turns
+    pairs = [(query, t.get("summary", "")) for t in turns]
+    scores: List[float] = []
+    # Batched scoring
+    for i in range(0, len(pairs), batch_size):
+        batch = pairs[i:i+batch_size]
+        s = cross_encoder.predict(batch)
+        scores.extend([float(x) for x in s])
+    for t, sc in zip(turns, scores):
+        t["rerank_score"] = sc
+    turns.sort(key=lambda x: x.get("rerank_score", 0.0), reverse=True)
+    return turns[:topk] 

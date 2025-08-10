@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 neo4j_driver = None
 qdrant_client = None
 embedding_model = None
+cross_encoder_model = None
 
 
 def set_global_connections(neo4j, qdrant, embedding):
@@ -27,6 +28,20 @@ class RetrieveRequest(BaseModel):
     query: str
     topn: int = 10
     window_tokens: int = 5000
+
+
+def _get_cross_encoder():
+    global cross_encoder_model
+    if cross_encoder_model is None:
+        try:
+            from sentence_transformers import CrossEncoder
+            # Lightweight cross-encoder for rerank; can upgrade to large later
+            cross_encoder_model = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
+            logger.info("✅ Cross-encoder loaded for reranking")
+        except Exception as e:
+            logger.warning(f"Cross-encoder unavailable: {e}")
+            cross_encoder_model = None
+    return cross_encoder_model
 
 
 @router.post("/retrieve")
@@ -48,20 +63,22 @@ async def retrieve(req: RetrieveRequest) -> Dict[str, Any]:
         ids = rsvc.union_topn(cand_ids_lex, cand_ids_vec, n=300)
         # 4) Expand NEXT +/- 1
         expanded_ids = rsvc.expand_neighbors(neo4j_driver, ids, hop=1)
-        # 5) Fetch turn records (no rerank yet)
-        turns = rsvc.fetch_turns(neo4j_driver, expanded_ids[: max(req.topn * 5, 50)])
+        # 5) Fetch turn records
+        turns = rsvc.fetch_turns(neo4j_driver, expanded_ids[: max(req.topn * 5, 100)])
+        # 6) Rerank with cross-encoder
+        ce = _get_cross_encoder()
+        reranked = rsvc.cross_encode_rerank(ce, req.query, turns, batch_size=64, topk=req.topn * 5)
 
-        # Simple pack by chat_id preserving order
+        # Pack by chat_id preserving rerank order
         packs: Dict[str, List[Dict[str, Any]]] = {}
-        for t in turns:
+        for t in reranked:
             packs.setdefault(t["chat_id"], []).append(t)
-        # Take top N chats by count
-        sorted_chats = sorted(packs.items(), key=lambda kv: -len(kv[1]))[: req.topn]
+        sorted_chats = sorted(packs.items(), key=lambda kv: -sum(x.get("rerank_score", 0.0) for x in kv[1]))[: req.topn]
         results = [
             {
                 "chat_id": chat_id,
-                "turns": chat_turns[:50],  # cap per-chat
-                "score": len(chat_turns),
+                "turns": chat_turns[:50],
+                "score": sum(x.get("rerank_score", 0.0) for x in chat_turns),
             }
             for chat_id, chat_turns in sorted_chats
         ]
